@@ -120,7 +120,7 @@ export function SpotlightNavbar({
             e.preventDefault();
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          className="flex items-center gap-3 group focus:outline-none"
+          className="logo-truus flex items-center gap-3 group focus:outline-none cursor-pointer"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.5)] group-hover:scale-105 transition-transform duration-300">
             <Activity size={22} className="stroke-[2.5]" />

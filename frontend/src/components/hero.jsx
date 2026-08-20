@@ -84,11 +84,11 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
           {/* ============================================================ */}
           <div className="lg:col-span-7 flex flex-col justify-center text-left space-y-5 sm:space-y-6 z-30 overflow-hidden py-2">
             
-            {/* A. MAIN HEADLINE (SLIDES FROM LEFT IN SYNC) */}
+            {/* A. MAIN HEADLINE (SLIDES FROM LEFT AFTER TRANSITION SCRIBBLE AT 2.0s) */}
             <motion.div
               initial={{ opacity: 0, x: -220 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 1.2, delay: 0.15, ease: smoothEase }}
+              transition={{ duration: 1.2, delay: 2.0, ease: smoothEase }}
               className="flex flex-col items-start tracking-tight"
             >
 
@@ -96,7 +96,7 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
                 text="STRONGER"
                 as="h1"
                 className="font-bebas text-6xl sm:text-7xl md:text-8xl lg:text-[100px] xl:text-[114px] leading-[0.88] uppercase text-[#FFFFFF] drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]"
-                delay={0.15}
+                delay={2.0}
                 stagger={0.025}
               />
               <SplitHoverText
@@ -106,21 +106,21 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
               />
             </motion.div>
 
-            {/* B. DESCRIPTION PARAGRAPH (SLIDES FROM LEFT AT 0.35s) */}
+            {/* B. DESCRIPTION PARAGRAPH (SLIDES FROM LEFT AT 2.2s) */}
             <motion.p
               initial={{ opacity: 0, x: -220 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 1.1, delay: 0.35, ease: smoothEase }}
+              transition={{ duration: 1.1, delay: 2.2, ease: smoothEase }}
               className="text-base sm:text-lg md:text-xl text-[#A0A0A0] max-w-xl font-normal leading-relaxed border-l-2 border-[#E50914]/60 pl-4 sm:pl-5"
             >
               Transform your body. Sharpen your mind. Join a community that never quits.
             </motion.p>
 
-            {/* C. JOIN NOW CREEPY BUTTON */}
+            {/* C. JOIN NOW CREEPY BUTTON (SLIDES FROM LEFT AT 2.4s) */}
             <motion.div
               initial={{ opacity: 0, x: -220 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 1.1, delay: 0.5, ease: smoothEase }}
+              transition={{ duration: 1.1, delay: 2.4, ease: smoothEase }}
               className="pt-1"
             >
               <CreepyButton
@@ -132,11 +132,11 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
               </CreepyButton>
             </motion.div>
 
-            {/* D. STATISTICS CARDS (SLIDES FROM LEFT AT 0.65s) */}
+            {/* D. STATISTICS CARDS (SLIDES FROM LEFT AT 2.6s) */}
             <motion.div
               initial={{ opacity: 0, x: -220 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 1.15, delay: 0.65, ease: smoothEase }}
+              transition={{ duration: 1.15, delay: 2.6, ease: smoothEase }}
               className="grid grid-cols-3 gap-3 sm:gap-4 pt-2 sm:pt-3 max-w-xl"
             >
               <div className="p-3.5 sm:p-4 rounded-2xl bg-[#151515]/80 border border-white/10 backdrop-blur-md hover:border-[#E50914]/50 transition-colors group">
@@ -177,15 +177,15 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
 
 
           {/* ============================================================ */}
-          {/* RIGHT SIDE: ATHLETE IMAGE RISES FROM BOTTOM IN SYNC AT 0.15s */}
+          {/* RIGHT SIDE: ATHLETE IMAGE RISES FROM BOTTOM 1 SECOND AFTER TEXT (AT 3.0s) */}
           {/* ============================================================ */}
           <div className="lg:col-span-5 relative flex items-center lg:items-end justify-center lg:justify-end h-full min-h-[400px] sm:min-h-[480px] lg:min-h-[560px] pt-2 lg:pt-0 overflow-hidden">
             
-            {/* Physical Rise From BOTTOM TO UP In Perfect Sync With Text at 0.15s */}
+            {/* Physical Rise From BOTTOM TO UP 1 SECOND AFTER TEXT AT 3.0s */}
             <motion.div
               initial={{ opacity: 0, y: 320, scale: 0.93 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 1.2, delay: 0.15, ease: smoothEase }}
+              transition={{ duration: 1.2, delay: 3.0, ease: smoothEase }}
               style={{
                 x: parallaxX,
                 y: parallaxY,
@@ -200,7 +200,7 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
                   repeat: Infinity,
                   duration: 5.5,
                   ease: "easeInOut",
-                  delay: 1.4
+                  delay: 4.2
                 }}
                 className="relative w-full flex justify-center lg:justify-end"
               >

@@ -1,0 +1,101 @@
+.horizontal-words-section {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background-color: #0B0B0B;
+  color: #ffffff;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 5rem 0 2rem 0;
+  box-sizing: border-box;
+}
+
+.horizontal-words__relative {
+  position: relative;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  width: max-content;
+  will-change: transform;
+}
+
+.horizontal-words__sticker-svg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2rem;
+  padding-left: 6vw;
+  padding-right: 2rem;
+  flex-shrink: 0;
+}
+
+.horizontal-words__arrow-svg,
+.horizontal-words__arrow-end-svg {
+  width: 200px;
+  height: auto;
+  color: #E50914;
+  flex-shrink: 0;
+}
+
+.horizontal-words__sticker-watch,
+.horizontal-words__sticker-cursor,
+.horizontal-words__sticker-phone {
+  width: 85px;
+  height: auto;
+  flex-shrink: 0;
+}
+
+.horizontal-words__h2 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(4rem, 11vw, 10rem);
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #ffffff;
+  margin: 0;
+  padding: 0 10vw 0 1rem;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.horizontal-words__h2 .word {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 0.35em;
+}
+
+.horizontal-words__h2 .letter {
+  display: inline-block;
+  position: relative;
+  will-change: transform;
+  transition: color 0.2s ease;
+}
+
+.horizontal-words__h2 .letter:hover {
+  color: #E50914;
+}
+
+.horizontal-words__bottom-text {
+  padding: 0 6vw 2rem 6vw;
+  z-index: 10;
+  max-width: 1200px;
+}
+
+.horizontal-words__bottom-text-l {
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+  line-height: 1.6;
+  color: #A0A0A0;
+  border-left: 3px solid #E50914;
+  padding-left: 1.5rem;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.horizontal-words__bottom-text-l em {
+  color: #ffffff;
+  font-style: normal;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: #E50914;
+}

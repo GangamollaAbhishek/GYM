@@ -3,9 +3,14 @@ import Lenis from '@studio-freight/lenis';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
+import SmoothScroll from './components/SmoothScroll';
 import Preloader from './components/preloader';
 import SpotlightNavbar from './components/SpotlightNavbar';
 import Hero from './components/hero';
+import TransitionScribble from './components/TransitionScribble';
+import HorizontalWords from './components/HorizontalWords';
+import ExpandingFrameSection from './components/ExpandingFrameSection';
+import PreworkoutBannerSection from './components/PreworkoutBannerSection';
 import CylinderSection from './components/CylinderSection';
 import ExploreEscape from './components/explore-escape';
 
@@ -17,6 +22,7 @@ import WhyChoose from './components/why-choose';
 import PopularSpots from './components/popular-spots';
 import ConstellationTestimonials from './components/constellation-testimonials';
 import TravelNetwork from './components/travel-network';
+import TrainerCardDeck from './components/TrainerCardDeck';
 import Footer from './components/footer';
 
 import { X, Shield, Sparkles } from 'lucide-react';
@@ -114,13 +120,18 @@ export default function App() {
 
   return (
     <div className="bg-[#0B0B0B] min-h-screen text-white relative font-sans selection:bg-[#E50914] selection:text-white">
-      
+      {/* Global Lenis Smooth Scroll & Dynamic Tab Title Manager */}
+      <SmoothScroll />
+
       {/* 0. Curtain LightLines Preloader (Runs once on startup) */}
       {loading && <Preloader onComplete={() => setLoading(false)} />}
 
       {/* Main App Layout */}
       {!loading && (
         <>
+          {/* GSAP Transition Scribble Reveal Effect */}
+          <TransitionScribble />
+
           {/* Full-width Spotlight Header Navbar fixed at top */}
           <SpotlightNavbar 
             items={navItems} 
@@ -149,8 +160,20 @@ export default function App() {
             }} 
           />
 
-          {/* B2. 3D 360° Cylinder Carousel Arena Section */}
+          {/* B1. Kinetic Horizontal Pinning Words Section */}
+          <HorizontalWords />
+
+          {/* B2. Expanding Frame Scroll Reveal Section (NakedCity Morph Effect) */}
+          <ExpandingFrameSection />
+
+          {/* B2.5. Interactive Pre-Workout Soda-Can Style Product Showcase */}
+          <PreworkoutBannerSection />
+
+          {/* B3. 3D 360° Cylinder Carousel Arena Section */}
           <CylinderSection />
+
+          {/* B3.5. Master Trainers 3D Stacked Card Faculty */}
+          <TrainerCardDeck />
 
           {/* C. "Explore Programs" Bento Grid */}
           <ExploreEscape />
@@ -184,7 +207,7 @@ export default function App() {
           {/* J. Live Gym Network & Check-In Map */}
           <TravelNetwork />
 
-          {/* K. Kinetic Typography Footer */}
+          {/* L. Kinetic Typography Footer */}
           <Footer onScrollToTop={handleScrollToTop} />
         </>
       )}
