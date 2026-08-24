@@ -86,7 +86,7 @@ export function TrainerCardDeck({
                 </div>
 
                 <h2 className="font-bebas text-5xl sm:text-6xl md:text-7xl text-white tracking-wider uppercase mb-3 drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]">
-                    MEET THE <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E50914] via-[#FF2B35] to-[#E50914]">TITAN PULSE MASTERS</span>
+                    MEET THE <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E50914] via-[#FF2B35] to-[#E50914]">TITAN PULSE TRAINERS </span>
                 </h2>
 
                 <p className="text-[#A0A0A0] text-sm sm:text-base max-w-2xl mx-auto font-normal">
@@ -203,11 +203,10 @@ export function TrainerCardDeck({
                             <button
                                 disabled={activeIndex === 0}
                                 onClick={handlePrev}
-                                className={`flex items-center justify-center w-12 h-12 rounded-full border border-white/20 bg-[#151515] text-white transition-all ${
-                                    activeIndex === 0
+                                className={`flex items-center justify-center w-12 h-12 rounded-full border border-white/20 bg-[#151515] text-white transition-all ${activeIndex === 0
                                         ? "opacity-40 cursor-not-allowed"
                                         : "hover:bg-[#E50914] hover:border-[#E50914] hover:scale-105 shadow-[0_0_20px_rgba(229,9,20,0.4)]"
-                                }`}
+                                    }`}
                                 aria-label="Previous coach card"
                             >
                                 <ArrowLeft className="w-5 h-5" />
@@ -215,11 +214,10 @@ export function TrainerCardDeck({
                             <button
                                 disabled={activeIndex === trainerItems.length - 1}
                                 onClick={handleNext}
-                                className={`flex items-center justify-center w-12 h-12 rounded-full border border-white/20 bg-[#151515] text-white transition-all ${
-                                    activeIndex === trainerItems.length - 1
+                                className={`flex items-center justify-center w-12 h-12 rounded-full border border-white/20 bg-[#151515] text-white transition-all ${activeIndex === trainerItems.length - 1
                                         ? "opacity-40 cursor-not-allowed"
                                         : "hover:bg-[#E50914] hover:border-[#E50914] hover:scale-105 shadow-[0_0_20px_rgba(229,9,20,0.4)]"
-                                }`}
+                                    }`}
                                 aria-label="Next coach card"
                             >
                                 <ArrowRight className="w-5 h-5" />

@@ -10,13 +10,13 @@ import Hero from './components/hero';
 import TransitionScribble from './components/TransitionScribble';
 import HorizontalWords from './components/HorizontalWords';
 import ExpandingFrameSection from './components/ExpandingFrameSection';
-import PreworkoutBannerSection from './components/PreworkoutBannerSection';
+import PreworkoutShowcaseSection from './components/PreworkoutShowcaseSection';
 import CylinderSection from './components/CylinderSection';
 import ExploreEscape from './components/explore-escape';
+import ServicesSection from './components/ServicesSection';
 
 import PopularDestinations from './components/popular-destinations';
 import LetsDrive from './components/lets-drive';
-import AdventuresGallery from './components/adventures-gallery';
 import ParallaxGallery from './components/parallax-gallery';
 import WhyChoose from './components/why-choose';
 import PopularSpots from './components/popular-spots';
@@ -163,37 +163,29 @@ export default function App() {
           {/* B1. Kinetic Horizontal Pinning Words Section */}
           <HorizontalWords />
 
-          {/* B2. Expanding Frame Scroll Reveal Section (NakedCity Morph Effect) */}
-          <ExpandingFrameSection />
+          {/* Section 3: "Explore Programs" Bento Grid */}
+          <ExploreEscape onReserveSpot={handleReserveSpot} />
 
-          {/* B2.5. Interactive Pre-Workout Soda-Can Style Product Showcase */}
-          <PreworkoutBannerSection />
+          {/* Section 4: Interactive 3D Pre-Workout Can Player Product Showcase */}
+          <PreworkoutShowcaseSection onReserveSpot={handleReserveSpot} />
 
-          {/* B3. 3D 360° Cylinder Carousel Arena Section */}
+          {/* 3D 360° Cylinder Carousel Arena Section */}
           <CylinderSection />
 
-          {/* B3.5. Master Trainers 3D Stacked Card Faculty */}
+          {/* Master Trainers 3D Stacked Card Faculty */}
           <TrainerCardDeck />
 
-          {/* C. "Explore Programs" Bento Grid */}
-          <ExploreEscape />
-
+          {/* 8th Section: 3D Interactive Services & Membership Showcase */}
+          <ServicesSection 
+            onClaimPass={handleReserveSpot}
+            onBookPT={handleBookCoach}
+          />
 
           {/* D. Signature Workout Zones Sticky Horizontal Scroll */}
           <PopularDestinations onReserveSpot={handleReserveSpot} />
 
           {/* E. 3D Smart Gym Equipment Engine */}
           <LetsDrive />
-
-          {/* F. Action Reels & Highlights Gallery */}
-          <AdventuresGallery />
-
-          {/* G. Multi-Column Velocity Parallax Gallery */}
-          <ParallaxGallery onClaimTrial={() => {
-            triggerToast("7-Day Free Trial Pass Claimed!");
-            setModalMessage("Your 7-Day All-Access Pass is active! Present code TITAN-7DAY at entrance.");
-            setPassModalOpen(true);
-          }} />
 
           {/* H. "Why We Dominate" Bento Matrix */}
           <WhyChoose />
