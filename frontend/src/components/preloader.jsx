@@ -7,6 +7,18 @@ export default function Preloader({ onComplete }) {
   const preloaderRef = useRef(null);
   const hasCompletedRef = useRef(false);
 
+  // Safety fallback to guarantee landing page opens even if animation gets interrupted
+  useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      if (!hasCompletedRef.current) {
+        hasCompletedRef.current = true;
+        if (onComplete) onComplete();
+      }
+    }, 2000);
+
+    return () => clearTimeout(safetyTimer);
+  }, [onComplete]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCount((prev) => {
@@ -14,9 +26,9 @@ export default function Preloader({ onComplete }) {
           clearInterval(interval);
           return 100;
         }
-        return prev + 3;
+        return prev + 5;
       });
-    }, 16);
+    }, 20);
 
     return () => clearInterval(interval);
   }, []);
@@ -24,18 +36,15 @@ export default function Preloader({ onComplete }) {
   useEffect(() => {
     if (count === 100 && !hasCompletedRef.current) {
       hasCompletedRef.current = true;
-      const ctx = gsap.context(() => {
-        const tl = gsap.timeline({
-          onComplete: () => {
-            if (onComplete) onComplete();
-          }
-        });
-
-        tl.to('.preloader-content', { opacity: 0, scale: 0.95, duration: 0.35, ease: 'power2.inOut' })
-          .to(preloaderRef.current, { opacity: 0, duration: 0.45, ease: 'power2.inOut' });
+      
+      const tl = gsap.timeline({
+        onComplete: () => {
+          if (onComplete) onComplete();
+        }
       });
 
-      return () => ctx.revert();
+      tl.to('.preloader-content', { opacity: 0, scale: 0.95, duration: 0.3, ease: 'power2.inOut' })
+        .to(preloaderRef.current, { opacity: 0, duration: 0.3, ease: 'power2.inOut' });
     }
   }, [count, onComplete]);
 

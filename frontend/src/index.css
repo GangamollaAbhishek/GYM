@@ -124,6 +124,22 @@ html.lenis, html.lenis body {
   background: #FF2B35;
 }
 
+/* Hide scrollbars across Admin Portal and no-scrollbar elements */
+.no-scrollbar,
+.admin-portal-wrapper,
+.admin-portal-wrapper * {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}
+
+.no-scrollbar::-webkit-scrollbar,
+.admin-portal-wrapper::-webkit-scrollbar,
+.admin-portal-wrapper *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 /* Spotlight Navbar Styles */
 .spotlight-nav {
   --spotlight-color: rgba(229, 9, 20, 0.25);

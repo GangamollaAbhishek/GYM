@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { animate, motion, AnimatePresence } from "framer-motion";
 import { Activity, Menu, X, ArrowRight } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -19,8 +20,11 @@ export function SpotlightNavbar({
   onItemClick,
   onJoinClick,
   onLoginClick,
+  user,
+  onLogout,
   defaultActiveIndex = 0,
 }) {
+  const navigate = useNavigate();
   const navRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(defaultActiveIndex);
   const [hoverX, setHoverX] = useState(null);
@@ -200,13 +204,43 @@ export function SpotlightNavbar({
         </nav>
 
         {/* 3. RIGHT SIDE: ACTIONS */}
-        <div className="hidden sm:flex items-center gap-4">
-          <button
-            onClick={onLoginClick}
-            className="text-xs font-bold uppercase tracking-wider text-[#A0A0A0] hover:text-white transition-colors px-3 py-2"
-          >
-            Login
-          </button>
+        <div className="hidden sm:flex items-center gap-3">
+          {user ? (
+            <div className="flex items-center gap-3 bg-[#151515] border border-white/10 px-3.5 py-1.5 rounded-full">
+              <div className="w-7 h-7 rounded-full bg-[#E50914] text-white font-extrabold text-xs flex items-center justify-center uppercase">
+                {user.name.charAt(0)}
+              </div>
+              <span className="text-xs font-bold text-white max-w-[100px] truncate">
+                {user.name}
+              </span>
+              
+              {(user.role === 'admin' || user.email === 'abhigangamolla@gmail.com') && (
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="px-3 py-1 rounded-full bg-gradient-to-r from-[#FF2E4C] to-[#E50914] text-white text-[10px] font-extrabold font-mono uppercase tracking-wider shadow-[0_0_12px_rgba(255,46,76,0.5)] hover:scale-105 transition-all"
+                >
+                  Admin Portal
+                </button>
+              )}
+
+              <button
+                onClick={onLogout}
+                className="text-[10px] font-mono uppercase text-[#A0A0A0] hover:text-[#FF2E4C] transition-colors ml-1"
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                if (onLoginClick) onLoginClick();
+                navigate('/login');
+              }}
+              className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#E50914] to-[#FF2B35] text-white text-xs font-extrabold uppercase tracking-wider shadow-[0_0_20px_rgba(229,9,20,0.4)] hover:brightness-110 transition-all cursor-pointer"
+            >
+              Login
+            </button>
+          )}
         </div>
 
         {/* MOBILE MENU TOGGLE BUTTON */}
@@ -248,16 +282,24 @@ export function SpotlightNavbar({
               ))}
             </ul>
 
-            <div className="flex flex-col gap-3 pt-4 border-t border-white/10">
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  if (onLoginClick) onLoginClick();
-                }}
-                className="w-full py-2.5 rounded-xl border border-white/20 text-white font-bold text-xs uppercase tracking-wider"
-              >
-                Login
-              </button>
+            <div className="flex flex-col gap-2 pt-4 border-t border-white/10">
+              {user ? (
+                <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-black/40 border border-white/10">
+                  <span className="text-xs font-bold text-white">Signed in as {user.name}</span>
+                  <button onClick={onLogout} className="text-xs font-bold text-[#FF2E4C]">Logout</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (onLoginClick) onLoginClick();
+                    navigate('/login');
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-[#E50914] text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(229,9,20,0.4)]"
+                >
+                  Login
+                </button>
+              )}
             </div>
           </motion.div>
         )}

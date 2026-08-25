@@ -12,6 +12,15 @@ export default function SmoothScroll() {
             easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
             smoothWheel: true,
             touchMultiplier: 1.5,
+            prevent: (node) => 
+                node?.classList?.contains('custom-scrollbar') || 
+                node?.classList?.contains('no-scrollbar') || 
+                node?.tagName === 'INPUT' || 
+                node?.tagName === 'TEXTAREA' || 
+                node?.tagName === 'FORM' ||
+                node?.closest?.('.auth-container') ||
+                node?.closest?.('.admin-portal-wrapper') ||
+                node?.closest?.('[data-lenis-prevent]')
         });
 
         lenis.on('scroll', ScrollTrigger.update);

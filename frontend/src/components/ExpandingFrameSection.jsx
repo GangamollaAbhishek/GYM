@@ -7,11 +7,13 @@ gsap.registerPlugin(ScrollTrigger);
 
 export default function ExpandingFrameSection() {
     const sectionRef = useRef(null);
+    const pinRef = useRef(null);
 
     useEffect(() => {
         const ctx = gsap.context(() => {
             const container = sectionRef.current;
-            if (!container) return;
+            const pinTarget = pinRef.current;
+            if (!container || !pinTarget) return;
 
             const cardBg = container.querySelector('.naked-city-background');
             const headline1 = container.querySelector('.naked-city-text-1');
@@ -31,14 +33,14 @@ export default function ExpandingFrameSection() {
             const initialWidth = cardBg.offsetWidth;
             const initialHeight = cardBg.offsetHeight;
 
-            // Timeline for expansion + hold + flawless fade-out exit transition into next section
+            // Timeline for expansion + hold + transition
             const tl = gsap.timeline({
                 scrollTrigger: {
                     trigger: container,
+                    pin: pinTarget,
                     start: 'top top',
                     end: `+=${viewportHeight * 2.2}px`,
                     scrub: 1,
-                    pin: true,
                     anticipatePin: 1,
                     onEnter: () => {
                         const topNav = document.querySelector('header');
@@ -59,36 +61,32 @@ export default function ExpandingFrameSection() {
                 }
             });
 
-            // Phase 1 (0.0 -> 0.55): Expand black 50% card box to 100vw x 100vh full screen
-            tl.fromTo(cardBg, {
-                width: initialWidth,
-                height: initialHeight,
-                borderRadius: 24
-            }, {
+            // 1. Expand Card to 100% viewport width & height
+            tl.to(cardBg, {
                 width: viewportWidth,
                 height: viewportHeight,
                 borderRadius: 0,
-                ease: 'none',
-                duration: 0.55
-            }, 0);
+                ease: 'power2.inOut',
+                duration: 1
+            });
 
-            // Morph gym quotes smoothly during expansion
-            if (headline1 && headline2) {
-                tl.to(headline1, { opacity: 0, scale: 0.92, duration: 0.25, ease: 'power1.in' }, 0.1);
-                tl.fromTo(headline2, { opacity: 0, scale: 0.92 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'power1.out' }, 0.3);
+            // 2. Reveal Background Image & First Motivational Quote
+            if (backdropImg) {
+                tl.to(backdropImg, { opacity: 1, scale: 1.05, duration: 0.8 }, '-=0.5');
             }
 
-            // Phase 2 (0.55 -> 0.75): Stationary hold buffer while user reads Quote 2
-            tl.to({}, { duration: 0.2 });
+            if (headline1) {
+                tl.fromTo(headline1, { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6 }, '-=0.3');
+            }
 
-            // Phase 3 (0.75 -> 1.0): Flawless dissolve & lift transition so zero text overlaps into CylinderSection!
-            tl.to([cardBg, headline2, backdropImg], {
-                opacity: 0,
-                y: -70,
-                scale: 0.95,
-                ease: 'power2.inOut',
-                duration: 0.25
-            });
+            // 3. Swap Quote Text
+            if (headline1 && headline2) {
+                tl.to(headline1, { opacity: 0, y: -40, duration: 0.5 }, '+=0.8')
+                  .fromTo(headline2, { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6 });
+            }
+
+            // 4. Fade out section smoothly
+            tl.to(container, { opacity: 0.9, duration: 0.4 }, '+=0.6');
 
         }, sectionRef);
 
@@ -96,8 +94,8 @@ export default function ExpandingFrameSection() {
     }, []);
 
     return (
-        <section className="naked-city-wrapper">
-            <div ref={sectionRef} className="naked-city-backdrop">
+        <section ref={sectionRef} className="naked-city-section">
+            <div ref={pinRef} className="naked-city-backdrop w-full h-full">
                 
                 {/* Fullscreen Backdrop Image behind the expanding card */}
                 <div className="naked-city-img">

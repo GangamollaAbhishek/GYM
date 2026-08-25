@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Lenis from '@studio-freight/lenis';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -24,6 +25,12 @@ import ConstellationTestimonials from './components/constellation-testimonials';
 import TravelNetwork from './components/travel-network';
 import TrainerCardDeck from './components/TrainerCardDeck';
 import Footer from './components/footer';
+import AuthPage from './components/AuthPage';
+import AuthModal from './components/AuthModal';
+import AdminDashboard from './components/AdminDashboard';
+import ReceptionistDashboard from './components/ReceptionistDashboard';
+import TrainerDashboard from './components/TrainerDashboard';
+import ScrollToTop from './components/ScrollToTop';
 
 import { X, Shield, Sparkles } from 'lucide-react';
 
@@ -35,6 +42,28 @@ export default function App() {
   const [passModalOpen, setPassModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
+
+  // Auth States
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('sign-in'); // 'sign-in' | 'sign-up'
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      setAuthModalOpen(false);
+    }
+  }, [location.pathname]);
+
+  // Auth State persistence
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('titan_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
   useEffect(() => {
     const lenis = new Lenis({
@@ -61,7 +90,7 @@ export default function App() {
     };
   }, []);
 
-  // Multi-layer Parallax Scroll for Landing Page & Next Section
+  // Multi-layer Parallax Scroll for Landing Page
   useEffect(() => {
     function parallax() {
       const layers = document.querySelectorAll('.layer');
@@ -78,7 +107,6 @@ export default function App() {
       window.removeEventListener('scroll', parallax, false);
     };
   }, []);
-
 
   const triggerToast = (msg) => {
     setToastMessage(msg);
@@ -109,6 +137,40 @@ export default function App() {
     setPassModalOpen(true);
   };
 
+  const handleAuthSuccess = (userData, mode) => {
+    setUser(userData);
+    localStorage.setItem('titan_user', JSON.stringify(userData));
+    triggerToast(mode === 'sign-up' ? `Welcome to TITAN PULSE, ${userData.name}!` : `Welcome back, ${userData.name}!`);
+
+    const isAdmin = userData.role === 'admin' || userData.email?.toLowerCase().trim() === 'abhigangamolla@gmail.com';
+    if (isAdmin) {
+      navigate('/admin');
+    } else if (userData.role === 'receptionist') {
+      navigate('/receptionist');
+    } else if (userData.role === 'trainer') {
+      navigate('/trainer');
+    } else {
+      navigate('/');
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('titan_user');
+    triggerToast('Logged out successfully.');
+    navigate('/');
+  };
+
+  const openSignInModal = () => {
+    setAuthMode('sign-in');
+    setAuthModalOpen(true);
+  };
+
+  const openSignUpModal = () => {
+    setAuthMode('sign-up');
+    setAuthModalOpen(true);
+  };
+
   const navItems = [
     { label: "Home", href: "#" },
     { label: "Programs", href: "#programs-section" },
@@ -120,97 +182,141 @@ export default function App() {
 
   return (
     <div className="bg-[#0B0B0B] min-h-screen text-white relative font-sans selection:bg-[#E50914] selection:text-white">
-      {/* Global Lenis Smooth Scroll & Dynamic Tab Title Manager */}
+      {/* Global Lenis Smooth Scroll & Route ScrollToTop */}
       <SmoothScroll />
+      <ScrollToTop />
 
       {/* 0. Curtain LightLines Preloader (Runs once on startup) */}
       {loading && <Preloader onComplete={() => setLoading(false)} />}
 
       {/* Main App Layout */}
       {!loading && (
-        <>
-          {/* GSAP Transition Scribble Reveal Effect */}
-          <TransitionScribble />
+        <Routes>
+          {/* LANDING PAGE ROUTE */}
+          <Route 
+            path="/" 
+            element={
+              <>
+                {/* GSAP Transition Scribble Reveal Effect */}
+                <TransitionScribble />
 
-          {/* Full-width Spotlight Header Navbar fixed at top */}
-          <SpotlightNavbar 
-            items={navItems} 
-            onJoinClick={() => {
-              setModalMessage("Claim your complimentary All-Access Pass with biometric scanner access!");
-              setPassModalOpen(true);
-            }}
-            onLoginClick={() => {
-              setModalMessage("Enter your member credentials to access 3D Gym Telemetry.");
-              setPassModalOpen(true);
-            }}
+                {/* Full-width Spotlight Header Navbar */}
+                <SpotlightNavbar 
+                  items={navItems} 
+                  user={user}
+                  onLogout={() => {
+                    setUser(null);
+                    localStorage.removeItem('titan_user');
+                    triggerToast('Logged out successfully.');
+                  }}
+                  onJoinClick={openSignUpModal}
+                  onLoginClick={openSignInModal}
+                />
+
+                {/* Cinematic Hero Section */}
+                <Hero 
+                  onJoinClick={openSignUpModal}
+                  onSearchSubmit={(query) => {
+                    const msg = `Pass Search: "${query.goal}" scheduled for ${query.date}.`;
+                    triggerToast(msg);
+                    setModalMessage(msg);
+                    setPassModalOpen(true);
+                  }} 
+                />
+
+                {/* B1. Kinetic Horizontal Pinning Words Section */}
+                <HorizontalWords />
+
+                {/* Section 3: "Explore Programs" Bento Grid */}
+                <ExploreEscape onReserveSpot={handleReserveSpot} />
+
+                {/* Section 4: Interactive 3D Pre-Workout Can Player Product Showcase */}
+                <PreworkoutShowcaseSection onReserveSpot={handleReserveSpot} />
+
+                {/* 3D 360° Cylinder Carousel Arena Section */}
+                <CylinderSection />
+
+                {/* Master Trainers 3D Stacked Card Faculty */}
+                <TrainerCardDeck />
+
+                {/* 8th Section: 3D Interactive Services & Membership Showcase */}
+                <ServicesSection 
+                  onClaimPass={handleReserveSpot}
+                  onBookPT={handleBookCoach}
+                />
+
+                {/* D. Signature Workout Zones Sticky Horizontal Scroll */}
+                <PopularDestinations onReserveSpot={handleReserveSpot} />
+
+                {/* E. 3D Smart Gym Equipment Engine */}
+                <LetsDrive />
+
+                {/* H. "Why We Dominate" Bento Matrix */}
+                <WhyChoose />
+
+                {/* Locations & Coaches Spotlight */}
+                <PopularSpots onBookCoach={handleBookCoach} />
+
+                {/* I. Transformation Constellation Canvas */}
+                <ConstellationTestimonials />
+
+                {/* J. Live Gym Network & Check-In Map */}
+                <TravelNetwork />
+
+                {/* L. Kinetic Typography Footer */}
+                <Footer onScrollToTop={handleScrollToTop} />
+              </>
+            } 
           />
 
-
-          {/* Cinematic Hero Section */}
-          <Hero 
-            onJoinClick={() => {
-              setModalMessage("Claim your complimentary All-Access Pass with biometric scanner access!");
-              setPassModalOpen(true);
-            }}
-            onSearchSubmit={(query) => {
-              const msg = `Pass Search: "${query.goal}" scheduled for ${query.date}.`;
-              triggerToast(msg);
-              setModalMessage(msg);
-              setPassModalOpen(true);
-            }} 
+          {/* DEDICATED LOGIN & SIGN UP PAGE ROUTES */}
+          <Route 
+            path="/login" 
+            element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} 
+          />
+          <Route 
+            path="/signup" 
+            element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} 
+          />
+          <Route 
+            path="/register" 
+            element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} 
           />
 
-          {/* B1. Kinetic Horizontal Pinning Words Section */}
-          <HorizontalWords />
-
-          {/* Section 3: "Explore Programs" Bento Grid */}
-          <ExploreEscape onReserveSpot={handleReserveSpot} />
-
-          {/* Section 4: Interactive 3D Pre-Workout Can Player Product Showcase */}
-          <PreworkoutShowcaseSection onReserveSpot={handleReserveSpot} />
-
-          {/* 3D 360° Cylinder Carousel Arena Section */}
-          <CylinderSection />
-
-          {/* Master Trainers 3D Stacked Card Faculty */}
-          <TrainerCardDeck />
-
-          {/* 8th Section: 3D Interactive Services & Membership Showcase */}
-          <ServicesSection 
-            onClaimPass={handleReserveSpot}
-            onBookPT={handleBookCoach}
+          {/* DEDICATED ROLE-BASED DASHBOARD ROUTES */}
+          <Route 
+            path="/admin" 
+            element={<AdminDashboard user={user} onLogout={handleLogout} />} 
+          />
+          <Route 
+            path="/receptionist" 
+            element={<ReceptionistDashboard user={user} onLogout={handleLogout} />} 
+          />
+          <Route 
+            path="/trainer" 
+            element={<TrainerDashboard user={user} onLogout={handleLogout} />} 
           />
 
-          {/* D. Signature Workout Zones Sticky Horizontal Scroll */}
-          <PopularDestinations onReserveSpot={handleReserveSpot} />
-
-          {/* E. 3D Smart Gym Equipment Engine */}
-          <LetsDrive />
-
-          {/* H. "Why We Dominate" Bento Matrix */}
-          <WhyChoose />
-
-          {/* Locations & Coaches Spotlight */}
-          <PopularSpots onBookCoach={handleBookCoach} />
-
-          {/* I. Transformation Constellation Canvas */}
-          <ConstellationTestimonials />
-
-          {/* J. Live Gym Network & Check-In Map */}
-          <TravelNetwork />
-
-          {/* L. Kinetic Typography Footer */}
-          <Footer onScrollToTop={handleScrollToTop} />
-        </>
+          {/* FALLBACK ROUTE */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       )}
 
       {/* Floating Toast Notification System */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-[120] px-5 py-3.5 rounded-2xl bg-[#12161A] border border-[#FF2E4C] text-white text-xs font-mono shadow-[0_0_25px_rgba(255,46,76,0.4)] animate-bounce flex items-center gap-2">
+        <div className="fixed bottom-6 right-6 z-[160] px-5 py-3.5 rounded-2xl bg-[#12161A] border border-[#FF2E4C] text-white text-xs font-mono shadow-[0_0_25px_rgba(255,46,76,0.4)] animate-bounce flex items-center gap-2">
           <Sparkles size={16} className="text-[#FF2E4C]" />
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* Instant Backdrop Auth Modal Overlay (Sign In & Sign Up) */}
+      <AuthModal 
+        isOpen={authModalOpen}
+        initialMode={authMode}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+      />
 
       {/* VIP Pass Modal */}
       {passModalOpen && (
