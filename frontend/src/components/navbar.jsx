@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Dumbbell, Shield, ChevronRight, Menu, X } from 'lucide-react';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 
 // Magnetic Button Helper Component
 function MagneticButton({ children, onClick, className }) {
@@ -33,6 +34,9 @@ function MagneticButton({ children, onClick, className }) {
 }
 
 export default function Navbar({ onOpenPassModal }) {
+  const { cmsData } = useLandingPageCMS();
+  const brandData = cmsData?.brand || {};
+
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navLinks = [
@@ -49,19 +53,25 @@ export default function Navbar({ onOpenPassModal }) {
         
         {/* Brand Logo */}
         <a href="#" className="flex items-center gap-3 group">
-          <div className="relative w-10 h-10 rounded-full bg-gradient-to-tr from-[#E50914] to-[#FF2B35] p-[1px] flex items-center justify-center">
-            <div className="w-full h-full bg-[#0B0B0B] rounded-full flex items-center justify-center group-hover:scale-95 transition-transform">
-              <Dumbbell className="w-5 h-5 text-[#E50914] group-hover:rotate-45 transition-transform" />
+          {brandData.logo ? (
+            <div className="w-10 h-10 rounded-full bg-[#0B0B0B] border border-white/15 overflow-hidden flex items-center justify-center p-1.5 shadow-[0_0_15px_rgba(229,9,20,0.4)] group-hover:scale-105 transition-transform duration-300">
+              <img src={brandData.logo} alt={brandData.name || 'Logo'} className="w-full h-full object-contain" />
             </div>
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#E50914] rounded-full animate-ping opacity-75" />
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#E50914] rounded-full" />
-          </div>
+          ) : (
+            <div className="relative w-10 h-10 rounded-full bg-gradient-to-tr from-[#E50914] to-[#FF2B35] p-[1px] flex items-center justify-center">
+              <div className="w-full h-full bg-[#0B0B0B] rounded-full flex items-center justify-center group-hover:scale-95 transition-transform">
+                <Dumbbell className="w-5 h-5 text-[#E50914] group-hover:rotate-45 transition-transform" />
+              </div>
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#E50914] rounded-full animate-ping opacity-75" />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#E50914] rounded-full" />
+            </div>
+          )}
           <div className="flex flex-col">
             <span className="font-heading font-extrabold text-lg tracking-wider text-white flex items-center gap-1">
-              TITAN <span className="w-2 h-2 rounded-full bg-[#E50914]" /> PULSE 3D
+              {brandData.name || 'TITAN•PULSE'}
             </span>
             <span className="text-[9px] font-mono uppercase tracking-widest text-[#A0A0A0] -mt-1">
-              HIGH-PERFORMANCE SYSTEM
+              {brandData.subname || 'HIGH-PERFORMANCE SYSTEM'}
             </span>
           </div>
         </a>

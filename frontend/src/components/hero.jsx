@@ -4,9 +4,13 @@ import { ArrowRight, Play, Trophy, Users, Zap, X } from 'lucide-react';
 import KineticText from './KineticText';
 import SplitHoverText from './SplitHoverText';
 import CreepyButton from './CreepyButton';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 
 
 export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
+  const { cmsData } = useLandingPageCMS();
+  const heroData = cmsData?.hero || {};
+
   const [videoModalOpen, setVideoModalOpen] = useState(false);
 
   // Mouse Parallax Effect Setup
@@ -93,15 +97,15 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
             >
 
               <KineticText
-                text="STRONGER"
+                text={heroData.headlinePart1 || 'STRONGER'}
                 as="h1"
                 className="font-bebas text-6xl sm:text-7xl md:text-8xl lg:text-[100px] xl:text-[114px] leading-[0.88] uppercase text-[#FFFFFF] drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]"
                 delay={2.0}
                 stagger={0.025}
               />
               <SplitHoverText
-                mainText="EVERY DAY"
-                subText="BELIEVE IN YOURSELF"
+                mainText={heroData.headlinePart2 || 'EVERY DAY'}
+                subText={heroData.headlineHoverText || 'BELIEVE IN YOURSELF'}
                 className="font-bebas text-6xl sm:text-7xl md:text-8xl lg:text-[100px] xl:text-[114px] leading-[0.88] uppercase"
               />
             </motion.div>
@@ -113,7 +117,7 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
               transition={{ duration: 1.1, delay: 2.2, ease: smoothEase }}
               className="text-base sm:text-lg md:text-xl text-[#A0A0A0] max-w-xl font-normal leading-relaxed border-l-2 border-[#E50914]/60 pl-4 sm:pl-5"
             >
-              Transform your body. Sharpen your mind. Join a community that never quits.
+              {heroData.description || 'Transform your body. Sharpen your mind. Join a community that never quits.'}
             </motion.p>
 
             {/* C. JOIN NOW CREEPY BUTTON (SLIDES FROM LEFT AT 2.4s) */}
@@ -128,7 +132,7 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
                 className="h-12 min-w-[11.5em] rounded-xl"
                 coverClassName="bg-gradient-to-r from-[#E50914] via-[#FF2B35] to-[#E50914] text-white font-extrabold text-sm uppercase tracking-wider shadow-[0_0_30px_rgba(229,9,20,0.5)]"
               >
-                JOIN NOW
+                {heroData.ctaButtonText || 'JOIN NOW'}
               </CreepyButton>
             </motion.div>
 
@@ -145,9 +149,9 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
                   <span className="uppercase tracking-wider">Members</span>
                 </div>
                 <div className="font-bebas text-2xl sm:text-3xl text-white tracking-wide group-hover:text-[#FF2B35] transition-colors">
-                  10K+
+                  {heroData.membersCount || '10K+'}
                 </div>
-                <div className="text-[11px] sm:text-xs text-[#A0A0A0] leading-tight">Strong Members</div>
+                <div className="text-[11px] sm:text-xs text-[#A0A0A0] leading-tight">{heroData.membersLabel || 'Strong Members'}</div>
               </div>
 
               <div className="p-3.5 sm:p-4 rounded-2xl bg-[#151515]/80 border border-white/10 backdrop-blur-md hover:border-[#E50914]/50 transition-colors group">
@@ -156,9 +160,9 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
                   <span className="uppercase tracking-wider">Results</span>
                 </div>
                 <div className="font-bebas text-2xl sm:text-3xl text-white tracking-wide group-hover:text-[#FF2B35] transition-colors">
-                  500+
+                  {heroData.transformationsCount || '500+'}
                 </div>
-                <div className="text-[11px] sm:text-xs text-[#A0A0A0] leading-tight">Transformations</div>
+                <div className="text-[11px] sm:text-xs text-[#A0A0A0] leading-tight">{heroData.transformationsLabel || 'Transformations'}</div>
               </div>
 
               <div className="p-3.5 sm:p-4 rounded-2xl bg-[#151515]/80 border border-white/10 backdrop-blur-md hover:border-[#E50914]/50 transition-colors group">
@@ -167,9 +171,9 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
                   <span className="uppercase tracking-wider">Hours</span>
                 </div>
                 <div className="font-bebas text-2xl sm:text-3xl text-white tracking-wide group-hover:text-[#FF2B35] transition-colors">
-                  24/7
+                  {heroData.hoursCount || '24/7'}
                 </div>
-                <div className="text-[11px] sm:text-xs text-[#A0A0A0] leading-tight">Gym Access</div>
+                <div className="text-[11px] sm:text-xs text-[#A0A0A0] leading-tight">{heroData.hoursLabel || 'Gym Access'}</div>
               </div>
             </motion.div>
 

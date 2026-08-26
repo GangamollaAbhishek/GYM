@@ -25,6 +25,10 @@ export default function AuthPage({ user, onAuthSuccess }) {
 
     if (user && (user.role === 'admin' || user.email?.toLowerCase().trim() === 'abhigangamolla@gmail.com')) {
       navigate('/admin', { replace: true });
+    } else if (user && user.role === 'receptionist') {
+      navigate('/receptionist', { replace: true });
+    } else if (user && user.role === 'trainer') {
+      navigate('/trainer', { replace: true });
     }
   }, [location.pathname, user]);
 
@@ -39,6 +43,8 @@ export default function AuthPage({ user, onAuthSuccess }) {
 
     const inputEmail = signInData.email.toLowerCase().trim();
     const isAdminEmail = inputEmail.includes('abhigangamoll') || inputEmail.includes('admin') || inputEmail === 'abhishek';
+    const isReceptionist = inputEmail.includes('receptionist') || inputEmail.includes('frontdesk');
+    const isTrainer = inputEmail.includes('trainer') || inputEmail.includes('coach');
 
     try {
       const res = await fetch('http://localhost:5050/api/auth/login', {
@@ -56,9 +62,9 @@ export default function AuthPage({ user, onAuthSuccess }) {
 
         if (userObj.role === 'admin' || isAdminEmail) {
           navigate('/admin');
-        } else if (userObj.role === 'receptionist') {
+        } else if (userObj.role === 'receptionist' || isReceptionist) {
           navigate('/receptionist');
-        } else if (userObj.role === 'trainer') {
+        } else if (userObj.role === 'trainer' || isTrainer) {
           navigate('/trainer');
         } else {
           navigate('/');
@@ -75,16 +81,25 @@ export default function AuthPage({ user, onAuthSuccess }) {
 
     setTimeout(() => {
       setLoading(false);
+      let detectedRole = 'customer';
+      if (isAdminEmail) detectedRole = 'admin';
+      else if (isReceptionist) detectedRole = 'receptionist';
+      else if (isTrainer) detectedRole = 'trainer';
+
       const userObj = {
         name: isAdminEmail ? 'abhishek' : signInData.email.split('@')[0],
         email: inputEmail,
-        role: isAdminEmail ? 'admin' : 'customer',
+        role: detectedRole,
         token: 'titan_jwt_token_sample_' + Date.now(),
       };
       if (onAuthSuccess) onAuthSuccess(userObj, 'sign-in');
 
-      if (userObj.role === 'admin' || isAdminEmail) {
+      if (userObj.role === 'admin') {
         navigate('/admin');
+      } else if (userObj.role === 'receptionist') {
+        navigate('/receptionist');
+      } else if (userObj.role === 'trainer') {
+        navigate('/trainer');
       } else {
         navigate('/');
       }

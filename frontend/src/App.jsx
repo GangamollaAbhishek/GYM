@@ -33,6 +33,7 @@ import TrainerDashboard from './components/TrainerDashboard';
 import ScrollToTop from './components/ScrollToTop';
 
 import { X, Shield, Sparkles } from 'lucide-react';
+import { LandingPageCMSProvider } from './context/LandingPageCMSContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -181,7 +182,8 @@ export default function App() {
   ];
 
   return (
-    <div className="bg-[#0B0B0B] min-h-screen text-white relative font-sans selection:bg-[#E50914] selection:text-white">
+    <LandingPageCMSProvider>
+      <div className="bg-[#0B0B0B] min-h-screen text-white relative font-sans selection:bg-[#E50914] selection:text-white">
       {/* Global Lenis Smooth Scroll & Route ScrollToTop */}
       <SmoothScroll />
       <ScrollToTop />
@@ -355,6 +357,7 @@ export default function App() {
         </div>
       )}
 
-    </div>
+      </div>
+    </LandingPageCMSProvider>
   );
 }

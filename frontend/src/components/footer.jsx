@@ -1,9 +1,23 @@
 import React, { useState } from 'react';
-import { Dumbbell, ArrowUp, Send, Instagram, Youtube, Twitter } from 'lucide-react';
+import { Dumbbell, ArrowUp, Send, Instagram, Youtube, Twitter, Facebook, Linkedin } from 'lucide-react';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 
 export default function Footer({ onScrollToTop }) {
+  const { cmsData } = useLandingPageCMS();
+  const brandData = cmsData?.brand || {};
+  const footerData = cmsData?.footer || {};
+
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
+
+  const socials = footerData?.socials || {};
+  const socialLinks = [
+    { icon: Instagram, url: socials.instagram || 'https://instagram.com', name: 'Instagram' },
+    { icon: Youtube, url: socials.youtube || 'https://youtube.com', name: 'YouTube' },
+    { icon: Twitter, url: socials.twitter || 'https://twitter.com', name: 'Twitter' },
+    { icon: Facebook, url: socials.facebook || 'https://facebook.com', name: 'Facebook' },
+    { icon: Linkedin, url: socials.linkedin || 'https://linkedin.com', name: 'LinkedIn' }
+  ];
 
   const handleSubscribe = (e) => {
     e.preventDefault();
@@ -19,7 +33,7 @@ export default function Footer({ onScrollToTop }) {
       {/* Giant Kinetic Marquee Ticker */}
       <div className="w-full overflow-hidden whitespace-nowrap py-6 mb-16 border-y border-white/10 bg-[#12161A]">
         <div className="inline-block animate-marquee font-heading font-black text-5xl md:text-8xl tracking-tighter uppercase text-[#8A94A0]/20">
-          NO EXCUSES • PUSH YOUR LIMITS • JOIN THE LEGACY • TITAN PULSE • NO EXCUSES • PUSH YOUR LIMITS • JOIN THE LEGACY • TITAN PULSE •
+          {brandData.tagline ? `${brandData.tagline} • ${brandData.name} • ${brandData.tagline} • ` : 'NO EXCUSES • PUSH YOUR LIMITS • JOIN THE LEGACY • TITAN PULSE • NO EXCUSES • PUSH YOUR LIMITS • JOIN THE LEGACY • TITAN PULSE •'}
         </div>
       </div>
 
@@ -29,28 +43,37 @@ export default function Footer({ onScrollToTop }) {
           {/* Brand Info */}
           <div className="md:col-span-5 flex flex-col gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FF2E4C] to-[#00F0FF] p-[1px] flex items-center justify-center">
-                <div className="w-full h-full bg-[#090C0E] rounded-full flex items-center justify-center">
-                  <Dumbbell className="w-5 h-5 text-[#FF2E4C]" />
+              {brandData.logo ? (
+                <div className="w-10 h-10 rounded-xl bg-[#12161A] border border-white/15 overflow-hidden flex items-center justify-center p-1.5 shadow-[0_0_15px_rgba(255,46,76,0.4)]">
+                  <img src={brandData.logo} alt={brandData.name || 'Logo'} className="w-full h-full object-contain" />
                 </div>
-              </div>
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#FF2E4C] to-[#00F0FF] p-[1px] flex items-center justify-center">
+                  <div className="w-full h-full bg-[#090C0E] rounded-full flex items-center justify-center">
+                    <Dumbbell className="w-5 h-5 text-[#FF2E4C]" />
+                  </div>
+                </div>
+              )}
               <span className="font-heading font-extrabold text-2xl tracking-wider text-white">
-                TITAN <span className="text-[#FF2E4C]">•</span> PULSE 3D
+                {brandData.name || 'TITAN • PULSE 3D'}
               </span>
             </div>
             <p className="text-xs text-[#8A94A0] max-w-sm leading-relaxed font-mono">
-              Next-generation 3D fitness architecture combining biometrics, AI load programming, and hyper-performance physical spaces.
+              {footerData.brandQuote || 'Next-generation 3D fitness architecture combining biometrics, AI load programming, and hyper-performance physical spaces.'}
             </p>
 
-            {/* Social Links */}
-            <div className="flex gap-3 mt-2">
-              {[Instagram, Youtube, Twitter].map((Icon, i) => (
+            {/* Dynamic Clickable Social Links */}
+            <div className="flex flex-wrap gap-2.5 mt-2">
+              {socialLinks.map((item, i) => (
                 <a 
                   key={i}
-                  href="#" 
-                  className="w-10 h-10 rounded-full bg-[#12161A] border border-white/10 hover:border-[#FF2E4C] hover:text-[#FF2E4C] flex items-center justify-center text-[#8A94A0] transition-all"
+                  href={item.url.startsWith('http') ? item.url : `https://${item.url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={item.name}
+                  className="w-10 h-10 rounded-full bg-[#12161A] border border-white/10 hover:border-[#FF2E4C] hover:text-[#FF2E4C] hover:shadow-[0_0_15px_rgba(255,46,76,0.4)] flex items-center justify-center text-[#8A94A0] transition-all hover:scale-110 cursor-pointer"
                 >
-                  <Icon size={18} />
+                  <item.icon size={17} />
                 </a>
               ))}
             </div>
@@ -95,7 +118,7 @@ export default function Footer({ onScrollToTop }) {
 
         {/* Footer Bottom Bar */}
         <div className="pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-mono text-[#8A94A0]">
-          <div>© 2026 TITAN PULSE 3D. ALL RIGHTS RESERVED.</div>
+          <div>{footerData.copyright || '© 2026 TITAN PULSE 3D. ALL RIGHTS RESERVED.'}</div>
           
           <button 
             onClick={onScrollToTop}

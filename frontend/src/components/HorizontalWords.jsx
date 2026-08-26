@@ -1,11 +1,18 @@
 import React, { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 import './HorizontalWords.css';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const HorizontalWords = () => {
+    const { cmsData } = useLandingPageCMS();
+    const hwData = cmsData?.horizontalWords || {};
+    const sentence = hwData.sentence || "PAIN IS TEMPORARY GLORY IS FOREVER";
+    const bottomText = hwData.bottomText || "Your only limit is you. Every rep, every drop of sweat, and every painful set brings you closer to your ultimate transformation. Rise above average. Dominate your limits.";
+    const words = sentence.split(" ");
+
     const sectionRef = useRef(null);
     const pinRef = useRef(null);
 
@@ -20,29 +27,31 @@ const HorizontalWords = () => {
             const stickers = container.querySelectorAll('.horizontal-words__sticker-watch, .horizontal-words__sticker-cursor, .horizontal-words__sticker-phone');
             const arrows = container.querySelectorAll('.horizontal-words__arrow-svg path, .horizontal-words__arrow-end-svg path');
 
-            // Timeline for smooth horizontal scrolling
+            // Timeline for smooth horizontal scrolling - Pins inner container so section remains direct child of React root
             const scrollTween = gsap.timeline({
                 scrollTrigger: {
                     trigger: container,
                     pin: pinTarget,
+                    pinSpacing: true,
                     start: "top top",
-                    end: "+=3200",
+                    end: "+=2800",
                     scrub: 1,
-                    anticipatePin: 1
+                    anticipatePin: 1,
+                    invalidateOnRefresh: true
                 }
             });
 
             // 1. Move text across screen horizontally until text is completely in view
             scrollTween.fromTo(textRef, {
-                xPercent: 35
+                xPercent: 30
             }, {
-                xPercent: -72,
+                xPercent: -75,
                 ease: 'none',
-                duration: 0.85
+                duration: 0.82
             });
 
-            // 2. Smooth stationary hold buffer at the end so it doesn't jump directly into next section
-            scrollTween.to({}, { duration: 0.15 });
+            // 2. Smooth stationary hold buffer at the end so user reads full sentence before Section 3 scrolls in
+            scrollTween.to({}, { duration: 0.18 });
 
             // Bounce each letter randomly with elastic spring
             letters.forEach((letter) => {
@@ -103,9 +112,6 @@ const HorizontalWords = () => {
         };
     }, []);
 
-    const sentence = "PAIN IS TEMPORARY GLORY IS FOREVER";
-    const words = sentence.split(" ");
-
     return (
         <section ref={sectionRef} className="horizontal-words-section content-section">
             <div ref={pinRef} className="horizontal-words-pin-container w-full h-full">
@@ -163,9 +169,7 @@ const HorizontalWords = () => {
 
                 <div className="horizontal-words__bottom-text">
                     <div className="horizontal-words__bottom-text-l">
-                        Your only limit is you. Every rep, every drop of sweat, <em>and</em> every painful set<br />
-                        brings you closer to your ultimate transformation.<br />
-                        Rise above average. Dominate your limits.
+                        {bottomText}
                     </div>
                 </div>
             </div>
