@@ -2,10 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Cpu, Play, ChevronDown, Sparkles, X, ChevronUp } from 'lucide-react';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const stepsData = [
+const DEFAULT_STEPS = [
   {
     id: 'step-01',
     step: 'Step 01 of 4',
@@ -190,9 +191,13 @@ function ScrollableCardStack({ items, activeIndex, onSelectIndex, onOpenVideo })
 }
 
 export default function LetsDrive() {
+  const { cmsData } = useLandingPageCMS();
+  const eqData = cmsData?.equipment || {};
+  const stepsData = (eqData.steps && eqData.steps.length > 0) ? eqData.steps : DEFAULT_STEPS;
+
   const [activeStep, setActiveStep] = useState(0);
   const [videoModalOpen, setVideoModalOpen] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState(stepsData[0]);
+  const [selectedVideo, setSelectedVideo] = useState(stepsData[0] || DEFAULT_STEPS[0]);
   const containerRef = useRef(null);
 
   const handleOpenVideo = (item) => {
@@ -209,10 +214,12 @@ export default function LetsDrive() {
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
           <div>
             <span className="text-xs font-mono tracking-widest text-[#00F0FF] uppercase block mb-2">
-              HOW IT WORKS • 3D CARD STACK
+              {eqData.tagline || 'HOW IT WORKS • 3D CARD STACK'}
             </span>
             <h2 className="text-4xl md:text-6xl font-black font-heading text-white uppercase tracking-tight">
-              3D SMART <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF2E4C] to-[#00F0FF]">EQUIPMENT ENGINE</span>
+              {eqData.title ? eqData.title : (
+                <>3D SMART <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF2E4C] to-[#00F0FF]">EQUIPMENT ENGINE</span></>
+              )}
             </h2>
           </div>
 

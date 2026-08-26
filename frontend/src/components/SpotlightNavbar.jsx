@@ -4,6 +4,7 @@ import { animate, motion, AnimatePresence } from "framer-motion";
 import { Activity, Menu, X, ArrowRight } from "lucide-react";
 import { cn } from "../lib/utils";
 import CreepyButton from "./CreepyButton";
+import { useLandingPageCMS } from "../context/LandingPageCMSContext";
 
 
 export function SpotlightNavbar({
@@ -24,6 +25,9 @@ export function SpotlightNavbar({
   onLogout,
   defaultActiveIndex = 0,
 }) {
+  const { cmsData } = useLandingPageCMS();
+  const brandData = cmsData?.brand || {};
+
   const navigate = useNavigate();
   const navRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(defaultActiveIndex);
@@ -126,15 +130,21 @@ export function SpotlightNavbar({
           }}
           className="logo-truus flex items-center gap-3 group focus:outline-none cursor-pointer"
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.5)] group-hover:scale-105 transition-transform duration-300">
-            <Activity size={22} className="stroke-[2.5]" />
-          </div>
+          {brandData.logo ? (
+            <div className="w-10 h-10 rounded-xl bg-[#121217] border border-white/15 overflow-hidden flex items-center justify-center p-1.5 shadow-[0_0_20px_rgba(229,9,20,0.4)] group-hover:scale-105 transition-transform duration-300">
+              <img src={brandData.logo} alt={brandData.name || 'Logo'} className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.5)] group-hover:scale-105 transition-transform duration-300">
+              <Activity size={22} className="stroke-[2.5]" />
+            </div>
+          )}
           <div className="flex flex-col">
             <span className="font-bebas text-2xl sm:text-3xl text-white tracking-wider leading-none">
-              TITAN<span className="text-[#E50914]">•</span>PULSE
+              {brandData.name || 'TITAN•PULSE'}
             </span>
             <span className="text-[9px] uppercase tracking-[0.25em] text-[#A0A0A0] font-mono leading-tight">
-              3D FITNESS SYSTEM
+              {brandData.subname || '3D FITNESS SYSTEM'}
             </span>
           </div>
         </a>
@@ -223,6 +233,24 @@ export function SpotlightNavbar({
                 </button>
               )}
 
+              {user.role === 'receptionist' && (
+                <button
+                  onClick={() => navigate('/receptionist')}
+                  className="px-3 py-1 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-black text-[10px] font-extrabold font-mono uppercase tracking-wider shadow-[0_0_12px_rgba(245,158,11,0.5)] hover:scale-105 transition-all"
+                >
+                  Front Desk
+                </button>
+              )}
+
+              {user.role === 'trainer' && (
+                <button
+                  onClick={() => navigate('/trainer')}
+                  className="px-3 py-1 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 text-white text-[10px] font-extrabold font-mono uppercase tracking-wider shadow-[0_0_12px_rgba(147,51,234,0.5)] hover:scale-105 transition-all"
+                >
+                  Trainer Hub
+                </button>
+              )}
+
               <button
                 onClick={onLogout}
                 className="text-[10px] font-mono uppercase text-[#A0A0A0] hover:text-[#FF2E4C] transition-colors ml-1"
@@ -233,7 +261,6 @@ export function SpotlightNavbar({
           ) : (
             <button
               onClick={() => {
-                if (onLoginClick) onLoginClick();
                 navigate('/login');
               }}
               className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#E50914] to-[#FF2B35] text-white text-xs font-extrabold uppercase tracking-wider shadow-[0_0_20px_rgba(229,9,20,0.4)] hover:brightness-110 transition-all cursor-pointer"
@@ -292,7 +319,6 @@ export function SpotlightNavbar({
                 <button
                   onClick={() => {
                     setMobileMenuOpen(false);
-                    if (onLoginClick) onLoginClick();
                     navigate('/login');
                   }}
                   className="w-full py-2.5 rounded-xl bg-[#E50914] text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_15px_rgba(229,9,20,0.4)]"

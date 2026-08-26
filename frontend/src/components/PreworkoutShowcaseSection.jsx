@@ -2,11 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Zap, Flame, ShieldCheck, Sparkles, Star, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 import './PreworkoutShowcaseSection.css';
 
 gsap.registerPlugin(ScrollTrigger);
 
-const productsData = [
+const DEFAULT_PRODUCTS = [
   {
     id: 1,
     title: "WRATHX KINETIC PRE-WORKOUT",
@@ -50,6 +51,9 @@ const productsData = [
 ];
 
 export default function PreworkoutShowcaseSection({ onReserveSpot }) {
+  const { cmsData } = useLandingPageCMS();
+  const suppData = cmsData?.supplements || {};
+  const productsData = (suppData.products && suppData.products.length > 0) ? suppData.products : DEFAULT_PRODUCTS;
   const sectionRef = useRef(null);
   const [selectedFlavors, setSelectedFlavors] = useState({
     1: "Crimson Electric",
@@ -159,74 +163,84 @@ export default function PreworkoutShowcaseSection({ onReserveSpot }) {
       <div className="supplement-ambient-glow-2" />
 
       <div className="supplement-showcase-header">
-        <h2>TITAN SUPPLEVATION MATRIX</h2>
-        <p>3D KINETIC PRE-WORKOUT & NITROGEN BOOST ENGINE • INTERACTIVE SHOWCASE</p>
+        <h2>{suppData.title || "TITAN SUPPLEVATION MATRIX"}</h2>
+        <p>{suppData.subtitle || "3D KINETIC PRE-WORKOUT & NITROGEN BOOST ENGINE • INTERACTIVE SHOWCASE"}</p>
       </div>
 
       <div className="supplement-grid">
-        {productsData.map((item, index) => (
-          <div 
-            key={item.id} 
-            className={`showcase__item ${index % 2 !== 0 ? 'reverse' : ''}`}
-          >
-            {/* 3D Tilted Card Container */}
-            <div className="showcase__item-img-wrap">
-              <span className="showcase__item-badge">{item.badge}</span>
-              <div className="showcase__item-rating">
-                <Star size={14} className="fill-[#FFB800] text-[#FFB800]" />
-                <span>{item.rating}</span>
+        {productsData.map((item, index) => {
+          const itemFlavors = (item.flavors && item.flavors.length > 0) 
+            ? item.flavors 
+            : ["Crimson Electric", "Hyper Blue Razz", "Sour Fusion"];
+          const itemSpecs = (item.specs && item.specs.length > 0)
+            ? item.specs
+            : ["350mg Energy", "Zero Sugar", "Rapid Action", "Creapure®"];
+          const currentFlavor = selectedFlavors[item.id] || itemFlavors[0];
+
+          return (
+            <div 
+              key={item.id || index} 
+              className={`showcase__item ${index % 2 !== 0 ? 'reverse' : ''}`}
+            >
+              {/* 3D Tilted Card Container */}
+              <div className="showcase__item-img-wrap">
+                <span className="showcase__item-badge">{item.badge || `0${index + 1} • ADVANCED`}</span>
+                <div className="showcase__item-rating">
+                  <Star size={14} className="fill-[#FFB800] text-[#FFB800]" />
+                  <span>{item.rating || "4.95"}</span>
+                </div>
+
+                <img 
+                  src={item.image} 
+                  alt={item.title} 
+                  className="showcase__item-img"
+                />
+                <div className="showcase__item-overlay" />
               </div>
 
-              <img 
-                src={item.image} 
-                alt={item.title} 
-                className="showcase__item-img"
-              />
-              <div className="showcase__item-overlay" />
+              {/* Description Text Block */}
+              <div className="showcase__item-text-block">
+                <h3 className="showcase__item-title">{item.title}</h3>
+                <p className="showcase__item-text">{item.description}</p>
+                
+                {/* Flavor Selector */}
+                <div className="flavor-picker">
+                  <span className="flavor-picker-label">FLAVOR:</span>
+                  {itemFlavors.map((flavor) => (
+                    <button
+                      key={flavor}
+                      onClick={() => handleFlavorSelect(item.id, flavor)}
+                      className={`flavor-btn ${currentFlavor === flavor ? 'active' : ''}`}
+                    >
+                      {flavor}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Spec Badges */}
+                <div className="showcase__item-specs">
+                  {itemSpecs.map((spec, i) => (
+                    <span key={i} className="spec-pill">
+                      <Zap size={14} />
+                      {spec}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Action Button */}
+                <button 
+                  onClick={() => handleReserve(item.title, item.id)}
+                  className="reserve-btn"
+                >
+                  <Sparkles size={18} />
+                  <span>Claim {currentFlavor} Stash</span>
+                  <ChevronRight size={18} />
+                </button>
+
+              </div>
             </div>
-
-            {/* Description Text Block */}
-            <div className="showcase__item-text-block">
-              <h3 className="showcase__item-title">{item.title}</h3>
-              <p className="showcase__item-text">{item.description}</p>
-              
-              {/* Flavor Selector */}
-              <div className="flavor-picker">
-                <span className="flavor-picker-label">FLAVOR:</span>
-                {item.flavors.map((flavor) => (
-                  <button
-                    key={flavor}
-                    onClick={() => handleFlavorSelect(item.id, flavor)}
-                    className={`flavor-btn ${selectedFlavors[item.id] === flavor ? 'active' : ''}`}
-                  >
-                    {flavor}
-                  </button>
-                ))}
-              </div>
-
-              {/* Spec Badges */}
-              <div className="showcase__item-specs">
-                {item.specs.map((spec, i) => (
-                  <span key={i} className="spec-pill">
-                    <Zap size={14} />
-                    {spec}
-                  </span>
-                ))}
-              </div>
-
-              {/* Action Button */}
-              <button 
-                onClick={() => handleReserve(item.title, item.id)}
-                className="reserve-btn"
-              >
-                <Sparkles size={18} />
-                <span>Claim {selectedFlavors[item.id]} Stash</span>
-                <ChevronRight size={18} />
-              </button>
-
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

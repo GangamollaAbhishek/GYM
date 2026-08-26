@@ -2,13 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Dumbbell, Flame, Zap, ArrowRight, Sparkles } from 'lucide-react';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const CRIMSON = "#FF2E4C";
 const CYAN = "#00F0FF";
 
-const CARDS = [
+const DEFAULT_CARDS = [
   {
     key: "hypertrophy",
     title: "Hypertrophic\nProtocols",
@@ -100,6 +101,15 @@ function ArrowCircle({ tone = "crimson" }) {
 }
 
 export default function ExploreEscape({ onReserveSpot }) {
+  const { cmsData } = useLandingPageCMS();
+  const eeData = cmsData?.exploreEscape || {};
+  const CARDS = (eeData.cards && eeData.cards.length > 0) ? eeData.cards.map((c, i) => ({
+    ...c,
+    variant: i === 0 ? 'framed' : 'overlay',
+    accent: i % 2 === 0 ? CRIMSON : CYAN,
+    toast: `${c.title.replace('\n', ' ')} protocol reserved!`
+  })) : DEFAULT_CARDS;
+
   const cardsRef = useRef([]);
 
   useEffect(() => {
@@ -126,7 +136,7 @@ export default function ExploreEscape({ onReserveSpot }) {
       });
     });
     return () => ctx.revert();
-  }, []);
+  }, [CARDS]);
 
   const handleCardClick = (card) => {
     if (onReserveSpot) {
@@ -146,11 +156,11 @@ export default function ExploreEscape({ onReserveSpot }) {
         <div className="mb-12 flex items-start justify-between md:mb-16">
           <div>
             <p className="text-xs font-mono font-bold tracking-[0.2em] uppercase text-[#00F0FF] flex items-center gap-2">
-              <Sparkles size={14} className="text-[#FF2E4C]" /> EXPLORE THE UNSEEN
+              <Sparkles size={14} className="text-[#FF2E4C]" /> {eeData.tagline || 'EXPLORE THE UNSEEN'}
             </p>
             <h2 className="mt-3 text-4xl font-black font-heading leading-[1.1] text-white uppercase md:text-6xl tracking-tight">
-              Find your <br className="hidden md:block" />
-              next <em className="italic font-normal lowercase text-[#FF2E4C] font-serif">breaking point.</em>
+              {eeData.headingMain || 'Find your next'} <br className="hidden md:block" />
+              <em className="italic font-normal lowercase text-[#FF2E4C] font-serif">{eeData.headingHighlight || 'breaking point.'}</em>
             </h2>
           </div>
 
