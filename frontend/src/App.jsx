@@ -1,272 +1,360 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { 
-  Dumbbell, 
-  Users, 
-  Activity, 
-  TrendingUp, 
-  CheckCircle2, 
-  Calendar, 
-  ShieldCheck, 
-  Award,
-  Layers,
-  Settings,
-  Plus
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import Lenis from '@studio-freight/lenis';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [backendStatus, setBackendStatus] = useState({ online: false, message: 'Connecting...' });
-  const [members, setMembers] = useState([]);
-  const [workouts, setWorkouts] = useState([]);
+import SmoothScroll from './components/SmoothScroll';
+import Preloader from './components/preloader';
+import SpotlightNavbar from './components/SpotlightNavbar';
+import Hero from './components/hero';
+import TransitionScribble from './components/TransitionScribble';
+import HorizontalWords from './components/HorizontalWords';
+import ExpandingFrameSection from './components/ExpandingFrameSection';
+import PreworkoutShowcaseSection from './components/PreworkoutShowcaseSection';
+import CylinderSection from './components/CylinderSection';
+import ExploreEscape from './components/explore-escape';
+import ServicesSection from './components/ServicesSection';
+
+import PopularDestinations from './components/popular-destinations';
+import LetsDrive from './components/lets-drive';
+import ParallaxGallery from './components/parallax-gallery';
+import WhyChoose from './components/why-choose';
+import PopularSpots from './components/popular-spots';
+import ConstellationTestimonials from './components/constellation-testimonials';
+import TravelNetwork from './components/travel-network';
+import TrainerCardDeck from './components/TrainerCardDeck';
+import Footer from './components/footer';
+import AuthPage from './components/AuthPage';
+import AuthModal from './components/AuthModal';
+import AdminDashboard from './components/AdminDashboard';
+import ReceptionistDashboard from './components/ReceptionistDashboard';
+import TrainerDashboard from './components/TrainerDashboard';
+import ScrollToTop from './components/ScrollToTop';
+
+import { X, Shield, Sparkles } from 'lucide-react';
+
+gsap.registerPlugin(ScrollTrigger);
+
+export default function App() {
   const [loading, setLoading] = useState(true);
+  const [lenisInstance, setLenisInstance] = useState(null);
+  const [passModalOpen, setPassModalOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // Auth States
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('sign-in'); // 'sign-in' | 'sign-up'
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    // Check backend health status
-    const checkBackend = async () => {
-      try {
-        const response = await axios.get('/api/health');
-        if (response.data && response.data.status === 'success') {
-          setBackendStatus({
-            online: true,
-            message: response.data.message || 'API Connected'
-          });
-        }
-      } catch (error) {
-        setBackendStatus({
-          online: false,
-          message: 'Backend server offline (run npm run dev)'
-        });
-      }
+    if (location.pathname !== '/') {
+      setAuthModalOpen(false);
+    }
+  }, [location.pathname]);
+
+  // Auth State persistence
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('titan_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const lenis = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothTouch: true,
+    });
+
+    setLenisInstance(lenis);
+
+    lenis.on('scroll', ScrollTrigger.update);
+
+    gsap.ticker.add((time) => {
+      lenis.raf(time * 1000);
+    });
+
+    gsap.ticker.lagSmoothing(0);
+
+    return () => {
+      lenis.destroy();
+      gsap.ticker.remove((time) => {
+        lenis.raf(time * 1000);
+      });
     };
-
-    // Fetch members and workouts demo data from API
-    const fetchData = async () => {
-      try {
-        const [resMembers, resWorkouts] = await Promise.all([
-          axios.get('/api/members').catch(() => null),
-          axios.get('/api/workouts').catch(() => null)
-        ]);
-
-        if (resMembers?.data?.data) setMembers(resMembers.data.data);
-        if (resWorkouts?.data?.data) setWorkouts(resWorkouts.data.data);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkBackend();
-    fetchData();
   }, []);
 
+  // Multi-layer Parallax Scroll for Landing Page
+  useEffect(() => {
+    function parallax() {
+      const layers = document.querySelectorAll('.layer');
+      const y = window.scrollY;
+      for (let i = 1; i < layers.length; i++) {
+        if (layers[layers.length - i]) {
+          layers[layers.length - i].style.transform = `translateY(${(i * 0.1) * y}px)`;
+        }
+      }
+    }
+
+    window.addEventListener('scroll', parallax, false);
+    return () => {
+      window.removeEventListener('scroll', parallax, false);
+    };
+  }, []);
+
+  const triggerToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
+
+  const handleScrollToTop = () => {
+    if (lenisInstance) {
+      lenisInstance.scrollTo(0);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleReserveSpot = (zoneName) => {
+    const msg = `Spot Reserved: "${zoneName}". QR Pass ready in app!`;
+    triggerToast(msg);
+    setModalMessage(msg);
+    setPassModalOpen(true);
+  };
+
+  const handleBookCoach = (coachName) => {
+    const msg = `Session Requested: ${coachName}. Manager will call to confirm.`;
+    triggerToast(msg);
+    setModalMessage(msg);
+    setPassModalOpen(true);
+  };
+
+  const handleAuthSuccess = (userData, mode) => {
+    setUser(userData);
+    localStorage.setItem('titan_user', JSON.stringify(userData));
+    triggerToast(mode === 'sign-up' ? `Welcome to TITAN PULSE, ${userData.name}!` : `Welcome back, ${userData.name}!`);
+
+    const isAdmin = userData.role === 'admin' || userData.email?.toLowerCase().trim() === 'abhigangamolla@gmail.com';
+    if (isAdmin) {
+      navigate('/admin');
+    } else if (userData.role === 'receptionist') {
+      navigate('/receptionist');
+    } else if (userData.role === 'trainer') {
+      navigate('/trainer');
+    } else {
+      navigate('/');
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('titan_user');
+    triggerToast('Logged out successfully.');
+    navigate('/');
+  };
+
+  const openSignInModal = () => {
+    setAuthMode('sign-in');
+    setAuthModalOpen(true);
+  };
+
+  const openSignUpModal = () => {
+    setAuthMode('sign-up');
+    setAuthModalOpen(true);
+  };
+
+  const navItems = [
+    { label: "Home", href: "#" },
+    { label: "Programs", href: "#programs-section" },
+    { label: "Zones", href: "#popular-destinations" },
+    { label: "Equipment", href: "#smart-equipment" },
+    { label: "Transformations", href: "#testimonials-section" },
+    { label: "Locations", href: "#locations-section" },
+  ];
+
   return (
-    <div className="app-container">
-      {/* Sidebar Navigation */}
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-icon">
-            <Dumbbell size={24} />
-          </div>
-          <span className="brand-name">PULSE FIT</span>
+    <div className="bg-[#0B0B0B] min-h-screen text-white relative font-sans selection:bg-[#E50914] selection:text-white">
+      {/* Global Lenis Smooth Scroll & Route ScrollToTop */}
+      <SmoothScroll />
+      <ScrollToTop />
+
+      {/* 0. Curtain LightLines Preloader (Runs once on startup) */}
+      {loading && <Preloader onComplete={() => setLoading(false)} />}
+
+      {/* Main App Layout */}
+      {!loading && (
+        <Routes>
+          {/* LANDING PAGE ROUTE */}
+          <Route 
+            path="/" 
+            element={
+              <>
+                {/* GSAP Transition Scribble Reveal Effect */}
+                <TransitionScribble />
+
+                {/* Full-width Spotlight Header Navbar */}
+                <SpotlightNavbar 
+                  items={navItems} 
+                  user={user}
+                  onLogout={() => {
+                    setUser(null);
+                    localStorage.removeItem('titan_user');
+                    triggerToast('Logged out successfully.');
+                  }}
+                  onJoinClick={openSignUpModal}
+                  onLoginClick={openSignInModal}
+                />
+
+                {/* Cinematic Hero Section */}
+                <Hero 
+                  onJoinClick={openSignUpModal}
+                  onSearchSubmit={(query) => {
+                    const msg = `Pass Search: "${query.goal}" scheduled for ${query.date}.`;
+                    triggerToast(msg);
+                    setModalMessage(msg);
+                    setPassModalOpen(true);
+                  }} 
+                />
+
+                {/* B1. Kinetic Horizontal Pinning Words Section */}
+                <HorizontalWords />
+
+                {/* Section 3: "Explore Programs" Bento Grid */}
+                <ExploreEscape onReserveSpot={handleReserveSpot} />
+
+                {/* Section 4: Interactive 3D Pre-Workout Can Player Product Showcase */}
+                <PreworkoutShowcaseSection onReserveSpot={handleReserveSpot} />
+
+                {/* 3D 360° Cylinder Carousel Arena Section */}
+                <CylinderSection />
+
+                {/* Master Trainers 3D Stacked Card Faculty */}
+                <TrainerCardDeck />
+
+                {/* 8th Section: 3D Interactive Services & Membership Showcase */}
+                <ServicesSection 
+                  onClaimPass={handleReserveSpot}
+                  onBookPT={handleBookCoach}
+                />
+
+                {/* D. Signature Workout Zones Sticky Horizontal Scroll */}
+                <PopularDestinations onReserveSpot={handleReserveSpot} />
+
+                {/* E. 3D Smart Gym Equipment Engine */}
+                <LetsDrive />
+
+                {/* H. "Why We Dominate" Bento Matrix */}
+                <WhyChoose />
+
+                {/* Locations & Coaches Spotlight */}
+                <PopularSpots onBookCoach={handleBookCoach} />
+
+                {/* I. Transformation Constellation Canvas */}
+                <ConstellationTestimonials />
+
+                {/* J. Live Gym Network & Check-In Map */}
+                <TravelNetwork />
+
+                {/* L. Kinetic Typography Footer */}
+                <Footer onScrollToTop={handleScrollToTop} />
+              </>
+            } 
+          />
+
+          {/* DEDICATED LOGIN & SIGN UP PAGE ROUTES */}
+          <Route 
+            path="/login" 
+            element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} 
+          />
+          <Route 
+            path="/signup" 
+            element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} 
+          />
+          <Route 
+            path="/register" 
+            element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} 
+          />
+
+          {/* DEDICATED ROLE-BASED DASHBOARD ROUTES */}
+          <Route 
+            path="/admin" 
+            element={<AdminDashboard user={user} onLogout={handleLogout} />} 
+          />
+          <Route 
+            path="/receptionist" 
+            element={<ReceptionistDashboard user={user} onLogout={handleLogout} />} 
+          />
+          <Route 
+            path="/trainer" 
+            element={<TrainerDashboard user={user} onLogout={handleLogout} />} 
+          />
+
+          {/* FALLBACK ROUTE */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      )}
+
+      {/* Floating Toast Notification System */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[160] px-5 py-3.5 rounded-2xl bg-[#12161A] border border-[#FF2E4C] text-white text-xs font-mono shadow-[0_0_25px_rgba(255,46,76,0.4)] animate-bounce flex items-center gap-2">
+          <Sparkles size={16} className="text-[#FF2E4C]" />
+          <span>{toastMessage}</span>
         </div>
+      )}
 
-        <ul className="nav-menu">
-          <li 
-            className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            <Activity size={20} />
-            <span>Dashboard</span>
-          </li>
-          <li 
-            className={`nav-item ${activeTab === 'members' ? 'active' : ''}`}
-            onClick={() => setActiveTab('members')}
-          >
-            <Users size={20} />
-            <span>Members</span>
-          </li>
-          <li 
-            className={`nav-item ${activeTab === 'workouts' ? 'active' : ''}`}
-            onClick={() => setActiveTab('workouts')}
-          >
-            <Dumbbell size={20} />
-            <span>Workouts</span>
-          </li>
-          <li 
-            className={`nav-item ${activeTab === 'schedule' ? 'active' : ''}`}
-            onClick={() => setActiveTab('schedule')}
-          >
-            <Calendar size={20} />
-            <span>Schedule</span>
-          </li>
-          <li 
-            className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveTab('settings')}
-          >
-            <Settings size={20} />
-            <span>Settings</span>
-          </li>
-        </ul>
-      </aside>
+      {/* Instant Backdrop Auth Modal Overlay (Sign In & Sign Up) */}
+      <AuthModal 
+        isOpen={authModalOpen}
+        initialMode={authMode}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+      />
 
-      {/* Main Content Area */}
-      <main className="main-wrapper">
-        {/* Header */}
-        <header className="top-header">
-          <div className="header-title">
-            <h1>Gym Command Center</h1>
-            <p>Welcome back, Admin! Overview of active sessions & operations.</p>
-          </div>
+      {/* VIP Pass Modal */}
+      {passModalOpen && (
+        <div className="fixed inset-0 z-[110] bg-[#090C0E]/90 backdrop-blur-2xl flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md bg-[#12161A] rounded-3xl border border-[#FF2E4C]/50 p-8 shadow-2xl animate-fadeIn text-center">
+            
+            <button 
+              onClick={() => setPassModalOpen(false)}
+              className="absolute top-4 right-4 text-[#8A94A0] hover:text-white"
+            >
+              <X size={24} />
+            </button>
 
-          <div className="status-badge" style={{ 
-            borderColor: backendStatus.online ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)',
-            color: backendStatus.online ? 'var(--accent-lime)' : '#ef4444',
-            background: backendStatus.online ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)'
-          }}>
-            <span className="status-dot" style={{
-              backgroundColor: backendStatus.online ? 'var(--accent-lime)' : '#ef4444',
-              boxShadow: backendStatus.online ? '0 0 10px var(--accent-lime)' : '0 0 10px #ef4444'
-            }}></span>
-            {backendStatus.message}
-          </div>
-        </header>
-
-        {/* Metrics Grid */}
-        <section className="metrics-grid">
-          <div className="metric-card cyan">
-            <div className="metric-header">
-              <div className="metric-icon-box">
-                <Users size={24} />
-              </div>
-              <span className="tag premium">+12% this mo</span>
-            </div>
-            <div className="metric-value">1,482</div>
-            <div className="metric-label">Active Gym Members</div>
-          </div>
-
-          <div className="metric-card amber">
-            <div className="metric-header">
-              <div className="metric-icon-box">
-                <Activity size={24} />
-              </div>
-              <span className="tag standard">Peak Hours</span>
-            </div>
-            <div className="metric-value">284</div>
-            <div className="metric-label">Daily Check-ins Today</div>
-          </div>
-
-          <div className="metric-card purple">
-            <div className="metric-header">
-              <div className="metric-icon-box">
-                <TrendingUp size={24} />
-              </div>
-              <span className="tag premium">+18.4%</span>
-            </div>
-            <div className="metric-value">$34.8k</div>
-            <div className="metric-label">Monthly Revenue</div>
-          </div>
-
-          <div className="metric-card lime">
-            <div className="metric-header">
-              <div className="metric-icon-box">
-                <Award size={24} />
-              </div>
-              <span className="tag premium">Certified</span>
-            </div>
-            <div className="metric-value">24</div>
-            <div className="metric-label">On-Duty Trainers</div>
-          </div>
-        </section>
-
-        {/* Main Content Grid */}
-        <div className="grid-two-col">
-          {/* Members Table */}
-          <div className="content-card">
-            <div className="card-title-bar">
-              <h2>Recent Gym Members</h2>
-              <button className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Plus size={16} /> Add Member
-              </button>
+            <div className="w-16 h-16 rounded-2xl bg-[#FF2E4C]/10 border border-[#FF2E4C]/40 flex items-center justify-center text-[#FF2E4C] mx-auto mb-4">
+              <Shield size={32} />
             </div>
 
-            <table className="table-custom">
-              <thead>
-                <tr>
-                  <th>Member Name</th>
-                  <th>Membership Plan</th>
-                  <th>Status</th>
-                  <th>Expiration Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.length > 0 ? (
-                  members.map((member) => (
-                    <tr key={member.id}>
-                      <td style={{ fontWeight: 600 }}>{member.name}</td>
-                      <td>
-                        <span className={`tag ${member.plan.includes('Premium') || member.plan.includes('VIP') ? 'premium' : 'standard'}`}>
-                          {member.plan}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ color: 'var(--accent-lime)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <CheckCircle2 size={14} /> {member.status}
-                        </span>
-                      </td>
-                      <td style={{ color: 'var(--text-muted)' }}>{member.expiryDate}</td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-                      Loading member roster from backend API...
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+            <h3 className="text-2xl font-extrabold font-heading text-white mb-2">TITAN PULSE 3D PASS</h3>
+            
+            <p className="text-xs text-[#8A94A0] mb-6">
+              {modalMessage || "Claim your complimentary All-Access Pass with biometric scanner access!"}
+            </p>
 
-          {/* Featured Workouts & Quick Stats */}
-          <div className="content-card">
-            <div className="card-title-bar">
-              <h2>Popular Workouts</h2>
+            <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/10 text-xs font-mono text-[#FF2E4C] mb-6 flex items-center justify-center gap-2">
+              <Sparkles size={16} /> PASS CODE: TITAN-2026-CRIMSON
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {workouts.length > 0 ? (
-                workouts.map((w) => (
-                  <div key={w.id} style={{
-                    background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '16px',
-                    display: 'flex',
-                    justifySpace: 'between',
-                    alignItems: 'center'
-                  }}>
-                    <div>
-                      <div style={{ fontWeight: '700', fontSize: '1rem', color: 'var(--text-main)' }}>{w.title}</div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '4px' }}>
-                        Category: {w.category} • {w.duration}
-                      </div>
-                    </div>
-                    <span className="tag premium" style={{ marginLeft: 'auto' }}>
-                      🔥 {w.caloriesBurned} kcal
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Loading workout modules...</div>
-              )}
-            </div>
+            <button 
+              onClick={() => setPassModalOpen(false)}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#FF2E4C] to-[#FF526B] hover:brightness-110 text-white font-extrabold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(255,46,76,0.4)] transition-all"
+            >
+              Confirm & Download Pass
+            </button>
+
           </div>
         </div>
-      </main>
+      )}
+
     </div>
   );
 }
-
-export default App;

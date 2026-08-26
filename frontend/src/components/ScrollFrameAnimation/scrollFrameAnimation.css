@@ -1,0 +1,217 @@
+/* ScrollFrameAnimation CSS */
+
+.sfa-scroll-container {
+  position: relative;
+  width: 100%;
+  height: 450vh; /* Scroll distance to drive the frame sequence */
+  background-color: #080a0c;
+}
+
+.sfa-sticky-viewport {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sfa-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Subtle dark vignette & cinematic grain overlay */
+.sfa-vignette-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    rgba(8, 10, 12, 0.25) 0%,
+    rgba(8, 10, 12, 0.75) 65%,
+    rgba(8, 10, 12, 0.95) 100%
+  );
+}
+
+.sfa-noise-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Content Layer */
+.sfa-content-layer {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6rem 2rem 2.5rem;
+  pointer-events: none;
+}
+
+/* Metallic Text Gradient */
+.sfa-text-metallic {
+  background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 40%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sfa-text-crimson {
+  background: linear-gradient(135deg, #ff2e4c 0%, #ff526b 50%, #ff8597 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Stage Storytelling Container */
+.sfa-stage-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 1100px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Stage Typography */
+.sfa-stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: 9999px;
+  background: rgba(18, 22, 26, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(12px);
+  font-family: monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: #00f0ff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  margin-bottom: 1.25rem;
+}
+
+.sfa-stage-heading {
+  font-size: clamp(2.5rem, 7vw, 6.5rem);
+  font-weight: 900;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  font-family: inherit;
+  margin-bottom: 1.25rem;
+  text-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.sfa-stage-subheading {
+  font-size: clamp(1rem, 2vw, 1.35rem);
+  color: #94a3b8;
+  max-w: 650px;
+  font-weight: 400;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+/* Buttons & CTAs */
+.sfa-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2.5rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #ff2e4c 0%, #d91432 100%);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.875rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 30px rgba(255, 46, 76, 0.4);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.sfa-btn-primary:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 0 45px rgba(255, 46, 76, 0.6);
+}
+
+/* Scroll Progress Line Indicator */
+.sfa-progress-bar-container {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 20;
+}
+
+.sfa-progress-track {
+  width: 140px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.sfa-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff2e4c, #00f0ff);
+  width: 0%;
+  transition: width 0.05s linear;
+  box-shadow: 0 0 10px #ff2e4c;
+}
+
+.sfa-progress-text {
+  font-family: monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .sfa-scroll-container {
+    height: 350vh;
+  }
+
+  .sfa-content-layer {
+    padding: 5rem 1.25rem 2rem;
+  }
+
+  .sfa-stage-heading {
+    font-size: clamp(2.2rem, 10vw, 3.8rem);
+  }
+
+  .sfa-btn-primary {
+    padding: 0.875rem 1.75rem;
+    font-size: 0.75rem;
+  }
+}
