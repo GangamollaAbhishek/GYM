@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Eye, EyeOff, X, Sparkles, Activity, ArrowRight, ShieldCheck, Phone } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, X, Activity, Phone } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import './AuthModal.css';
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', onSuccess }) {
   const [isRightPanelActive, setIsRightPanelActive] = useState(initialMode === 'sign-up');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-
-  // Form states
   const [signInData, setSignInData] = useState({ email: '', password: '' });
   const [signUpData, setSignUpData] = useState({ name: '', email: '', phone: '', password: '' });
   const [errorMsg, setErrorMsg] = useState('');
+
+  const navigate = useNavigate();
+  const { login, signup } = useAuth();
 
   useEffect(() => {
     setIsRightPanelActive(initialMode === 'sign-up');
@@ -24,68 +25,37 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
   const handleSignInSubmit = async (e) => {
     e.preventDefault();
     if (!signInData.email || !signInData.password) {
-      setErrorMsg('Please fill in all email and password fields.');
+      setErrorMsg('Please fill in both email and password fields.');
       return;
     }
     setErrorMsg('');
     setLoading(true);
 
-    const inputEmail = signInData.email.toLowerCase().trim();
-    const isAdminCred = inputEmail.includes('abhigangamoll') || inputEmail.includes('admin') || inputEmail === 'abhishek';
-
     try {
-      const res = await fetch('http://localhost:5050/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(signInData)
-      });
-      const data = await res.json();
-      if (res.ok && data?.data?.user) {
-        setLoading(false);
-        const userObj = { ...data.data.user, token: data.data.token };
-        if (isAdminCred) userObj.role = 'admin';
-        if (onSuccess) onSuccess(userObj, 'sign-in');
+      const result = await login(signInData.email, signInData.password);
+      setLoading(false);
+
+      if (result.success && result.user) {
+        if (onSuccess) onSuccess(result.user, 'sign-in');
         onClose();
-        if (userObj.role === 'admin') {
+
+        const role = (result.user.role || '').toLowerCase().trim();
+        if (role === 'admin') {
           navigate('/admin');
-        } else if (userObj.role === 'receptionist') {
+        } else if (role === 'receptionist') {
           navigate('/receptionist');
-        } else if (userObj.role === 'trainer') {
+        } else if (role === 'trainer') {
           navigate('/trainer');
         } else {
           navigate('/');
         }
-        return;
+      } else {
+        setErrorMsg(result.message || 'Invalid email or password.');
       }
     } catch (err) {
-      console.log('Backend API unreachable, using local auth simulation.');
-    }
-
-    setTimeout(() => {
       setLoading(false);
-      let simulatedRole = 'customer';
-      if (isAdminCred) simulatedRole = 'admin';
-      else if (signInData.email.includes('receptionist')) simulatedRole = 'receptionist';
-      else if (signInData.email.includes('trainer')) simulatedRole = 'trainer';
-
-      const userObj = {
-        name: isAdminCred ? 'abhishek' : signInData.email.split('@')[0],
-        email: signInData.email,
-        role: simulatedRole,
-        token: 'titan_jwt_token_sample_' + Date.now(),
-      };
-      if (onSuccess) onSuccess(userObj, 'sign-in');
-      onClose();
-      if (userObj.role === 'admin') {
-        navigate('/admin');
-      } else if (userObj.role === 'receptionist') {
-        navigate('/receptionist');
-      } else if (userObj.role === 'trainer') {
-        navigate('/trainer');
-      } else {
-        navigate('/');
-      }
-    }, 600);
+      setErrorMsg('An unexpected error occurred. Please try again.');
+    }
   };
 
   const handleSignUpSubmit = async (e) => {
@@ -98,46 +68,20 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5050/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(signUpData)
-      });
-      const data = await res.json();
-      if (res.ok && data?.data?.user) {
-        setLoading(false);
-        if (onSuccess) onSuccess({ ...data.data.user, token: data.data.token }, 'sign-up');
+      const result = await signup(signUpData);
+      setLoading(false);
+
+      if (result.success && result.user) {
+        if (onSuccess) onSuccess(result.user, 'sign-up');
         onClose();
-        return;
+        navigate('/');
+      } else {
+        setErrorMsg(result.message || 'Registration failed.');
       }
     } catch (err) {
-      console.log('Backend API unreachable, using local auth simulation.');
+      setLoading(false);
+      setErrorMsg('An unexpected error occurred during registration.');
     }
-
-    setTimeout(() => {
-      setLoading(false);
-      const userObj = {
-        name: signUpData.name,
-        email: signUpData.email,
-        token: 'titan_jwt_token_sample_' + Date.now(),
-      };
-      if (onSuccess) onSuccess(userObj, 'sign-up');
-      onClose();
-    }, 600);
-  };
-
-  const handleSocialAuth = (provider) => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      const userObj = {
-        name: `${provider} Athlete`,
-        email: `athlete@${provider.toLowerCase()}.com`,
-        token: `titan_${provider}_token_` + Date.now(),
-      };
-      if (onSuccess) onSuccess(userObj, provider);
-      onClose();
-    }, 600);
   };
 
   return (
@@ -165,21 +109,15 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
               </div>
               <span>Join TITAN PULSE 3D Gym Ecosystem</span>
               
-              {/* Social Login Options */}
               <div className="social-container">
-                <button type="button" title="Sign up with Google" onClick={() => handleSocialAuth('Google')}>
+                <button type="button" title="Sign up with Google" onClick={() => alert('Social authentication will use OAuth provider.')}>
                   <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                     <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
                   </svg>
                 </button>
-                <button type="button" title="Sign up with GitHub" onClick={() => handleSocialAuth('GitHub')}>
+                <button type="button" title="Sign up with GitHub" onClick={() => alert('Social authentication will use OAuth provider.')}>
                   <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-                  </svg>
-                </button>
-                <button type="button" title="Sign up with Facebook" onClick={() => handleSocialAuth('Facebook')}>
-                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                   </svg>
                 </button>
               </div>
@@ -187,7 +125,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
               <span>or use your email for registration</span>
 
               {errorMsg && isRightPanelActive && (
-                <div className="text-red-400 text-xs mb-2 font-mono bg-red-950/40 border border-red-800/60 px-3 py-1.5 rounded-lg w-full">
+                <div className="text-red-400 text-xs mb-2 font-mono bg-red-950/60 border border-red-800 px-3 py-1.5 rounded-lg w-full">
                   {errorMsg}
                 </div>
               )}
@@ -220,7 +158,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
                   placeholder="Phone Number" 
                   value={signUpData.phone}
                   onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value })}
-                  required
                 />
                 <Phone className="auth-input-icon" size={18} />
               </div>
@@ -263,29 +200,23 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
               </div>
               <span>Access Telemetry & Member Pass</span>
 
-              {/* Social Login Options */}
               <div className="social-container">
-                <button type="button" title="Sign in with Google" onClick={() => handleSocialAuth('Google')}>
+                <button type="button" title="Sign in with Google" onClick={() => alert('Social authentication will use OAuth provider.')}>
                   <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                     <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
                   </svg>
                 </button>
-                <button type="button" title="Sign in with GitHub" onClick={() => handleSocialAuth('GitHub')}>
+                <button type="button" title="Sign in with GitHub" onClick={() => alert('Social authentication will use OAuth provider.')}>
                   <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                     <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
                   </svg>
                 </button>
-                <button type="button" title="Sign in with Facebook" onClick={() => handleSocialAuth('Facebook')}>
-                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                  </svg>
-                </button>
               </div>
 
-              <span>or use your member email</span>
+              <span>or use your member credentials</span>
 
               {errorMsg && !isRightPanelActive && (
-                <div className="text-red-400 text-xs mb-2 font-mono bg-red-950/40 border border-red-800/60 px-3 py-1.5 rounded-lg w-full">
+                <div className="text-red-400 text-xs mb-2 font-mono bg-red-950/60 border border-red-800 px-3 py-1.5 rounded-lg w-full">
                   {errorMsg}
                 </div>
               )}
@@ -345,7 +276,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
           <div className="overlay-container">
             <div className="overlay">
               
-              {/* LEFT OVERLAY PANEL (Shows when Sign Up is Active -> Click to Sign In) */}
+              {/* LEFT OVERLAY PANEL */}
               <div className="overlay-panel overlay-left">
                 <h1 className="text-3xl font-extrabold font-bebas tracking-wide mb-2">WELCOME BACK!</h1>
                 <p className="text-xs text-white/80 leading-relaxed mb-4">
@@ -360,7 +291,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
                 </button>
               </div>
 
-              {/* RIGHT OVERLAY PANEL (Shows when Sign In is Active -> Click to Sign Up) */}
+              {/* RIGHT OVERLAY PANEL */}
               <div className="overlay-panel overlay-right">
                 <h1 className="text-3xl font-extrabold font-bebas tracking-wide mb-2">HELLO, ATHLETE!</h1>
                 <p className="text-xs text-white/80 leading-relaxed mb-4">

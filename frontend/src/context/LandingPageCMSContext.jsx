@@ -157,7 +157,78 @@ const defaultLandingData = {
       facebook: 'https://facebook.com',
       linkedin: 'https://linkedin.com'
     }
-  }
+  },
+  memberships: [
+    {
+      id: 'PLN-1',
+      tierKey: 'pro',
+      name: 'PRO MEMBERSHIP',
+      badge: 'TITAN ALL-ACCESS PASS',
+      subBadge: 'BIOMETRIC UNLOCKED • 24/7 ACCESS',
+      price: 2499,
+      quarterlyPrice: 6999,
+      annualPrice: 24999,
+      duration: 'Monthly',
+      description: 'All-access strength arena, cardio amphitheater, bio-hacking sauna lounge, & automated 3D body composition telemetry tracking.',
+      perks: 'All-Access Gym Floor & Cardio Zone, Biometric Smart Locker Activation, 3D Body Composition Bio-Scan, Sauna & Recovery Lounge',
+      services: [
+        { id: 'srv-1', name: 'All-Access Gym Floor & Cardio Zone', category: 'Facility Access', included: true },
+        { id: 'srv-2', name: 'Biometric Smart Locker Activation', category: 'Amenities', included: true },
+        { id: 'srv-3', name: '3D Body Composition Bio-Scan', category: 'Technology', included: true },
+        { id: 'srv-4', name: 'Sauna & Recovery Lounge Access', category: 'Wellness', included: true },
+        { id: 'srv-5', name: 'Titan Companion Mobile App Access', category: 'Technology', included: true },
+        { id: 'srv-6', name: 'Complimentary Towel Service', category: 'Amenities', included: true },
+        { id: 'srv-7', name: 'Dedicated Master Coach (4 Sessions/mo)', category: 'Coaching', included: false },
+        { id: 'srv-8', name: 'Unlimited Cryotherapy Chambers Access', category: 'Wellness', included: false },
+      ]
+    },
+    {
+      id: 'PLN-2',
+      tierKey: 'elite',
+      name: 'ELITE VIP ATHLETE STATUS',
+      badge: 'VIP ATHLETE STATUS',
+      subBadge: 'CRYOTHERAPY • HYDRO SUITE • GUEST PERKS',
+      price: 4999,
+      quarterlyPrice: 12999,
+      annualPrice: 49999,
+      duration: 'Monthly',
+      description: 'VIP priority access, cryotherapy chambers, hydro-massage therapy suite, custom micro-nutrient bar access, and unlimited guest privileges.',
+      perks: 'Unlimited Cryotherapy Chambers Access, Private Hydro-Massage Therapy Suite, Dedicated VIP Keycard Locker Lounge, Free Daily Micro-Nutrient Shake Bar',
+      services: [
+        { id: 'srv-1', name: 'All-Access Gym Floor & Cardio Zone', category: 'Facility Access', included: true },
+        { id: 'srv-2', name: 'Biometric Smart Locker Activation', category: 'Amenities', included: true },
+        { id: 'srv-3', name: '3D Body Composition Bio-Scan', category: 'Technology', included: true },
+        { id: 'srv-4', name: 'Unlimited Cryotherapy Chambers Access', category: 'Wellness', included: true },
+        { id: 'srv-5', name: 'Private Hydro-Massage Therapy Suite', category: 'Wellness', included: true },
+        { id: 'srv-6', name: 'Dedicated VIP Keycard Locker Lounge', category: 'Amenities', included: true },
+        { id: 'srv-7', name: 'Free Daily Micro-Nutrient Shake Bar', category: 'Nutrition', included: true },
+        { id: 'srv-8', name: 'Unlimited Guest Privileges (2 Passes/mo)', category: 'Privileges', included: true },
+      ]
+    },
+    {
+      id: 'PLN-3',
+      tierKey: 'pt',
+      name: 'PT VIP COACHING MANUAL',
+      badge: '1-ON-1 MASTER COACHING',
+      subBadge: 'DEDICATED COACH • 3D BIO-SCANS • MEAL MATRIX',
+      price: 9999,
+      quarterlyPrice: 26999,
+      annualPrice: 99999,
+      duration: 'Monthly',
+      description: 'Dedicated Master Personal Trainer, tailored meal plans, weekly 3D muscle bio-scans, dynamic heart-rate telemetry, and 24/7 direct coach WhatsApp line.',
+      perks: 'Dedicated Master Fitness Coach, Custom Macro & Meal Matrix, Weekly 3D Muscle Bio-Scans, Live Heart-Rate Telemetry, Private 1-on-1 Training Bay',
+      services: [
+        { id: 'srv-1', name: 'Dedicated Master Personal Trainer', category: 'Coaching', included: true },
+        { id: 'srv-2', name: 'Custom Macro & Meal Matrix Protocols', category: 'Nutrition', included: true },
+        { id: 'srv-3', name: 'Weekly 3D Muscle Bio-Scans & Audits', category: 'Technology', included: true },
+        { id: 'srv-4', name: 'Live Heart-Rate & Telemetry Sync', category: 'Technology', included: true },
+        { id: 'srv-5', name: 'Private 1-on-1 Training Bay Access', category: 'Facility Access', included: true },
+        { id: 'srv-6', name: 'Unlimited Cryotherapy & Hydro Suites', category: 'Wellness', included: true },
+        { id: 'srv-7', name: '24/7 Direct WhatsApp Coach Priority Line', category: 'Coaching', included: true },
+        { id: 'srv-8', name: 'Complimentary Pre-Workout & Intra-Fuel Shakes', category: 'Nutrition', included: true },
+      ]
+    }
+  ]
 };
 
 const LandingPageCMSContext = createContext();

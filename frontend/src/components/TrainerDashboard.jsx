@@ -1,21 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Activity, LogOut, Dumbbell, Users, Calendar, Award, CheckCircle, Sparkles, Plus } from 'lucide-react';
+import api from '../lib/api';
 
 export default function TrainerDashboard({ user, onLogout }) {
   const navigate = useNavigate();
   const [toast, setToast] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const clients = [
-    { id: '1', name: 'Rohan Mehta', program: 'Hypertrophy 5x5', goal: 'Gain 4kg Lean Muscle', status: 'Scheduled 10:00 AM' },
-    { id: '2', name: 'Ananya Roy', program: '3D Telemetry HIIT', goal: 'Fat Loss & Conditioning', status: 'Scheduled 02:00 PM' },
-    { id: '3', name: 'Sneha Kapoor', program: 'Powerlifting Prep', goal: 'Deadlift PR 140kg', status: 'Completed' },
-  ];
+  useEffect(() => {
+    const fetchTrainerClients = async () => {
+      setLoading(true);
+      try {
+        const res = await api.get('/api/users');
+        if (res.data?.status === 'success' && res.data?.data) {
+          const liveCustomers = res.data.data
+            .filter(u => u.role === 'customer')
+            .map((u, idx) => ({
+              id: u.id || `CUST-${idx + 1}`,
+              name: u.name,
+              email: u.email,
+              phone: u.phone || 'N/A',
+              program: 'Hypertrophy & Conditioning',
+              goal: 'Personal Training Program',
+              status: 'Active Member'
+            }));
+          setClients(liveCustomers);
+        }
+      } catch (err) {
+        console.log('Error fetching trainer clients:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrainerClients();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#090C0E] text-white flex flex-col font-sans selection:bg-[#FF2E4C]">
@@ -52,23 +78,23 @@ export default function TrainerDashboard({ user, onLogout }) {
       <main className="p-8 max-w-6xl mx-auto w-full space-y-8 flex-1">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black font-heading uppercase text-white">COACH SCHEDULE & CLIENTS</h1>
+            <h1 className="text-3xl font-black font-heading uppercase text-white">COACH SCHEDULE & ATHLETES</h1>
             <p className="text-xs text-[#8A94A0]">Manage personal training sessions, athlete workout plans, and physical progress.</p>
           </div>
           <span className="px-4 py-2 rounded-full bg-purple-950/80 border border-purple-800 text-purple-400 text-xs font-mono">
-            ★ MASTER COACH (24 ACTIVE CLIENTS)
+            ★ MASTER COACH ({clients.length} REGISTERED CUSTOMERS)
           </span>
         </div>
 
         {/* Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="p-6 rounded-3xl bg-[#12161A] border border-white/10 space-y-2">
-            <span className="text-xs font-mono text-[#8A94A0]">TODAY'S SESSIONS</span>
-            <h3 className="text-3xl font-black font-heading text-white">6 Athletes</h3>
+            <span className="text-xs font-mono text-[#8A94A0]">ASSIGNED ATHLETES</span>
+            <h3 className="text-3xl font-black font-heading text-white">{clients.length} Registered</h3>
           </div>
           <div className="p-6 rounded-3xl bg-[#12161A] border border-white/10 space-y-2">
             <span className="text-xs font-mono text-[#8A94A0]">COACH RATING</span>
-            <h3 className="text-3xl font-black font-heading text-amber-400">4.98 ★</h3>
+            <h3 className="text-3xl font-black font-heading text-amber-400">5.0 ★</h3>
           </div>
           <div className="p-6 rounded-3xl bg-[#12161A] border border-white/10 space-y-2">
             <span className="text-xs font-mono text-[#8A94A0]">SHIFT TIMING</span>
@@ -79,30 +105,39 @@ export default function TrainerDashboard({ user, onLogout }) {
         {/* Assigned Clients */}
         <div className="p-6 rounded-3xl bg-[#12161A] border border-white/10 space-y-4 shadow-2xl">
           <h3 className="text-xl font-black font-heading text-white uppercase flex items-center gap-2">
-            <Dumbbell className="text-[#FF2E4C]" size={22} /> ASSIGNED ATHLETES & WORKOUT PLANS
+            <Dumbbell className="text-[#FF2E4C]" size={22} /> REGISTERED CUSTOMERS & WORKOUT PLANS
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {clients.map(client => (
-              <div key={client.id} className="p-5 rounded-2xl bg-[#090C0E] border border-white/5 space-y-3 flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-bold text-white text-base">{client.name}</h4>
-                    <span className="px-2.5 py-0.5 rounded-full bg-purple-950/60 text-purple-400 text-[10px] font-mono">
-                      {client.status}
-                    </span>
+
+          {loading ? (
+            <div className="p-12 text-center text-slate-400 text-xs">Loading registered customers from database...</div>
+          ) : clients.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-sm">
+              No registered customers found in the database.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {clients.map(client => (
+                <div key={client.id} className="p-5 rounded-2xl bg-[#090C0E] border border-white/5 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-bold text-white text-base">{client.name}</h4>
+                      <span className="px-2.5 py-0.5 rounded-full bg-purple-950/60 text-purple-400 text-[10px] font-mono">
+                        {client.status}
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono text-[#FF2E4C] block">{client.program}</span>
+                    <p className="text-xs text-[#8A94A0] mt-1">{client.email} • {client.phone}</p>
                   </div>
-                  <span className="text-xs font-mono text-[#FF2E4C] block">{client.program}</span>
-                  <p className="text-xs text-[#8A94A0] mt-1">{client.goal}</p>
+                  <button 
+                    onClick={() => showToast(`Updated workout log for ${client.name}`)}
+                    className="w-full py-2 rounded-xl bg-[#12161A] border border-white/10 hover:border-[#FF2E4C] text-white text-xs font-bold uppercase tracking-wider cursor-pointer transition-all"
+                  >
+                    Log Workout Progress
+                  </button>
                 </div>
-                <button 
-                  onClick={() => showToast(`Updated workout log for ${client.name}`)}
-                  className="w-full py-2 rounded-xl bg-[#12161A] border border-white/10 hover:border-[#FF2E4C] text-white text-xs font-bold uppercase tracking-wider"
-                >
-                  Log Workout Progress
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 

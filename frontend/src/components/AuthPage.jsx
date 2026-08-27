@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff, Activity, ArrowLeft, Phone } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import './AuthModal.css';
 
-export default function AuthPage({ user, onAuthSuccess }) {
+export default function AuthPage({ onAuthSuccess }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, isAuthenticated, login, signup } = useAuth();
 
   // Determine initial mode from current path (/signup vs /login)
   const isSignUpPath = location.pathname === '/signup' || location.pathname === '/register';
@@ -18,92 +20,67 @@ export default function AuthPage({ user, onAuthSuccess }) {
   const [signUpData, setSignUpData] = useState({ name: '', email: '', phone: '', password: '' });
   const [errorMsg, setErrorMsg] = useState('');
 
+  // If already authenticated, redirect appropriately
   useEffect(() => {
     const isSignUp = location.pathname === '/signup' || location.pathname === '/register';
     setIsRightPanelActive(isSignUp);
     setErrorMsg('');
 
-    if (user && (user.role === 'admin' || user.email?.toLowerCase().trim() === 'abhigangamolla@gmail.com')) {
-      navigate('/admin', { replace: true });
-    } else if (user && user.role === 'receptionist') {
-      navigate('/receptionist', { replace: true });
-    } else if (user && user.role === 'trainer') {
-      navigate('/trainer', { replace: true });
+    if (isAuthenticated && user) {
+      const userRole = (user.role || '').toLowerCase().trim();
+      const redirectFrom = location.state?.from?.pathname;
+
+      if (redirectFrom && redirectFrom !== '/login' && redirectFrom !== '/signup') {
+        navigate(redirectFrom, { replace: true });
+      } else if (userRole === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (userRole === 'receptionist') {
+        navigate('/receptionist', { replace: true });
+      } else if (userRole === 'trainer') {
+        navigate('/trainer', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     }
-  }, [location.pathname, user]);
+  }, [location.pathname, isAuthenticated, user, navigate, location.state]);
 
   const handleSignInSubmit = async (e) => {
     e.preventDefault();
     if (!signInData.email || !signInData.password) {
-      setErrorMsg('Please fill in all email and password fields.');
+      setErrorMsg('Please fill in both email and password fields.');
       return;
     }
     setErrorMsg('');
     setLoading(true);
 
-    const inputEmail = signInData.email.toLowerCase().trim();
-    const isAdminEmail = inputEmail.includes('abhigangamoll') || inputEmail.includes('admin') || inputEmail === 'abhishek';
-    const isReceptionist = inputEmail.includes('receptionist') || inputEmail.includes('frontdesk');
-    const isTrainer = inputEmail.includes('trainer') || inputEmail.includes('coach');
-
     try {
-      const res = await fetch('http://localhost:5050/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inputEmail, password: signInData.password })
-      });
-      const data = await res.json();
-      if (res.ok && data?.data?.user) {
-        setLoading(false);
-        const userObj = { ...data.data.user, token: data.data.token };
-        if (isAdminEmail) userObj.role = 'admin';
+      const result = await login(signInData.email, signInData.password);
+      setLoading(false);
 
-        if (onAuthSuccess) onAuthSuccess(userObj, 'sign-in');
+      if (result.success && result.user) {
+        if (onAuthSuccess) onAuthSuccess(result.user, 'sign-in');
 
-        if (userObj.role === 'admin' || isAdminEmail) {
-          navigate('/admin');
-        } else if (userObj.role === 'receptionist' || isReceptionist) {
-          navigate('/receptionist');
-        } else if (userObj.role === 'trainer' || isTrainer) {
-          navigate('/trainer');
+        const role = (result.user.role || '').toLowerCase().trim();
+        const fromPath = location.state?.from?.pathname;
+
+        if (fromPath && fromPath !== '/login' && fromPath !== '/signup') {
+          navigate(fromPath, { replace: true });
+        } else if (role === 'admin') {
+          navigate('/admin', { replace: true });
+        } else if (role === 'receptionist') {
+          navigate('/receptionist', { replace: true });
+        } else if (role === 'trainer') {
+          navigate('/trainer', { replace: true });
         } else {
-          navigate('/');
+          navigate('/', { replace: true });
         }
-        return;
       } else {
-        setErrorMsg(data.message || 'Invalid login credentials.');
-        setLoading(false);
-        return;
+        setErrorMsg(result.message || 'Invalid email or password.');
       }
     } catch (err) {
-      console.log('Backend API unreachable, processing fallback authentication.');
-    }
-
-    setTimeout(() => {
       setLoading(false);
-      let detectedRole = 'customer';
-      if (isAdminEmail) detectedRole = 'admin';
-      else if (isReceptionist) detectedRole = 'receptionist';
-      else if (isTrainer) detectedRole = 'trainer';
-
-      const userObj = {
-        name: isAdminEmail ? 'abhishek' : signInData.email.split('@')[0],
-        email: inputEmail,
-        role: detectedRole,
-        token: 'titan_jwt_token_sample_' + Date.now(),
-      };
-      if (onAuthSuccess) onAuthSuccess(userObj, 'sign-in');
-
-      if (userObj.role === 'admin') {
-        navigate('/admin');
-      } else if (userObj.role === 'receptionist') {
-        navigate('/receptionist');
-      } else if (userObj.role === 'trainer') {
-        navigate('/trainer');
-      } else {
-        navigate('/');
-      }
-    }, 500);
+      setErrorMsg('An unexpected error occurred. Please try again.');
+    }
   };
 
   const handleSignUpSubmit = async (e) => {
@@ -116,55 +93,19 @@ export default function AuthPage({ user, onAuthSuccess }) {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5050/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: signUpData.name,
-          email: signUpData.email,
-          phone: signUpData.phone,
-          password: signUpData.password,
-          role: 'customer' // All public registrations are created as Customer/Member
-        })
-      });
-      const data = await res.json();
-      if (res.ok && data?.data?.user) {
-        setLoading(false);
-        const userObj = { ...data.data.user, role: 'customer', token: data.data.token };
-        if (onAuthSuccess) onAuthSuccess(userObj, 'sign-up');
-        navigate('/');
-        return;
+      const result = await signup(signUpData);
+      setLoading(false);
+
+      if (result.success && result.user) {
+        if (onAuthSuccess) onAuthSuccess(result.user, 'sign-up');
+        navigate('/', { replace: true });
+      } else {
+        setErrorMsg(result.message || 'Registration failed.');
       }
     } catch (err) {
-      console.log('Backend API unreachable, using local auth simulation.');
+      setLoading(false);
+      setErrorMsg('An unexpected error occurred during registration.');
     }
-
-    setTimeout(() => {
-      setLoading(false);
-      const userObj = {
-        name: signUpData.name,
-        email: signUpData.email,
-        phone: signUpData.phone,
-        role: 'customer', // Always customer
-        token: 'titan_jwt_token_sample_' + Date.now(),
-      };
-      if (onAuthSuccess) onAuthSuccess(userObj, 'sign-up');
-      navigate('/');
-    }, 500);
-  };
-
-  const handleSocialAuth = (provider) => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      const userObj = {
-        name: `${provider} Athlete`,
-        email: `athlete@${provider.toLowerCase()}.com`,
-        token: `titan_${provider}_token_` + Date.now(),
-      };
-      if (onAuthSuccess) onAuthSuccess(userObj, provider);
-      navigate('/');
-    }, 500);
   };
 
   const switchToSignUp = () => {
@@ -209,7 +150,7 @@ export default function AuthPage({ user, onAuthSuccess }) {
         </Link>
       </header>
 
-      {/* Main Double-Slider Container Card (Fits Screen Perfectly) */}
+      {/* Main Double-Slider Container Card */}
       <div className="w-full max-w-4xl z-10 flex flex-col items-center justify-center pt-12">
         <div className="auth-wrapper">
           <div className={`auth-container ${isRightPanelActive ? 'right-panel-active' : ''}`} id="container">
@@ -223,21 +164,15 @@ export default function AuthPage({ user, onAuthSuccess }) {
                 </div>
                 <span>Join TITAN PULSE 3D Gym Ecosystem</span>
 
-                {/* Social Login */}
                 <div className="social-container">
-                  <button type="button" title="Sign up with Google" onClick={() => handleSocialAuth('Google')}>
+                  <button type="button" title="Sign up with Google" onClick={() => alert('Social authentication will use OAuth provider.')}>
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                       <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
                     </svg>
                   </button>
-                  <button type="button" title="Sign up with GitHub" onClick={() => handleSocialAuth('GitHub')}>
+                  <button type="button" title="Sign up with GitHub" onClick={() => alert('Social authentication will use OAuth provider.')}>
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                       <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-                    </svg>
-                  </button>
-                  <button type="button" title="Sign up with Facebook" onClick={() => handleSocialAuth('Facebook')}>
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                     </svg>
                   </button>
                 </div>
@@ -245,7 +180,7 @@ export default function AuthPage({ user, onAuthSuccess }) {
                 <span>or use your email for registration</span>
 
                 {errorMsg && isRightPanelActive && (
-                  <div className="text-red-400 text-xs mb-2 font-mono bg-red-950/40 border border-red-800/60 px-3 py-1 rounded-lg w-full">
+                  <div className="text-red-400 text-xs mb-2 font-mono bg-red-950/60 border border-red-800 px-3 py-1.5 rounded-lg w-full">
                     {errorMsg}
                   </div>
                 )}
@@ -278,7 +213,6 @@ export default function AuthPage({ user, onAuthSuccess }) {
                     placeholder="Phone Number" 
                     value={signUpData.phone}
                     onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value })}
-                    required
                   />
                   <Phone className="auth-input-icon" size={18} />
                 </div>
@@ -302,7 +236,7 @@ export default function AuthPage({ user, onAuthSuccess }) {
                 </div>
 
                 <button type="submit" className="auth-btn-primary" disabled={loading}>
-                  {loading ? 'Registering...' : 'Register'}
+                  {loading ? 'Creating Account...' : 'Register'}
                 </button>
 
                 <div className="mobile-auth-switch">
@@ -321,29 +255,23 @@ export default function AuthPage({ user, onAuthSuccess }) {
                 </div>
                 <span>Access Telemetry & Member Pass</span>
 
-                {/* Social Login */}
                 <div className="social-container">
-                  <button type="button" title="Sign in with Google" onClick={() => handleSocialAuth('Google')}>
+                  <button type="button" title="Sign in with Google" onClick={() => alert('Social authentication will use OAuth provider.')}>
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                       <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
                     </svg>
                   </button>
-                  <button type="button" title="Sign in with GitHub" onClick={() => handleSocialAuth('GitHub')}>
+                  <button type="button" title="Sign in with GitHub" onClick={() => alert('Social authentication will use OAuth provider.')}>
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
                       <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
                     </svg>
                   </button>
-                  <button type="button" title="Sign in with Facebook" onClick={() => handleSocialAuth('Facebook')}>
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                    </svg>
-                  </button>
                 </div>
 
-                <span>or use your member email</span>
+                <span>or use your member credentials</span>
 
                 {errorMsg && !isRightPanelActive && (
-                  <div className="text-red-400 text-xs mb-2 font-mono bg-red-950/40 border border-red-800/60 px-3 py-1 rounded-lg w-full">
+                  <div className="text-red-400 text-xs mb-2 font-mono bg-red-950/60 border border-red-800 px-3 py-1.5 rounded-lg w-full">
                     {errorMsg}
                   </div>
                 )}
@@ -382,7 +310,7 @@ export default function AuthPage({ user, onAuthSuccess }) {
                   className="forgot-pass-link"
                   onClick={(e) => {
                     e.preventDefault();
-                    alert('Password reset link sent to your email!');
+                    alert('Password reset link sent to your registered email!');
                   }}
                 >
                   Forgot your password?
@@ -403,7 +331,7 @@ export default function AuthPage({ user, onAuthSuccess }) {
             <div className="overlay-container">
               <div className="overlay">
                 
-                {/* LEFT OVERLAY PANEL (Shows when Sign Up is Active -> Click to Sign In) */}
+                {/* LEFT OVERLAY PANEL */}
                 <div className="overlay-panel overlay-left">
                   <h1 className="text-3xl font-extrabold font-bebas tracking-wide mb-2">WELCOME BACK!</h1>
                   <p className="text-xs text-white/80 leading-relaxed mb-4">
@@ -418,7 +346,7 @@ export default function AuthPage({ user, onAuthSuccess }) {
                   </button>
                 </div>
 
-                {/* RIGHT OVERLAY PANEL (Shows when Sign In is Active -> Click to Sign Up) */}
+                {/* RIGHT OVERLAY PANEL */}
                 <div className="overlay-panel overlay-right">
                   <h1 className="text-3xl font-extrabold font-bebas tracking-wide mb-2">HELLO, ATHLETE!</h1>
                   <p className="text-xs text-white/80 leading-relaxed mb-4">

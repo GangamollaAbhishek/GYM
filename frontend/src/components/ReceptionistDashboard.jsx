@@ -38,6 +38,7 @@ import {
   CheckSquare
 } from 'lucide-react';
 import GooeySearch from './GooeySearch';
+import api from '../lib/api';
 
 export default function ReceptionistDashboard({ user, onLogout }) {
   const navigate = useNavigate();
@@ -52,115 +53,62 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   };
 
   // -------------------------------------------------------------
-  // 1. CUSTOMERS DATABASE STATE
+  // 1. LIVE CUSTOMERS & TRAINERS FROM MONGODB DATABASE
   // -------------------------------------------------------------
-  const [customers, setCustomers] = useState([
-    {
-      id: 'CUST-301',
-      name: 'Rohan Mehta',
-      email: 'rohan@gmail.com',
-      phone: '+91 98765 43210',
-      plan: 'Titan Elite All-Access',
-      planDuration: 'Annual',
-      startDate: '2026-01-01',
-      expiryDate: '2026-12-31',
-      status: 'Active',
-      amountPaid: 49999,
-      paymentMethod: 'UPI / GPay'
-    },
-    {
-      id: 'CUST-302',
-      name: 'Ananya Roy',
-      email: 'ananya@gmail.com',
-      phone: '+91 98123 45678',
-      plan: '3D Pro Telemetry Pass',
-      planDuration: 'Quarterly',
-      startDate: '2026-06-15',
-      expiryDate: '2026-09-15',
-      status: 'Active',
-      amountPaid: 9999,
-      paymentMethod: 'Credit Card'
-    },
-    {
-      id: 'CUST-303',
-      name: 'Kabir Verma',
-      email: 'kabir.v@gmail.com',
-      phone: '+91 97654 32109',
-      plan: 'Standard Fit Arena',
-      planDuration: 'Monthly',
-      startDate: '2026-07-30',
-      expiryDate: '2026-08-30',
-      status: 'Due Soon',
-      amountPaid: 1999,
-      paymentMethod: 'Cash'
-    },
-    {
-      id: 'CUST-304',
-      name: 'Sneha Kapoor',
-      email: 'sneha.k@gmail.com',
-      phone: '+91 96543 21098',
-      plan: 'Titan Elite All-Access',
-      planDuration: 'Half-Yearly',
-      startDate: '2026-05-20',
-      expiryDate: '2026-11-20',
-      status: 'Active',
-      amountPaid: 26999,
-      paymentMethod: 'UPI'
-    },
-    {
-      id: 'CUST-305',
-      name: 'Vikramaditya Rao',
-      email: 'vikram.rao@gmail.com',
-      phone: '+91 95432 10987',
-      plan: 'Standard Fit Arena',
-      planDuration: 'Monthly',
-      startDate: '2026-07-10',
-      expiryDate: '2026-08-10',
-      status: 'Expired',
-      amountPaid: 1999,
-      paymentMethod: 'Razorpay'
+  const [customers, setCustomers] = useState([]);
+  const [trainers, setTrainers] = useState([]);
+  const [attendanceLogs, setAttendanceLogs] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [enquiries, setEnquiries] = useState([]);
+
+  const fetchData = async () => {
+    try {
+      const res = await api.get('/api/users');
+      if (res.data?.status === 'success' && res.data?.data) {
+        const allUsers = res.data.data;
+
+        // Live Customers
+        const liveCustomers = allUsers
+          .filter(u => u.role === 'customer')
+          .map((u, idx) => ({
+            id: u.displayId || `CUST-${301 + idx}`,
+            userId: u.id,
+            name: u.name,
+            email: u.email,
+            phone: u.phone && u.phone !== 'N/A' ? u.phone : 'N/A',
+            plan: 'Titan Elite All-Access',
+            planDuration: 'Monthly',
+            startDate: '2026-08-01',
+            expiryDate: '2027-01-01',
+            status: u.status || 'Active',
+            amountPaid: 4999,
+            paymentMethod: 'UPI / GPay'
+          }));
+        setCustomers(liveCustomers);
+
+        // Live Trainers
+        const liveTrainers = allUsers
+          .filter(u => u.role === 'trainer')
+          .map((u, idx) => ({
+            id: u.displayId || `TRN-${501 + idx}`,
+            userId: u.id,
+            name: u.name,
+            spec: 'Master Coach',
+            shift: '06:00 AM - 02:00 PM',
+            clientsToday: 0,
+            status: 'Available',
+            phone: u.phone || 'N/A'
+          }));
+        setTrainers(liveTrainers);
+      }
+    } catch (err) {
+      console.log('Error fetching receptionist data:', err);
     }
-  ]);
+  };
 
-  // -------------------------------------------------------------
-  // 2. CHECK-IN / CHECK-OUT LOGS
-  // -------------------------------------------------------------
-  const [attendanceLogs, setAttendanceLogs] = useState([
-    { id: 'LOG-101', name: 'Rohan Mehta', customerId: 'CUST-301', plan: 'Titan Elite Pass', terminal: 'Gate Terminal A1', timeIn: '08:15 AM', timeOut: '--', status: 'Active Inside' },
-    { id: 'LOG-102', name: 'Ananya Roy', customerId: 'CUST-302', plan: '3D Telemetry Pass', terminal: 'Gate Terminal B2', timeIn: '08:42 AM', timeOut: '09:55 AM', status: 'Checked Out' },
-    { id: 'LOG-103', name: 'Sneha Kapoor', customerId: 'CUST-304', plan: 'Titan Elite Pass', terminal: 'Gate Terminal A1', timeIn: '09:05 AM', timeOut: '--', status: 'Active Inside' },
-    { id: 'LOG-104', name: 'Kabir Verma', customerId: 'CUST-303', plan: 'Standard Fit', terminal: 'Gate Terminal A2', timeIn: '09:30 AM', timeOut: '--', status: 'Active Inside' },
-  ]);
-
-  // -------------------------------------------------------------
-  // 3. INVOICES & PAYMENTS DATABASE
-  // -------------------------------------------------------------
-  const [invoices, setInvoices] = useState([
-    { id: 'INV-2026-01', customerName: 'Rohan Mehta', customerId: 'CUST-301', plan: 'Titan Elite All-Access (Annual)', amount: 49999, tax: 8999, total: 58998, date: '2026-01-01', paymentMethod: 'UPI / GPay', status: 'Paid' },
-    { id: 'INV-2026-02', customerName: 'Ananya Roy', customerId: 'CUST-302', plan: '3D Pro Telemetry Pass (Quarterly)', amount: 9999, tax: 1799, total: 11798, date: '2026-06-15', paymentMethod: 'Credit Card', status: 'Paid' },
-    { id: 'INV-2026-03', customerName: 'Kabir Verma', customerId: 'CUST-303', plan: 'Standard Fit Arena (Monthly)', amount: 1999, tax: 359, total: 2358, date: '2026-07-30', paymentMethod: 'Cash', status: 'Paid' },
-    { id: 'INV-2026-04', customerName: 'Sneha Kapoor', customerId: 'CUST-304', plan: 'Titan Elite All-Access (Half-Yearly)', amount: 26999, tax: 4859, total: 31858, date: '2026-05-20', paymentMethod: 'UPI', status: 'Paid' },
-  ]);
-
-  // -------------------------------------------------------------
-  // 4. TRAINER AVAILABILITY & SHIFTS
-  // -------------------------------------------------------------
-  const [trainers, setTrainers] = useState([
-    { id: 'TRN-501', name: 'Vikram Singh', spec: 'Hypertrophy & Powerlifting', shift: '06:00 AM - 02:00 PM', clientsToday: 6, status: 'Available', phone: '+91 98888 11111' },
-    { id: 'TRN-502', name: 'Elena Rostova', spec: 'Olympic Weightlifting', shift: '01:00 PM - 09:00 PM', clientsToday: 4, status: 'In Session', phone: '+91 98888 22222' },
-    { id: 'TRN-503', name: 'Marcus Brody', spec: 'CrossFit & Conditioning', shift: '06:00 AM - 02:00 PM', clientsToday: 7, status: 'Available', phone: '+91 98888 33333' },
-    { id: 'TRN-504', name: 'Aarav Patel', spec: 'Calisthenics & Mobility', shift: '02:00 PM - 10:00 PM', clientsToday: 3, status: 'Off Duty', phone: '+91 98888 44444' },
-  ]);
-
-  // -------------------------------------------------------------
-  // 5. ENQUIRIES & LEADS PIPELINE
-  // -------------------------------------------------------------
-  const [enquiries, setEnquiries] = useState([
-    { id: 'ENQ-401', name: 'Siddharth Rao', email: 'siddharth@gmail.com', phone: '+91 91112 22333', goal: 'Muscle Gain & PT', source: 'Instagram Ad', status: 'New Lead', date: '2026-08-26' },
-    { id: 'ENQ-402', name: 'Pooja Hegde', email: 'pooja.h@gmail.com', phone: '+91 92223 33444', goal: 'Fat Loss & HIIT Decks', source: 'Walk-in', status: 'Contacted', date: '2026-08-25' },
-    { id: 'ENQ-403', name: 'Karan Sharma', email: 'karan.s@gmail.com', phone: '+91 93334 44555', goal: 'VIP All-Access Pass', source: 'Referral', status: 'Trial Booked', date: '2026-08-24' },
-    { id: 'ENQ-404', name: 'Meera Nambiar', email: 'meera.n@gmail.com', phone: '+91 94445 55666', goal: 'Strength Conditioning', source: 'Website', status: 'Converted', date: '2026-08-23' },
-  ]);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   // -------------------------------------------------------------
   // MODALS STATE
@@ -205,15 +153,14 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   // Quick Check-in input
   const [quickCheckinInput, setQuickCheckinInput] = useState('');
 
-  // Handle Quick Check-in
+  // Handle Quick RFID / Customer Scan Check-in
   const handleQuickCheckin = (e) => {
     e.preventDefault();
     if (!quickCheckinInput.trim()) return;
 
-    // Search in customers
     const matched = customers.find(c =>
-      c.name.toLowerCase().includes(quickCheckinInput.toLowerCase()) ||
       c.id.toLowerCase() === quickCheckinInput.toLowerCase() ||
+      c.name.toLowerCase().includes(quickCheckinInput.toLowerCase()) ||
       c.phone.includes(quickCheckinInput)
     );
 
@@ -249,57 +196,37 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     showToast(`✓ Check-out recorded: ${name} (${timeOutStr})`);
   };
 
-  // Handle New Customer Registration
-  const handleRegisterCustomer = (e) => {
+  // Handle New Customer Registration & Onboarding with Membership
+  const handleRegisterCustomer = async (e) => {
     e.preventDefault();
-    if (!regForm.name || !regForm.email || !regForm.phone) {
+    if (!regForm.name || !regForm.email) {
       showToast('Please fill all required customer details.');
       return;
     }
 
-    const newId = `CUST-${300 + customers.length + 1}`;
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Calculate expiry based on duration
-    const expDate = new Date();
-    if (regForm.duration === 'Monthly') expDate.setMonth(expDate.getMonth() + 1);
-    else if (regForm.duration === 'Quarterly') expDate.setMonth(expDate.getMonth() + 3);
-    else if (regForm.duration === 'Half-Yearly') expDate.setMonth(expDate.getMonth() + 6);
-    else if (regForm.duration === 'Annual') expDate.setFullYear(expDate.getFullYear() + 1);
+    try {
+      const res = await api.post('/api/users', {
+        name: regForm.name,
+        email: regForm.email,
+        phone: regForm.phone || '',
+        role: 'customer',
+        password: 'Customer@123',
+        plan: regForm.plan,
+        duration: regForm.duration,
+        amount: regForm.amount,
+        paymentMethod: regForm.paymentMethod
+      });
 
-    const newCust = {
-      id: newId,
-      name: regForm.name,
-      email: regForm.email,
-      phone: regForm.phone,
-      plan: regForm.plan,
-      planDuration: regForm.duration,
-      startDate: today,
-      expiryDate: expDate.toISOString().split('T')[0],
-      status: 'Active',
-      amountPaid: Number(regForm.amount),
-      paymentMethod: regForm.paymentMethod
-    };
+      if (res.data?.status === 'success') {
+        showToast(`✓ Onboarded ${regForm.name} with ${regForm.plan}!`);
+        fetchData();
+      } else {
+        showToast(res.data?.message || 'Error registering customer');
+      }
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Error saving customer to database');
+    }
 
-    setCustomers([newCust, ...customers]);
-
-    // Create Invoice
-    const taxAmt = Math.round(regForm.amount * 0.18);
-    const newInv = {
-      id: `INV-2026-${String(invoices.length + 1).padStart(2, '0')}`,
-      customerName: regForm.name,
-      customerId: newId,
-      plan: `${regForm.plan} (${regForm.duration})`,
-      amount: Number(regForm.amount),
-      tax: taxAmt,
-      total: Number(regForm.amount) + taxAmt,
-      date: today,
-      paymentMethod: regForm.paymentMethod,
-      status: 'Paid'
-    };
-
-    setInvoices([newInv, ...invoices]);
-    showToast(`✓ Registered ${regForm.name} (ID: ${newId})! Invoice generated.`);
     setShowRegModal(false);
     setRegForm({
       name: '',
@@ -313,44 +240,28 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   };
 
   // Handle Membership Renewal
-  const handleRenewSubmit = (e) => {
+  const handleRenewSubmit = async (e) => {
     e.preventDefault();
     if (!selectedCustomer) return;
 
-    const currentExp = new Date(selectedCustomer.expiryDate > new Date().toISOString().split('T')[0] ? selectedCustomer.expiryDate : new Date());
-    currentExp.setMonth(currentExp.getMonth() + Number(renewForm.extensionMonths));
-    const newExpiry = currentExp.toISOString().split('T')[0];
+    try {
+      const targetUserId = selectedCustomer.userId || selectedCustomer.id;
+      const res = await api.put(`/api/users/${targetUserId}/membership`, {
+        plan: renewForm.plan,
+        duration: renewForm.duration,
+        amount: renewForm.amount,
+        paymentMethod: renewForm.paymentMethod
+      });
 
-    setCustomers(prev => prev.map(c => {
-      if (c.id === selectedCustomer.id) {
-        return {
-          ...c,
-          expiryDate: newExpiry,
-          status: 'Active',
-          plan: renewForm.plan,
-          planDuration: renewForm.duration
-        };
+      if (res.data?.status === 'success') {
+        showToast(`✓ Renewed ${selectedCustomer.name}'s membership plan to ${renewForm.plan}!`);
+        fetchData();
       }
-      return c;
-    }));
+    } catch (err) {
+      console.log('Error updating membership renewal:', err);
+      showToast('Error updating renewal in database.');
+    }
 
-    // Create Renewal Invoice
-    const taxAmt = Math.round(renewForm.amount * 0.18);
-    const newInv = {
-      id: `INV-2026-${String(invoices.length + 1).padStart(2, '0')}`,
-      customerName: selectedCustomer.name,
-      customerId: selectedCustomer.id,
-      plan: `Renewal: ${renewForm.plan} (+${renewForm.extensionMonths} Months)`,
-      amount: Number(renewForm.amount),
-      tax: taxAmt,
-      total: Number(renewForm.amount) + taxAmt,
-      date: new Date().toISOString().split('T')[0],
-      paymentMethod: renewForm.paymentMethod,
-      status: 'Paid'
-    };
-
-    setInvoices([newInv, ...invoices]);
-    showToast(`✓ Membership renewed for ${selectedCustomer.name} until ${newExpiry}!`);
     setShowRenewModal(false);
   };
 
@@ -619,7 +530,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   <div className="relative flex-1">
                     <input 
                       type="text" 
-                      placeholder="Scan RFID barcode or enter Customer Name / Phone / ID (e.g. Rohan Mehta, CUST-301)..."
+                      placeholder="Scan RFID barcode or enter Customer Name / Phone / ID..."
                       value={quickCheckinInput}
                       onChange={(e) => setQuickCheckinInput(e.target.value)}
                       className="w-full bg-[#090C0E] border border-white/15 rounded-2xl px-5 py-3.5 pl-12 text-sm text-white placeholder-slate-500 outline-none focus:border-amber-400 transition-colors"
@@ -763,7 +674,13 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                               <span className="block">{c.phone}</span>
                               <span className="text-[11px] text-slate-500">{c.email}</span>
                             </td>
-                            <td className="p-4 font-semibold text-slate-200">{c.plan}</td>
+                            <td className="p-4">
+                              {c.plan === 'No Active Plan' ? (
+                                <span className="text-slate-500 font-mono text-xs italic">No Active Plan</span>
+                              ) : (
+                                <span className="font-semibold text-slate-200">{c.plan}</span>
+                              )}
+                            </td>
                             <td className="p-4 text-slate-400">{c.planDuration}</td>
                             <td className="p-4 font-mono text-slate-300">{c.expiryDate}</td>
                             <td className="p-4">
@@ -772,7 +689,9 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                   ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' 
                                   : c.status === 'Due Soon'
                                   ? 'bg-amber-950/60 text-amber-400 border border-amber-800'
-                                  : 'bg-red-950/60 text-red-400 border border-red-800'
+                                  : c.status === 'Expired'
+                                  ? 'bg-red-950/60 text-red-400 border border-red-800'
+                                  : 'bg-slate-800/80 text-slate-400 border border-slate-700'
                               }`}>
                                 ● {c.status}
                               </span>
@@ -785,7 +704,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                 }}
                                 className="px-3 py-1.5 rounded-lg bg-[#090C0E] border border-amber-500/50 hover:bg-amber-500 text-amber-400 hover:text-black font-semibold transition-all cursor-pointer"
                               >
-                                Renew Plan
+                                {c.plan === 'No Active Plan' ? 'Assign Plan' : 'Renew Plan'}
                               </button>
                             </td>
                           </tr>

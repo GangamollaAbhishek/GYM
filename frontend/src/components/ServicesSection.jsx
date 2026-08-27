@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { cn } from '@/lib/utils';
 import { Sparkles, Check, ChevronRight, ChevronLeft, Zap, Crown, Percent } from 'lucide-react';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 
 function rr(x, px, py, w, h, r) {
   x.beginPath();
@@ -35,9 +36,14 @@ function drawSpaced(x, text, cx, y, ls) {
 }
 
 // Procedural Canvas Cover Painters for Pro, Elite, and PT Training (Indian Rupees ₹)
-function paintProFront(x, w, h, isYearly) {
-  const priceText = isYearly ? '₹24,999 / YEAR' : '₹2,499 / MONTH';
-  const badgeSub = isYearly ? 'SAVE ₹5,000 ANNUALLY' : 'BIOMETRIC UNLOCKED • 24/7 ACCESS';
+function paintProFront(x, w, h, isYearly, cfg) {
+  const dyn = cfg?.dynamicData;
+  const mPrice = dyn?.price || 2499;
+  const yPrice = dyn?.annualPrice || 24999;
+  const priceText = isYearly ? `₹${Number(yPrice).toLocaleString()} / YEAR` : `₹${Number(mPrice).toLocaleString()} / MONTH`;
+  const badgeTop = dyn?.badge || 'TITAN ALL-ACCESS PASS';
+  const badgeSub = isYearly ? 'SAVE ANNUALLY' : (dyn?.subBadge || 'BIOMETRIC UNLOCKED • 24/7 ACCESS');
+  const titleText = dyn?.name ? dyn.name.replace(/MEMBERSHIP/gi, '').trim() || 'PRO' : 'PRO';
 
   const g = x.createLinearGradient(0, 0, w, h);
   g.addColorStop(0, '#161b22');
@@ -72,12 +78,12 @@ function paintProFront(x, w, h, isYearly) {
   x.fillStyle = '#FFFFFF';
   x.font = '900 24px Inter, sans-serif';
   x.textAlign = 'center';
-  x.fillText('TITAN ALL-ACCESS PASS', w / 2, 156);
+  x.fillText(badgeTop, w / 2, 156);
 
   // Title
   x.fillStyle = '#FFFFFF';
   x.font = '900 100px Inter, sans-serif';
-  x.fillText('PRO', w / 2, h * 0.42);
+  x.fillText(titleText, w / 2, h * 0.42);
 
   x.fillStyle = '#FF2E4C';
   x.font = '800 36px Inter, sans-serif';
@@ -105,7 +111,7 @@ function paintProFront(x, w, h, isYearly) {
   x.fillText(badgeSub, w / 2, h - 140);
 }
 
-function paintProBack(x, w, h) {
+function paintProBack(x, w, h, isYearly, cfg) {
   x.fillStyle = '#0f1318';
   x.fillRect(0, 0, w, h);
 
@@ -126,12 +132,18 @@ function paintProBack(x, w, h) {
   x.font = '700 24px Inter, sans-serif';
   x.fillText('TERMS & BIOMETRIC RULES', w / 2, 250);
 
+  const perks = cfg?.chapters || [
+    'All-Access Gym Floor & Cardio Zone',
+    'Biometric Smart Locker Activation',
+    'Automated 3D Telemetry Body Scan',
+    'Hydro-Sauna Recovery Lounge'
+  ];
+
   x.fillStyle = '#A0AEC0';
   x.font = '500 20px Inter, sans-serif';
-  x.fillText('1. All-Access Gym Floor & Cardio Zone', w / 2, 310);
-  x.fillText('2. Biometric Smart Locker Activation', w / 2, 350);
-  x.fillText('3. Automated 3D Telemetry Body Scan', w / 2, 390);
-  x.fillText('4. Hydro-Sauna Recovery Lounge', w / 2, 430);
+  perks.slice(0, 4).forEach((p, idx) => {
+    x.fillText(`${idx + 1}. ${p}`, w / 2, 310 + idx * 40);
+  });
 
   // Barcode Box
   x.fillStyle = '#FFFFFF';
@@ -149,8 +161,11 @@ function paintProBack(x, w, h) {
   x.fillText('PRO-2026-TITAN-8890', w / 2, h - 165);
 }
 
-function paintProSpine(x, w, h, isYearly) {
-  const priceSpine = isYearly ? '₹24,999/YR' : '₹2,499/MO';
+function paintProSpine(x, w, h, isYearly, cfg) {
+  const dyn = cfg?.dynamicData;
+  const mPrice = dyn?.price || 2499;
+  const yPrice = dyn?.annualPrice || 24999;
+  const priceSpine = isYearly ? `₹${Number(yPrice).toLocaleString()}/YR` : `₹${Number(mPrice).toLocaleString()}/MO`;
   x.fillStyle = '#161b22';
   x.fillRect(0, 0, w, h);
   x.fillStyle = '#FF2E4C';
@@ -169,9 +184,14 @@ function paintProSpine(x, w, h, isYearly) {
   x.restore();
 }
 
-function paintEliteFront(x, w, h, isYearly) {
-  const priceText = isYearly ? '₹49,999 / YEAR' : '₹4,999 / MONTH';
-  const badgeSub = isYearly ? 'SAVE ₹10,000 ANNUALLY' : 'CRYOTHERAPY • HYDRO SUITE • GUEST PERKS';
+function paintEliteFront(x, w, h, isYearly, cfg) {
+  const dyn = cfg?.dynamicData;
+  const mPrice = dyn?.price || 4999;
+  const yPrice = dyn?.annualPrice || 49999;
+  const priceText = isYearly ? `₹${Number(yPrice).toLocaleString()} / YEAR` : `₹${Number(mPrice).toLocaleString()} / MONTH`;
+  const badgeSub = isYearly ? 'SAVE ANNUALLY' : (dyn?.subBadge || 'CRYOTHERAPY • HYDRO SUITE • GUEST PERKS');
+  const titleText = dyn?.name ? dyn.name.replace(/VIP ATHLETE STATUS/gi, '').trim() || 'ELITE' : 'ELITE';
+  const subTitle = dyn?.badge || 'VIP ATHLETE STATUS';
 
   const g = x.createLinearGradient(0, 0, w, h);
   g.addColorStop(0, '#1a1608');
@@ -202,11 +222,11 @@ function paintEliteFront(x, w, h, isYearly) {
   // Title
   x.fillStyle = '#FFD700';
   x.font = '900 96px Inter, sans-serif';
-  x.fillText('ELITE', w / 2, h * 0.41);
+  x.fillText(titleText, w / 2, h * 0.41);
 
   x.fillStyle = '#FFFFFF';
   x.font = '800 34px Inter, sans-serif';
-  x.fillText('VIP ATHLETE STATUS', w / 2, h * 0.41 + 60);
+  x.fillText(subTitle, w / 2, h * 0.41 + 60);
 
   x.fillStyle = '#D4AF37';
   x.font = '36px sans-serif';
@@ -229,7 +249,7 @@ function paintEliteFront(x, w, h, isYearly) {
   x.fillText(badgeSub, w / 2, h - 140);
 }
 
-function paintEliteBack(x, w, h) {
+function paintEliteBack(x, w, h, isYearly, cfg) {
   x.fillStyle = '#0a0d18';
   x.fillRect(0, 0, w, h);
 
@@ -250,12 +270,18 @@ function paintEliteBack(x, w, h) {
   x.font = '700 24px Inter, sans-serif';
   x.fillText('VIP ALL-ACCESS AMENITIES', w / 2, 250);
 
+  const perks = cfg?.chapters || [
+    'Unlimited Cryotherapy Chambers Access',
+    'Private Hydro-Massage Therapy Suite',
+    'Dedicated VIP Keycard Locker Lounge',
+    'Free Daily Micro-Nutrient Shake Bar'
+  ];
+
   x.fillStyle = '#D4AF37';
   x.font = '500 20px Inter, sans-serif';
-  x.fillText('1. Unlimited Cryotherapy Chambers Access', w / 2, 310);
-  x.fillText('2. Private Hydro-Massage Therapy Suite', w / 2, 350);
-  x.fillText('3. Dedicated VIP Keycard Locker Lounge', w / 2, 390);
-  x.fillText('4. Free Daily Micro-Nutrient Shake Bar', w / 2, 430);
+  perks.slice(0, 4).forEach((p, idx) => {
+    x.fillText(`${idx + 1}. ${p}`, w / 2, 310 + idx * 40);
+  });
 
   // Gold Barcode Box
   x.fillStyle = '#FFFDF5';
@@ -273,8 +299,11 @@ function paintEliteBack(x, w, h) {
   x.fillText('ELITE-2026-VIP-0001', w / 2, h - 165);
 }
 
-function paintEliteSpine(x, w, h, isYearly) {
-  const priceSpine = isYearly ? '₹49,999/YR' : '₹4,999/MO';
+function paintEliteSpine(x, w, h, isYearly, cfg) {
+  const dyn = cfg?.dynamicData;
+  const mPrice = dyn?.price || 4999;
+  const yPrice = dyn?.annualPrice || 49999;
+  const priceSpine = isYearly ? `₹${Number(yPrice).toLocaleString()}/YR` : `₹${Number(mPrice).toLocaleString()}/MO`;
   x.fillStyle = '#0a0d18';
   x.fillRect(0, 0, w, h);
   x.fillStyle = '#D4AF37';
@@ -293,9 +322,14 @@ function paintEliteSpine(x, w, h, isYearly) {
   x.restore();
 }
 
-function paintPTFront(x, w, h, isYearly) {
-  const priceText = isYearly ? '₹99,999 / YEAR' : '₹9,999 / MONTH';
-  const badgeSub = isYearly ? 'SAVE ₹20,000 ANNUALLY' : 'DEDICATED COACH • 3D BIO-SCANS • MEAL MATRIX';
+function paintPTFront(x, w, h, isYearly, cfg) {
+  const dyn = cfg?.dynamicData;
+  const mPrice = dyn?.price || 9999;
+  const yPrice = dyn?.annualPrice || 99999;
+  const priceText = isYearly ? `₹${Number(yPrice).toLocaleString()} / YEAR` : `₹${Number(mPrice).toLocaleString()} / MONTH`;
+  const badgeTop = dyn?.badge || '1-ON-1 MASTER COACHING';
+  const badgeSub = isYearly ? 'SAVE ANNUALLY' : (dyn?.subBadge || 'DEDICATED COACH • 3D BIO-SCANS • MEAL MATRIX');
+  const titleText = dyn?.name ? dyn.name.replace(/COACHING MANUAL/gi, '').trim() || 'PT VIP' : 'PT VIP';
 
   const g = x.createLinearGradient(0, 0, w, h);
   g.addColorStop(0, '#041624');
@@ -324,12 +358,12 @@ function paintPTFront(x, w, h, isYearly) {
   x.fillStyle = '#00F0FF';
   x.font = '900 22px Inter, sans-serif';
   x.textAlign = 'center';
-  x.fillText('1-ON-1 MASTER COACHING', w / 2, 156);
+  x.fillText(badgeTop, w / 2, 156);
 
   // Title
   x.fillStyle = '#FFFFFF';
   x.font = '900 88px Inter, sans-serif';
-  x.fillText('PT VIP', w / 2, h * 0.39);
+  x.fillText(titleText, w / 2, h * 0.39);
 
   x.fillStyle = '#00F0FF';
   x.font = '800 36px Inter, sans-serif';
@@ -356,7 +390,7 @@ function paintPTFront(x, w, h, isYearly) {
   x.fillText(badgeSub, w / 2, h - 140);
 }
 
-function paintPTBack(x, w, h) {
+function paintPTBack(x, w, h, isYearly, cfg) {
   x.fillStyle = '#090e17';
   x.fillRect(0, 0, w, h);
 
@@ -377,12 +411,18 @@ function paintPTBack(x, w, h) {
   x.font = '700 24px Inter, sans-serif';
   x.fillText('GUARANTEED TRANSFORMATION BLUEPRINT', w / 2, 250);
 
+  const perks = cfg?.chapters || [
+    'Dedicated 1-on-1 Master Fitness Coach',
+    'Weekly 3D Muscle & Body Fat Scans',
+    'Custom Macro & Nutrition Meal Matrix',
+    'Live Heart-Rate & Metabolic Telemetry'
+  ];
+
   x.fillStyle = '#00F0FF';
   x.font = '500 20px Inter, sans-serif';
-  x.fillText('1. Dedicated 1-on-1 Master Fitness Coach', w / 2, 310);
-  x.fillText('2. Weekly 3D Muscle & Body Fat Scans', w / 2, 350);
-  x.fillText('3. Custom Macro & Nutrition Meal Matrix', w / 2, 390);
-  x.fillText('4. Live Heart-Rate & Metabolic Telemetry', w / 2, 430);
+  perks.slice(0, 4).forEach((p, idx) => {
+    x.fillText(`${idx + 1}. ${p}`, w / 2, 310 + idx * 40);
+  });
 
   // Tech Barcode Box
   x.fillStyle = '#E6FFFA';
@@ -400,8 +440,11 @@ function paintPTBack(x, w, h) {
   x.fillText('PT-2026-COACH-7700', w / 2, h - 165);
 }
 
-function paintPTSpine(x, w, h, isYearly) {
-  const priceSpine = isYearly ? '₹99,999/YR' : '₹9,999/MO';
+function paintPTSpine(x, w, h, isYearly, cfg) {
+  const dyn = cfg?.dynamicData;
+  const mPrice = dyn?.price || 9999;
+  const yPrice = dyn?.annualPrice || 99999;
+  const priceSpine = isYearly ? `₹${Number(yPrice).toLocaleString()}/YR` : `₹${Number(mPrice).toLocaleString()}/MO`;
   x.fillStyle = '#090e17';
   x.fillRect(0, 0, w, h);
   x.fillStyle = '#00F0FF';
@@ -518,7 +561,7 @@ const OPEN_BTN_ON = ['opacity-100', 'scale-100'];
 
 export function ServicesSection({
   id = 'services-section',
-  services = DEFAULT_SERVICE_TIERS,
+  services: propServices,
   heroTitle = 'SERVICES',
   navTitle = 'MEMBERSHIPS & COACHING',
   showNav = true,
@@ -528,6 +571,35 @@ export function ServicesSection({
   onClaimPass,
   onBookPT,
 }) {
+  const { cmsData } = useLandingPageCMS();
+
+  // Merge live cmsData.memberships with DEFAULT_SERVICE_TIERS configs
+  const services = useMemo(() => {
+    const cmsMemberships = cmsData?.memberships || [];
+    if (cmsMemberships.length === 0) return propServices || DEFAULT_SERVICE_TIERS;
+
+    return (propServices || DEFAULT_SERVICE_TIERS).map((tier, idx) => {
+      const live = cmsMemberships[idx] || cmsMemberships.find(m => m.tierKey === tier.id.replace('-membership', '').replace('-training', ''));
+      if (!live) return tier;
+
+      const activeChapters = (live.services && live.services.length > 0)
+        ? live.services.filter(s => s.included).map(s => s.name)
+        : tier.chapters;
+
+      return {
+        ...tier,
+        dynamicData: live,
+        title: live.name || tier.title,
+        badge: live.badge || tier.badge,
+        subBadge: live.subBadge || tier.subBadge,
+        desc: live.description || tier.desc,
+        monthlyPrice: `₹${Number(live.price || 0).toLocaleString()} / mo`,
+        yearlyPrice: `₹${Number(live.annualPrice || (live.price ? live.price * 10 : 0)).toLocaleString()} / yr`,
+        chapters: activeChapters
+      };
+    });
+  }, [cmsData?.memberships, propServices]);
+
   const rootRef = useRef(null);
   const canvasRef = useRef(null);
   const openBtnRef = useRef(null);
@@ -920,19 +992,19 @@ export function ServicesSection({
         loadOrPaint(mFront, cfg.images?.front ?? null, () => {
           const c = mkCanvas(1024, 1536);
           const ctx = c.getContext('2d');
-          if (cfg.front) cfg.front(ctx, 1024, 1536, yearlyFlag);
+          if (cfg.front) cfg.front(ctx, 1024, 1536, yearlyFlag, cfg);
           return c;
         });
         loadOrPaint(mBack, cfg.images?.back ?? null, () => {
           const c = mkCanvas(1024, 1536);
           const ctx = c.getContext('2d');
-          if (cfg.back) cfg.back(ctx, 1024, 1536, yearlyFlag);
+          if (cfg.back) cfg.back(ctx, 1024, 1536, yearlyFlag, cfg);
           return c;
         });
         loadOrPaint(mSpine, cfg.images?.spine ?? null, () => {
           const c = mkCanvas(220, 1536);
           const ctx = c.getContext('2d');
-          if (cfg.spine) cfg.spine(ctx, 220, 1536, yearlyFlag);
+          if (cfg.spine) cfg.spine(ctx, 220, 1536, yearlyFlag, cfg);
           return c;
         });
       };

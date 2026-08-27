@@ -9,10 +9,11 @@ import {
   Clock, 
   Terminal, 
   Sparkles, 
-  ShieldCheck,
-  Award,
-  UserCheck
+  ShieldCheck, 
+  Award, 
+  UserCheck 
 } from 'lucide-react';
+import api from '../lib/api';
 import './AuthModal.css';
 
 export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
@@ -52,30 +53,25 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5050/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: trainerData.name,
-          email: trainerData.email,
-          phone: trainerData.phone,
-          password: trainerData.password || 'Trainer@123',
-          role: 'trainer'
-        })
+      const res = await api.post('/api/users', {
+        name: trainerData.name,
+        email: trainerData.email,
+        phone: trainerData.phone,
+        password: trainerData.password || 'Trainer@123',
+        role: 'trainer'
       });
 
-      const data = await res.json();
       setLoading(false);
 
-      if (res.ok && data?.data) {
-        if (onUserCreated) onUserCreated(data.data, 'trainer');
+      if (res.data?.status === 'success' && res.data?.data) {
+        if (onUserCreated) onUserCreated(res.data.data, 'trainer');
         onClose();
       } else {
-        setErrorMsg(data.message || 'Failed to create trainer.');
+        setErrorMsg(res.data?.message || 'Failed to create trainer.');
       }
     } catch (err) {
       setLoading(false);
-      setErrorMsg('Backend connection error. Please try again.');
+      setErrorMsg(err.response?.data?.message || 'Backend connection error. Please try again.');
     }
   };
 
@@ -89,30 +85,25 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5050/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: receptionistData.name,
-          email: receptionistData.email,
-          phone: receptionistData.phone,
-          password: receptionistData.password || 'Receptionist@123',
-          role: 'receptionist'
-        })
+      const res = await api.post('/api/users', {
+        name: receptionistData.name,
+        email: receptionistData.email,
+        phone: receptionistData.phone,
+        password: receptionistData.password || 'Receptionist@123',
+        role: 'receptionist'
       });
 
-      const data = await res.json();
       setLoading(false);
 
-      if (res.ok && data?.data) {
-        if (onUserCreated) onUserCreated(data.data, 'receptionist');
+      if (res.data?.status === 'success' && res.data?.data) {
+        if (onUserCreated) onUserCreated(res.data.data, 'receptionist');
         onClose();
       } else {
-        setErrorMsg(data.message || 'Failed to create receptionist.');
+        setErrorMsg(res.data?.message || 'Failed to create receptionist.');
       }
     } catch (err) {
       setLoading(false);
-      setErrorMsg('Backend connection error. Please try again.');
+      setErrorMsg(err.response?.data?.message || 'Backend connection error. Please try again.');
     }
   };
 
