@@ -30,41 +30,37 @@ import AuthModal from './components/AuthModal';
 import AdminDashboard from './components/AdminDashboard';
 import ReceptionistDashboard from './components/ReceptionistDashboard';
 import TrainerDashboard from './components/TrainerDashboard';
+import CustomerDashboard from './components/CustomerDashboard';
+import ForbiddenPage from './components/ForbiddenPage';
+import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 
 import { X, Shield, Sparkles } from 'lucide-react';
 import { LandingPageCMSProvider } from './context/LandingPageCMSContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
-export default function App() {
+function MainAppContent() {
   const [loading, setLoading] = useState(true);
   const [lenisInstance, setLenisInstance] = useState(null);
   const [passModalOpen, setPassModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Auth States
+  // Auth Modal States
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState('sign-in'); // 'sign-in' | 'sign-up'
+
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   useEffect(() => {
     if (location.pathname !== '/') {
       setAuthModalOpen(false);
     }
   }, [location.pathname]);
-
-  // Auth State persistence
-  const [user, setUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem('titan_user');
-      return stored ? JSON.parse(stored) : null;
-    } catch (e) {
-      return null;
-    }
-  });
 
   useEffect(() => {
     const lenis = new Lenis({
@@ -139,16 +135,14 @@ export default function App() {
   };
 
   const handleAuthSuccess = (userData, mode) => {
-    setUser(userData);
-    localStorage.setItem('titan_user', JSON.stringify(userData));
     triggerToast(mode === 'sign-up' ? `Welcome to TITAN PULSE, ${userData.name}!` : `Welcome back, ${userData.name}!`);
 
-    const isAdmin = userData.role === 'admin' || userData.email?.toLowerCase().trim() === 'abhigangamolla@gmail.com';
-    if (isAdmin) {
+    const role = (userData.role || '').toLowerCase().trim();
+    if (role === 'admin') {
       navigate('/admin');
-    } else if (userData.role === 'receptionist') {
+    } else if (role === 'receptionist') {
       navigate('/receptionist');
-    } else if (userData.role === 'trainer') {
+    } else if (role === 'trainer') {
       navigate('/trainer');
     } else {
       navigate('/');
@@ -156,8 +150,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('titan_user');
+    logout();
     triggerToast('Logged out successfully.');
     navigate('/');
   };
@@ -182,8 +175,7 @@ export default function App() {
   ];
 
   return (
-    <LandingPageCMSProvider>
-      <div className="bg-[#0B0B0B] min-h-screen text-white relative font-sans selection:bg-[#E50914] selection:text-white">
+    <div className="bg-[#0B0B0B] min-h-screen text-white relative font-sans selection:bg-[#E50914] selection:text-white">
       {/* Global Lenis Smooth Scroll & Route ScrollToTop */}
       <SmoothScroll />
       <ScrollToTop />
@@ -206,11 +198,7 @@ export default function App() {
                 <SpotlightNavbar 
                   items={navItems} 
                   user={user}
-                  onLogout={() => {
-                    setUser(null);
-                    localStorage.removeItem('titan_user');
-                    triggerToast('Logged out successfully.');
-                  }}
+                  onLogout={handleLogout}
                   onJoinClick={openSignUpModal}
                   onLoginClick={openSignInModal}
                 />
@@ -226,7 +214,7 @@ export default function App() {
                   }} 
                 />
 
-                {/* B1. Kinetic Horizontal Pinning Words Section */}
+                {/* Kinetic Horizontal Pinning Words Section */}
                 <HorizontalWords />
 
                 {/* Section 3: "Explore Programs" Bento Grid */}
@@ -247,25 +235,25 @@ export default function App() {
                   onBookPT={handleBookCoach}
                 />
 
-                {/* D. Signature Workout Zones Sticky Horizontal Scroll */}
+                {/* Signature Workout Zones Sticky Horizontal Scroll */}
                 <PopularDestinations onReserveSpot={handleReserveSpot} />
 
-                {/* E. 3D Smart Gym Equipment Engine */}
+                {/* 3D Smart Gym Equipment Engine */}
                 <LetsDrive />
 
-                {/* H. "Why We Dominate" Bento Matrix */}
+                {/* "Why We Dominate" Bento Matrix */}
                 <WhyChoose />
 
                 {/* Locations & Coaches Spotlight */}
                 <PopularSpots onBookCoach={handleBookCoach} />
 
-                {/* I. Transformation Constellation Canvas */}
+                {/* Transformation Constellation Canvas */}
                 <ConstellationTestimonials />
 
-                {/* J. Live Gym Network & Check-In Map */}
+                {/* Live Gym Network & Check-In Map */}
                 <TravelNetwork />
 
-                {/* L. Kinetic Typography Footer */}
+                {/* Kinetic Typography Footer */}
                 <Footer onScrollToTop={handleScrollToTop} />
               </>
             } 
@@ -274,29 +262,71 @@ export default function App() {
           {/* DEDICATED LOGIN & SIGN UP PAGE ROUTES */}
           <Route 
             path="/login" 
-            element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} 
+            element={<AuthPage onAuthSuccess={handleAuthSuccess} />} 
           />
           <Route 
             path="/signup" 
-            element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} 
+            element={<AuthPage onAuthSuccess={handleAuthSuccess} />} 
           />
           <Route 
             path="/register" 
-            element={<AuthPage user={user} onAuthSuccess={handleAuthSuccess} />} 
+            element={<AuthPage onAuthSuccess={handleAuthSuccess} />} 
           />
 
-          {/* DEDICATED ROLE-BASED DASHBOARD ROUTES */}
+          {/* 403 FORBIDDEN ERROR ROUTE */}
+          <Route 
+            path="/forbidden" 
+            element={<ForbiddenPage />} 
+          />
+
+          {/* PROTECTED DEDICATED ROLE-BASED DASHBOARD ROUTES */}
           <Route 
             path="/admin" 
-            element={<AdminDashboard user={user} onLogout={handleLogout} />} 
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'ADMIN']}>
+                <AdminDashboard user={user} onLogout={handleLogout} />
+              </ProtectedRoute>
+            } 
           />
           <Route 
             path="/receptionist" 
-            element={<ReceptionistDashboard user={user} onLogout={handleLogout} />} 
+            element={
+              <ProtectedRoute allowedRoles={['receptionist', 'RECEPTIONIST', 'admin', 'ADMIN']}>
+                <ReceptionistDashboard user={user} onLogout={handleLogout} />
+              </ProtectedRoute>
+            } 
           />
           <Route 
             path="/trainer" 
-            element={<TrainerDashboard user={user} onLogout={handleLogout} />} 
+            element={
+              <ProtectedRoute allowedRoles={['trainer', 'TRAINER', 'admin', 'ADMIN']}>
+                <TrainerDashboard user={user} onLogout={handleLogout} />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/account" 
+            element={
+              <ProtectedRoute allowedRoles={['customer', 'CUSTOMER', 'admin', 'ADMIN', 'trainer', 'TRAINER', 'receptionist', 'RECEPTIONIST']}>
+                <CustomerDashboard user={user} onLogout={handleLogout} />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/customer-dashboard" 
+            element={
+              <ProtectedRoute allowedRoles={['customer', 'CUSTOMER', 'admin', 'ADMIN', 'trainer', 'TRAINER', 'receptionist', 'RECEPTIONIST']}>
+                <CustomerDashboard user={user} onLogout={handleLogout} />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/customer-portal" 
+            element={
+              <ProtectedRoute allowedRoles={['customer', 'CUSTOMER', 'admin', 'ADMIN', 'trainer', 'TRAINER', 'receptionist', 'RECEPTIONIST']}>
+                <CustomerDashboard user={user} onLogout={handleLogout} />
+              </ProtectedRoute>
+            } 
           />
 
           {/* FALLBACK ROUTE */}
@@ -356,8 +386,14 @@ export default function App() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      </div>
+export default function App() {
+  return (
+    <LandingPageCMSProvider>
+      <MainAppContent />
     </LandingPageCMSProvider>
   );
 }

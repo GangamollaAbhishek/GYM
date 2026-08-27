@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const path = require('path');
 const dns = require('dns');
+const jwt = require('jsonwebtoken');
 
 // Set DNS servers to Google DNS to resolve MongoDB SRV records on Windows networks if needed
 try {
@@ -18,12 +19,27 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config();
 
 const cloudinary = require('cloudinary').v2;
-
 const User = require('./models/User');
+const { authenticateToken, authorizeRoles } = require('./middleware/authMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
 const MONGO_URI = process.env.MONGO_URL || process.env.MONGO_URI || process.env.MONGO_UTL;
+const JWT_SECRET = process.env.JWT_SECRET || 'gym_super_secret_jwt_key_2026';
+
+// Helper function to sign genuine JWT tokens
+const generateToken = (user) => {
+  return jwt.sign(
+    {
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role || 'customer',
+      name: user.name,
+    },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+};
 
 // Cloudinary Configuration
 cloudinary.config({
@@ -32,7 +48,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET || 'JAFEXo7-gx6UzB67ZoTLpUKxdXA'
 });
 
-// Middleware with generous payload limit for image uploads
+// Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -40,13 +56,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Admin Auto-Seeder & Cleanup function
 const autoSeedAdmin = async () => {
   try {
-    const dummyEmails = ['trainer@titanpulse.fit', 'receptionist@titanpulse.fit', 'customer@titanpulse.fit', 'abhigangamoll@gmail.com'];
-    if (mongoose.connection.db) {
-      const res = await mongoose.connection.db.collection('users').deleteMany({ email: { $in: dummyEmails } });
-      if (res.deletedCount > 0) {
-        console.log(`🧹 Native MongoDB Purge: Deleted ${res.deletedCount} dummy test accounts.`);
-      }
-    }
+    // Normalize any legacy 'member' role to 'customer'
+    await User.updateMany({ role: 'member' }, { $set: { role: 'customer' } });
 
     const adminEmail = 'abhigangamolla@gmail.com';
     const existingAdmin = await User.findOne({ email: adminEmail });
@@ -62,6 +73,11 @@ const autoSeedAdmin = async () => {
       await admin.save();
       console.log('👑 Original Admin user (abhishek / abhigangamolla@gmail.com) seeded in database!');
     } else {
+      // Ensure admin has admin role
+      if (existingAdmin.role !== 'admin') {
+        existingAdmin.role = 'admin';
+        await existingAdmin.save();
+      }
       console.log('👑 Original Admin user (abhishek / abhigangamolla@gmail.com) verified in database.');
     }
   } catch (err) {
@@ -100,29 +116,162 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// GET /api/users - Fetch all registered users from MongoDB (Only original real data)
-app.get('/api/users', async (req, res) => {
+// ==========================================
+// AUTHENTICATION ENDPOINTS
+// ==========================================
+
+// GET /api/auth/me - Verify current session token and retrieve fresh user profile
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
-    const rawUsers = await User.find().lean().exec();
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user: {
+          id: req.user._id.toString(),
+          name: req.user.name,
+          email: req.user.email,
+          phone: req.user.phone || '',
+          role: req.user.role || 'customer',
+          createdAt: req.user.createdAt,
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Auth verification error:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to verify session' });
+  }
+});
 
-    const dummyEmails = ['trainer@titanpulse.fit', 'receptionist@titanpulse.fit', 'customer@titanpulse.fit', 'abhigangamoll@gmail.com'];
-    
-    // Purge from MongoDB Atlas
-    await User.deleteMany({ email: { $in: dummyEmails } }).catch(() => {});
+// POST /api/auth/register - Register a new customer
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { name, email, phone, password } = req.body;
+    if (!name || !email || !password) {
+      return res.status(400).json({ status: 'error', message: 'Name, email and password are required' });
+    }
 
-    const genuineUsers = rawUsers.filter(u => {
-      const emailStr = (u.email || '').toString().toLowerCase().trim();
-      return !dummyEmails.includes(emailStr) && !emailStr.includes('titanpulse');
+    const lowerEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: lowerEmail });
+    if (existingUser) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'An account with this email address already exists. Please sign in instead.'
+      });
+    }
+
+    const user = new User({
+      name: name.trim(),
+      email: lowerEmail,
+      phone: (phone || '').trim(),
+      password: password.trim(),
+      role: 'customer',
     });
 
-    const formattedUsers = genuineUsers.map((u, idx) => ({
+    await user.save();
+    console.log(`✅ New user registered in MongoDB: ${user.name} (${lowerEmail}) [Role: customer]`);
+
+    const token = generateToken(user);
+
+    res.status(201).json({
+      status: 'success',
+      message: 'User registered successfully',
+      data: {
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '',
+          role: user.role
+        },
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Register API Error:', error);
+    res.status(500).json({ status: 'error', message: error.message || 'Registration failed' });
+  }
+});
+
+// POST /api/auth/login - Secure login endpoint with JWT generation
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ status: 'error', message: 'Email and password are required' });
+    }
+
+    const lowerEmail = email.toLowerCase().trim();
+    const cleanPassword = password.trim();
+
+    // Look up user in database
+    const user = await User.findOne({ email: lowerEmail });
+    if (!user) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Invalid email or password.'
+      });
+    }
+
+    // Verify password
+    const isMatch = await user.matchPassword(cleanPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        status: 'error',
+        message: 'Invalid email or password.'
+      });
+    }
+
+    // Sign genuine JWT
+    const token = generateToken(user);
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'User authenticated successfully',
+      data: {
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '',
+          role: user.role || 'customer'
+        },
+        token
+      }
+    });
+  } catch (error) {
+    console.error('Login API Error:', error);
+    res.status(500).json({ status: 'error', message: error.message || 'Login failed' });
+  }
+});
+
+// ==========================================
+// PROTECTED USER MANAGEMENT ENDPOINTS
+// ==========================================
+
+// GET /api/users - Fetch all registered users (Protected: Admin and Receptionist)
+app.get('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist'), async (req, res) => {
+  try {
+    const rawUsers = await User.find().select('-password').lean().exec();
+
+    const formattedUsers = rawUsers.map((u, idx) => ({
       id: String(u._id),
       displayId: `USR-${101 + idx}`,
       name: u.name,
       email: u.email,
       phone: u.phone || 'N/A',
       role: u.role || 'customer',
-      status: 'Active',
+      status: u.membershipStatus || (u.membershipPlan && u.membershipPlan !== 'No Active Plan' ? 'Active' : 'No Membership'),
+      membershipPlan: u.membershipPlan || 'No Active Plan',
+      membershipDuration: u.membershipDuration || '',
+      membershipStatus: u.membershipStatus || (u.membershipPlan && u.membershipPlan !== 'No Active Plan' ? 'Active' : 'No Membership'),
+      membershipStartDate: u.membershipStartDate || '',
+      membershipExpiry: u.membershipExpiry || 'N/A',
+      amountPaid: u.amountPaid || 0,
+      paymentMethod: u.paymentMethod || '',
+      shift: u.shift || '06:00 AM - 02:00 PM',
+      spec: u.specialization || 'Master Coach & Conditioning',
+      assignedRoom: u.assignedRoom || 'Main Strength & Conditioning Arena',
+      workingDays: u.workingDays && u.workingDays.length > 0 ? u.workingDays : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
       createdAt: u.createdAt
     }));
 
@@ -137,10 +286,10 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// POST /api/users - Create new user from Admin panel into MongoDB
-app.post('/api/users', async (req, res) => {
+// POST /api/users - Create new user from Admin panel or Receptionist onboarding
+app.post('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist'), async (req, res) => {
   try {
-    const { name, email, phone, role, password } = req.body;
+    const { name, email, phone, role, password, plan, duration, amount, paymentMethod } = req.body;
     if (!name || !email) {
       return res.status(400).json({ status: 'error', message: 'Name and email are required' });
     }
@@ -151,12 +300,44 @@ app.post('/api/users', async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'User with this email already exists' });
     }
 
+    let membershipPlan = 'No Active Plan';
+    let membershipStatus = 'No Membership';
+    let membershipDuration = '';
+    let membershipStartDate = '';
+    let membershipExpiry = 'N/A';
+    let amountPaid = 0;
+
+    // If onboarded with an actual membership plan
+    if (plan && plan !== 'No Active Plan') {
+      membershipPlan = plan;
+      membershipStatus = 'Active';
+      membershipDuration = duration || 'Monthly';
+      membershipStartDate = new Date().toISOString().split('T')[0];
+      
+      const expDate = new Date();
+      if (membershipDuration === 'Monthly') expDate.setMonth(expDate.getMonth() + 1);
+      else if (membershipDuration === 'Quarterly') expDate.setMonth(expDate.getMonth() + 3);
+      else if (membershipDuration === 'Half-Yearly') expDate.setMonth(expDate.getMonth() + 6);
+      else if (membershipDuration === 'Annual') expDate.setFullYear(expDate.getFullYear() + 1);
+      else expDate.setMonth(expDate.getMonth() + 1);
+      
+      membershipExpiry = expDate.toISOString().split('T')[0];
+      amountPaid = Number(amount) || 0;
+    }
+
     const newUser = new User({
-      name,
+      name: name.trim(),
       email: lowerEmail,
-      phone: phone || '',
-      role: role || 'customer',
-      password: password || 'DefaultPass123!',
+      phone: (phone || '').trim(),
+      role: (role || 'customer').toLowerCase().trim(),
+      password: (password || 'DefaultPass123!').trim(),
+      membershipPlan,
+      membershipStatus,
+      membershipDuration,
+      membershipStartDate,
+      membershipExpiry,
+      amountPaid,
+      paymentMethod: paymentMethod || ''
     });
 
     await newUser.save();
@@ -170,7 +351,10 @@ app.post('/api/users', async (req, res) => {
         email: newUser.email,
         phone: newUser.phone,
         role: newUser.role,
-        status: 'Active'
+        membershipPlan: newUser.membershipPlan,
+        membershipStatus: newUser.membershipStatus,
+        membershipExpiry: newUser.membershipExpiry,
+        status: newUser.membershipStatus
       }
     });
   } catch (error) {
@@ -179,10 +363,178 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-// DELETE /api/users/:id - Delete a user from MongoDB
-app.delete('/api/users/:id', async (req, res) => {
+// PUT /api/users/:id/membership - Update/Purchase/Renew customer membership
+app.put('/api/users/:id/membership', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const { plan, duration, amount, paymentMethod } = req.body;
+
+    if (!plan) {
+      return res.status(400).json({ status: 'error', message: 'Membership plan is required' });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const expDate = new Date();
+    const planDuration = duration || 'Monthly';
+    if (planDuration === 'Monthly') expDate.setMonth(expDate.getMonth() + 1);
+    else if (planDuration === 'Quarterly') expDate.setMonth(expDate.getMonth() + 3);
+    else if (planDuration === 'Half-Yearly') expDate.setMonth(expDate.getMonth() + 6);
+    else if (planDuration === 'Annual') expDate.setFullYear(expDate.getFullYear() + 1);
+    else expDate.setMonth(expDate.getMonth() + 1);
+
+    const updated = await User.findByIdAndUpdate(
+      id,
+      {
+        membershipPlan: plan,
+        membershipDuration: planDuration,
+        membershipStatus: 'Active',
+        membershipStartDate: today,
+        membershipExpiry: expDate.toISOString().split('T')[0],
+        amountPaid: Number(amount) || 0,
+        paymentMethod: paymentMethod || 'Online Booking'
+      },
+      { new: true }
+    ).select('-password');
+
+    if (!updated) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: `Membership plan updated to ${plan}`,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Update membership error:', error);
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// PUT /api/users/:id/shift - Update trainer shift timings, working days, and arena (Protected: Admin)
+app.put('/api/users/:id/shift', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { shift, room, days, specialization } = req.body;
+
+    const updateFields = {};
+    if (shift) updateFields.shift = shift;
+    if (room) updateFields.assignedRoom = room;
+    if (days) updateFields.workingDays = days;
+    if (specialization) updateFields.specialization = specialization;
+
+    const updated = await User.findByIdAndUpdate(
+      id,
+      { $set: updateFields },
+      { new: true }
+    ).select('-password');
+
+    if (!updated) {
+      return res.status(404).json({ status: 'error', message: 'Trainer not found' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: `Shift timings updated successfully to ${shift}`,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Update shift error:', error);
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// PUT /api/users/:id - Update user profile details (Protected: Admin)
+// POST /api/auth/change-password - Change user password (Protected)
+app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ status: 'error', message: 'New password must be at least 6 characters long' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    if (currentPassword) {
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ status: 'error', message: 'Current password is incorrect' });
+      }
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Password updated successfully!'
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ status: 'error', message: error.message || 'Failed to update password' });
+  }
+});
+
+// PUT /api/users/:id - Update user profile details (Protected: Admin or Self)
+app.put('/api/users/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const isSelf = req.user._id.toString() === id;
+    const isAdmin = (req.user.role || '').toLowerCase() === 'admin';
+
+    if (!isSelf && !isAdmin) {
+      return res.status(403).json({ status: 'error', message: 'Unauthorized to modify this user' });
+    }
+
+    const { name, email, phone, specialization, shift, status, role } = req.body;
+
+    const updateFields = {};
+    if (name) updateFields.name = name;
+    if (email) updateFields.email = email.toLowerCase().trim();
+    if (phone !== undefined) updateFields.phone = phone;
+    
+    // Only Admin can update specialization, shift, status, role
+    if (isAdmin) {
+      if (specialization) updateFields.specialization = specialization;
+      if (shift) updateFields.shift = shift;
+      if (status) updateFields.membershipStatus = status;
+      if (role) updateFields.role = role;
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      id,
+      { $set: updateFields },
+      { new: true }
+    ).select('-password');
+
+    if (!updated) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'User profile updated successfully',
+      data: updated
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// DELETE /api/users/:id - Delete a user from MongoDB (Protected: Admin only)
+app.delete('/api/users/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Prevent admin from deleting own account
+    if (req.user._id.toString() === id) {
+      return res.status(400).json({ status: 'error', message: 'You cannot delete your own admin account.' });
+    }
+
     await User.findByIdAndDelete(id);
     res.status(200).json({
       status: 'success',
@@ -194,58 +546,8 @@ app.delete('/api/users/:id', async (req, res) => {
   }
 });
 
-// Auth Register endpoint (Stores directly in MongoDB as customer)
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { name, email, phone, password } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ status: 'error', message: 'Name, email and password are required' });
-    }
-
-    const lowerEmail = email.toLowerCase().trim();
-    const existingUser = await User.findOne({ email: lowerEmail });
-    if (existingUser) {
-      // Return existing user details smoothly
-      const token = 'titan_token_' + Date.now();
-      return res.status(200).json({
-        status: 'success',
-        message: 'User registered/authenticated successfully',
-        data: {
-          user: { id: existingUser._id.toString(), name: existingUser.name, email: existingUser.email, phone: existingUser.phone, role: existingUser.role || 'customer' },
-          token
-        }
-      });
-    }
-
-    const user = new User({
-      name,
-      email: lowerEmail,
-      phone: phone || '',
-      password,
-      role: 'customer',
-    });
-
-    await user.save();
-    console.log(`✅ New Registration saved in MongoDB: ${name} (${lowerEmail}) [Role: customer]`);
-
-    const token = 'titan_token_' + Date.now();
-
-    res.status(201).json({
-      status: 'success',
-      message: 'User registered successfully',
-      data: {
-        user: { id: user._id.toString(), name: user.name, email: user.email, phone: user.phone, role: user.role },
-        token
-      }
-    });
-  } catch (error) {
-    console.error('Register API Error:', error);
-    res.status(500).json({ status: 'error', message: error.message });
-  }
-});
-
-// Cloudinary Image Upload API Endpoint
-app.post('/api/upload', async (req, res) => {
+// Cloudinary Image Upload API Endpoint (Protected: Authenticated users)
+app.post('/api/upload', authenticateToken, async (req, res) => {
   try {
     const { image, folder } = req.body;
     if (!image) {
@@ -267,91 +569,6 @@ app.post('/api/upload', async (req, res) => {
   } catch (error) {
     console.error('Cloudinary Upload Error:', error);
     return res.status(500).json({ status: 'error', message: error.message || 'Cloudinary upload failed' });
-  }
-});
-
-// Auth Login endpoint (Zero 401 errors, robust matching & role assignment)
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ status: 'error', message: 'Email and password are required' });
-    }
-
-    const lowerEmail = email.toLowerCase().trim();
-    const cleanPassword = password.trim();
-
-    // Check 1: Super Admin user abhigangamolla@gmail.com (including typo variations & keywords)
-    const isAdminAccount = lowerEmail.includes('abhigangamoll') || lowerEmail.includes('admin') || lowerEmail === 'abhishek';
-    if (isAdminAccount) {
-      const token = 'titan_admin_token_' + Date.now();
-      return res.status(200).json({
-        status: 'success',
-        message: 'Admin authenticated successfully',
-        data: {
-          user: { id: 'admin_1', name: 'abhishek', email: 'abhigangamolla@gmail.com', role: 'admin' },
-          token
-        }
-      });
-    }
-
-    // Check 2: Check MongoDB for registered user
-    let user = await User.findOne({ email: lowerEmail });
-    if (user) {
-      const isMatch = await user.matchPassword(cleanPassword);
-      if (isMatch || user.password === cleanPassword || cleanPassword.length >= 3) {
-        const token = 'titan_token_' + Date.now();
-        return res.status(200).json({
-          status: 'success',
-          message: 'User authenticated successfully',
-          data: {
-            user: { 
-              id: user._id.toString(), 
-              name: user.name, 
-              email: user.email, 
-              phone: user.phone || '', 
-              role: user.role || (lowerEmail.includes('receptionist') ? 'receptionist' : lowerEmail.includes('trainer') ? 'trainer' : 'customer')
-            },
-            token
-          }
-        });
-      } else {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid password. Please verify your credentials.'
-        });
-      }
-    }
-
-    // Check 3: If user not yet in DB, create new user in MongoDB dynamically
-    let role = 'customer';
-    if (lowerEmail.includes('receptionist') || lowerEmail.includes('frontdesk')) role = 'receptionist';
-    else if (lowerEmail.includes('trainer') || lowerEmail.includes('coach')) role = 'trainer';
-
-    const userName = lowerEmail.split('@')[0];
-    const newUser = new User({
-      name: userName,
-      email: lowerEmail,
-      password: cleanPassword,
-      phone: '',
-      role: role
-    });
-
-    await newUser.save();
-    console.log(`✅ Auto-registered login user in MongoDB: ${userName} (${lowerEmail}) [Role: ${role}]`);
-
-    const token = 'titan_token_' + Date.now();
-    return res.status(200).json({
-      status: 'success',
-      message: 'Authenticated successfully',
-      data: {
-        user: { id: newUser._id.toString(), name: newUser.name, email: newUser.email, role: newUser.role },
-        token
-      }
-    });
-  } catch (error) {
-    console.error('Login API Error:', error);
-    res.status(500).json({ status: 'error', message: error.message });
   }
 });
 

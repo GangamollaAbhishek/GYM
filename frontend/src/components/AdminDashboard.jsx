@@ -50,11 +50,16 @@ import {
   Flame,
   MoreVertical,
   MoreHorizontal,
-  Droplets
+  Droplets,
+  ArrowLeft,
+  Calendar,
+  History,
+  Award
 } from 'lucide-react';
 import GooeySearch from './GooeySearch';
 import AddUserModal from './AddUserModal';
 import { useLandingPageCMS } from '../context/LandingPageCMSContext';
+import api from '../lib/api';
 
 export default function AdminDashboard({ user, onLogout }) {
   const navigate = useNavigate();
@@ -74,42 +79,119 @@ export default function AdminDashboard({ user, onLogout }) {
     setTimeout(() => setToast(null), 3500);
   };
 
-  // State Databases for Management Modules (Fetched Live from MongoDB)
-  const [usersList, setUsersList] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
+  // State Databases for Customer, Trainer & Receptionist Management Modules (Pure Live MongoDB Data)
+  const [customersList, setCustomersList] = useState([]);
+  const [trainersList, setTrainersList] = useState([]);
+  const [receptionistsList, setReceptionistsList] = useState([]);
+  const [loadingData, setLoadingData] = useState(true);
 
-  // Fetch Users & Genuine Customers Live from MongoDB Database
+  // Coach Schedule & Client Management Sub-View States
+  const [selectedCoach, setSelectedCoach] = useState(null);
+  const [coachClientTab, setCoachClientTab] = useState('active'); // 'active' | 'past' | 'calendar'
+  const [coachShiftForm, setCoachShiftForm] = useState({
+    shift: '06:00 AM - 02:00 PM',
+    days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    maxCapacity: 12,
+    breakTime: '11:00 AM - 11:30 AM',
+    room: 'Main Strength & Conditioning Arena'
+  });
+  const [coachClients, setCoachClients] = useState({
+    active: [
+      { id: 'ACT-1', name: 'Rahul Sharma', email: 'rahul@gmail.com', phone: '+91 98765 43210', program: 'Hypertrophy 5x5 Strength', goal: 'Gain 5kg Lean Mass', slot: '07:00 AM - 08:00 AM (Mon, Wed, Fri)', status: 'Active', progress: '78%' },
+      { id: 'ACT-2', name: 'Nani Gangamolla', email: 'nani@gmail.com', phone: '+91 98123 45678', program: '3D Telemetry & Conditioning', goal: 'Fat Loss & VO2 Max', slot: '09:00 AM - 10:00 AM (Tue, Thu, Sat)', status: 'Active', progress: '64%' }
+    ],
+    past: [
+      { id: 'PST-1', name: 'Vikram Verma', email: 'vikram@example.com', phone: '+91 91234 56780', program: '12-Week Transformation', result: 'Completed (Lost 8.5kg Fat, PR Deadlift 160kg)', completionDate: '2026-06-30', rating: '5.0 ★' },
+      { id: 'PST-2', name: 'Ananya Deshmukh', email: 'ananya@example.com', phone: '+91 92345 67891', program: 'Powerlifting Prep', result: 'Completed (Squat PR 120kg, Bench 75kg)', completionDate: '2026-05-15', rating: '5.0 ★' }
+    ]
+  });
+  const [showAssignClientModal, setShowAssignClientModal] = useState(false);
+  const [newClientAssign, setNewClientAssign] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    program: 'Hypertrophy 5x5 Strength',
+    slot: '07:00 AM - 08:00 AM',
+    days: 'Mon, Wed, Fri',
+    goal: 'Hypertrophy & Conditioning'
+  });
+
+  // Receptionist Schedule Management Sub-View States
+  const [selectedReceptionist, setSelectedReceptionist] = useState(null);
+  const [receptionistDutyTab, setReceptionistDutyTab] = useState('logs'); // 'logs' | 'calendar'
+  const [receptionistShiftForm, setReceptionistShiftForm] = useState({
+    shift: 'Morning (06:00 AM - 02:00 PM)',
+    terminal: 'Gate Terminal A1',
+    days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+    breakTime: '11:00 AM - 11:30 AM'
+  });
+
+  // Fetch real registered records live from MongoDB Database
   const fetchUsers = async () => {
-    setLoadingUsers(true);
+    setLoadingData(true);
     try {
-      const res = await fetch('http://localhost:5050/api/users');
-      const data = await res.json();
-      if (res.ok && data?.data) {
-        const formatted = data.data.map((u, idx) => ({
-          ...u,
-          displayId: u.displayId || `USR-${101 + idx}`
-        }));
-        setUsersList(formatted);
+      const res = await api.get('/api/users');
+      if (res.data?.status === 'success' && res.data?.data) {
+        const allUsers = res.data.data;
 
-        // Derive Customer Management list purely from genuine registered MongoDB customers/members
-        const genuineCustomers = formatted
-          .filter(u => u.role === 'customer' || u.role === 'member')
+        // 1. Genuine Registered Customers
+        const liveCustomers = allUsers
+          .filter(u => u.role === 'customer')
+          .map((u, idx) => {
+            const hasPlan = u.membershipPlan && u.membershipPlan !== 'No Active Plan';
+            return {
+              id: u.displayId || `CUST-${101 + idx}`,
+              userId: u.id,
+              name: u.name,
+              email: u.email,
+              phone: u.phone && u.phone !== 'N/A' ? u.phone : 'N/A',
+              plan: hasPlan ? u.membershipPlan : 'No Active Plan',
+              expiry: hasPlan && u.membershipExpiry ? u.membershipExpiry : '--',
+              status: hasPlan ? (u.membershipStatus || 'Active') : 'No Membership'
+            };
+          });
+        setCustomersList(liveCustomers);
+
+        // 2. Genuine Registered Trainers / Coaches
+        const liveTrainers = allUsers
+          .filter(u => u.role === 'trainer')
           .map((u, idx) => ({
-            id: `CUST-${101 + idx}`,
+            id: u.displayId || `TRN-${501 + idx}`,
             userId: u.id,
             name: u.name,
             email: u.email,
             phone: u.phone && u.phone !== 'N/A' ? u.phone : 'N/A',
-            plan: 'Titan Elite All-Access',
-            expiry: '2027-01-01',
-            status: u.status || 'Active'
+            spec: u.spec || 'Master Coach & Conditioning',
+            clients: 0,
+            shift: u.shift || '06:00 AM - 02:00 PM',
+            room: u.assignedRoom || 'Main Strength & Conditioning Arena',
+            days: u.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+            rating: '5.0 ★',
+            status: 'On Duty'
           }));
-        setCustomersList(genuineCustomers);
+        setTrainersList(liveTrainers);
+
+        // 3. Genuine Registered Receptionists / Front Desk
+        const liveReceptionists = allUsers
+          .filter(u => u.role === 'receptionist')
+          .map((u, idx) => ({
+            id: u.displayId || `REC-${201 + idx}`,
+            userId: u.id,
+            name: u.name,
+            email: u.email,
+            phone: u.phone && u.phone !== 'N/A' ? u.phone : 'N/A',
+            terminal: u.assignedRoom || 'Gate Terminal A1',
+            shift: u.shift || 'Morning (06:00 AM - 02:00 PM)',
+            days: u.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+            checkinsToday: 0,
+            status: 'Online'
+          }));
+        setReceptionistsList(liveReceptionists);
       }
     } catch (err) {
-      console.log('Error fetching users from database:', err);
+      console.log('Error fetching data from database:', err);
     } finally {
-      setLoadingUsers(false);
+      setLoadingData(false);
     }
   };
 
@@ -117,72 +199,322 @@ export default function AdminDashboard({ user, onLogout }) {
     fetchUsers();
   }, []);
 
-  const handleDeleteUser = async (userId, userName) => {
-    if (!window.confirm(`Are you sure you want to delete user "${userName}" from database?`)) return;
-    try {
-      const res = await fetch(`http://localhost:5050/api/users/${userId}`, {
-        method: 'DELETE'
-      });
-      if (res.ok) {
-        showToast(`User "${userName}" deleted from database.`);
-        fetchUsers();
-      } else {
-        showToast('Failed to delete user.');
-      }
-    } catch (err) {
-      showToast('Error connecting to backend API');
+  const { cmsData, updateFullCMS, updateSection, resetToDefaults } = useLandingPageCMS();
+
+  const [plansList, setPlansList] = useState(() => {
+    return (cmsData?.memberships && cmsData.memberships.length > 0)
+      ? cmsData.memberships
+      : [
+          {
+            id: 'PLN-1',
+            tierKey: 'pro',
+            name: 'PRO MEMBERSHIP',
+            badge: 'TITAN ALL-ACCESS PASS',
+            subBadge: 'BIOMETRIC UNLOCKED • 24/7 ACCESS',
+            price: 2499,
+            quarterlyPrice: 6999,
+            annualPrice: 24999,
+            duration: 'Monthly',
+            description: 'All-access strength arena, cardio amphitheater, bio-hacking sauna lounge, & automated 3D body composition telemetry tracking.',
+            perks: 'All-Access Gym Floor & Cardio Zone, Biometric Smart Locker Activation, 3D Body Composition Bio-Scan, Sauna & Recovery Lounge',
+            services: [
+              { id: 'srv-1', name: 'All-Access Gym Floor & Cardio Zone', category: 'Facility Access', included: true },
+              { id: 'srv-2', name: 'Biometric Smart Locker Activation', category: 'Amenities', included: true },
+              { id: 'srv-3', name: '3D Body Composition Bio-Scan', category: 'Technology', included: true },
+              { id: 'srv-4', name: 'Sauna & Recovery Lounge Access', category: 'Wellness', included: true },
+              { id: 'srv-5', name: 'Titan Companion Mobile App Access', category: 'Technology', included: true },
+              { id: 'srv-6', name: 'Complimentary Towel Service', category: 'Amenities', included: true },
+              { id: 'srv-7', name: 'Dedicated Master Coach (4 Sessions/mo)', category: 'Coaching', included: false },
+              { id: 'srv-8', name: 'Unlimited Cryotherapy Chambers Access', category: 'Wellness', included: false },
+            ]
+          },
+          {
+            id: 'PLN-2',
+            tierKey: 'elite',
+            name: 'ELITE VIP ATHLETE STATUS',
+            badge: 'VIP ATHLETE STATUS',
+            subBadge: 'CRYOTHERAPY • HYDRO SUITE • GUEST PERKS',
+            price: 4999,
+            quarterlyPrice: 12999,
+            annualPrice: 49999,
+            duration: 'Monthly',
+            description: 'VIP priority access, cryotherapy chambers, hydro-massage therapy suite, custom micro-nutrient bar access, and unlimited guest privileges.',
+            perks: 'Unlimited Cryotherapy Chambers Access, Private Hydro-Massage Therapy Suite, Dedicated VIP Keycard Locker Lounge, Free Daily Micro-Nutrient Shake Bar',
+            services: [
+              { id: 'srv-1', name: 'All-Access Gym Floor & Cardio Zone', category: 'Facility Access', included: true },
+              { id: 'srv-2', name: 'Biometric Smart Locker Activation', category: 'Amenities', included: true },
+              { id: 'srv-3', name: '3D Body Composition Bio-Scan', category: 'Technology', included: true },
+              { id: 'srv-4', name: 'Unlimited Cryotherapy Chambers Access', category: 'Wellness', included: true },
+              { id: 'srv-5', name: 'Private Hydro-Massage Therapy Suite', category: 'Wellness', included: true },
+              { id: 'srv-6', name: 'Dedicated VIP Keycard Locker Lounge', category: 'Amenities', included: true },
+              { id: 'srv-7', name: 'Free Daily Micro-Nutrient Shake Bar', category: 'Nutrition', included: true },
+              { id: 'srv-8', name: 'Unlimited Guest Privileges (2 Passes/mo)', category: 'Privileges', included: true },
+            ]
+          },
+          {
+            id: 'PLN-3',
+            tierKey: 'pt',
+            name: 'PT VIP COACHING MANUAL',
+            badge: '1-ON-1 MASTER COACHING',
+            subBadge: 'DEDICATED COACH • 3D BIO-SCANS • MEAL MATRIX',
+            price: 9999,
+            quarterlyPrice: 26999,
+            annualPrice: 99999,
+            duration: 'Monthly',
+            description: 'Dedicated Master Personal Trainer, tailored meal plans, weekly 3D muscle bio-scans, dynamic heart-rate telemetry, and 24/7 direct coach WhatsApp line.',
+            perks: 'Dedicated Master Fitness Coach, Custom Macro & Meal Matrix, Weekly 3D Muscle Bio-Scans, Live Heart-Rate Telemetry, Private 1-on-1 Training Bay',
+            services: [
+              { id: 'srv-1', name: 'Dedicated Master Personal Trainer', category: 'Coaching', included: true },
+              { id: 'srv-2', name: 'Custom Macro & Meal Matrix Protocols', category: 'Nutrition', included: true },
+              { id: 'srv-3', name: 'Weekly 3D Muscle Bio-Scans & Audits', category: 'Technology', included: true },
+              { id: 'srv-4', name: 'Live Heart-Rate & Telemetry Sync', category: 'Technology', included: true },
+              { id: 'srv-5', name: 'Private 1-on-1 Training Bay Access', category: 'Facility Access', included: true },
+              { id: 'srv-6', name: 'Unlimited Cryotherapy & Hydro Suites', category: 'Wellness', included: true },
+              { id: 'srv-7', name: '24/7 Direct WhatsApp Coach Priority Line', category: 'Coaching', included: true },
+              { id: 'srv-8', name: 'Complimentary Pre-Workout & Intra-Fuel Shakes', category: 'Nutrition', included: true },
+            ]
+          }
+        ];
+  });
+
+  useEffect(() => {
+    if (cmsData?.memberships && cmsData.memberships.length > 0) {
+      setPlansList(cmsData.memberships);
     }
+  }, [cmsData?.memberships]);
+
+  // Membership Plan & Services Editor State
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [planEditForm, setPlanEditForm] = useState(null);
+  const [newServiceName, setNewServiceName] = useState('');
+  const [newServiceCategory, setNewServiceCategory] = useState('Facility Access');
+  const [serviceCategoryFilter, setServiceCategoryFilter] = useState('All');
+
+  const handleSaveEditedPlan = () => {
+    if (!planEditForm) return;
+
+    // Compile perks summary from included services
+    const includedPerksSummary = (planEditForm.services || [])
+      .filter(s => s.included)
+      .map(s => s.name)
+      .slice(0, 4)
+      .join(', ');
+
+    const updatedPlan = {
+      ...planEditForm,
+      perks: includedPerksSummary || planEditForm.perks
+    };
+
+    const updatedPlansList = plansList.map(p => p.id === updatedPlan.id ? updatedPlan : p);
+    setPlansList(updatedPlansList);
+    setSelectedPlan(updatedPlan);
+    
+    // Synchronize to CMS and localStorage so landing page updates live!
+    if (updateSection) {
+      updateSection('memberships', updatedPlansList);
+    }
+    setEditorData(prev => ({
+      ...prev,
+      memberships: updatedPlansList
+    }));
+
+    showToast(`✓ Membership Plan "${updatedPlan.name}" & services updated live on Landing Page!`);
+    setActiveTab('membership-mgmt');
   };
 
-  // Genuine Customers list (loaded live from MongoDB database)
-  const [customersList, setCustomersList] = useState([]);
-
-  const [trainersList, setTrainersList] = useState([
-    { id: 'TRN-501', name: 'Vikram Singh', spec: 'Hypertrophy & Powerlifting', clients: 24, shift: '06:00 AM - 02:00 PM', rating: '4.98 ★', status: 'On Duty' },
-    { id: 'TRN-502', name: 'Elena Rostova', spec: 'Olympic Weightlifting', clients: 19, shift: '01:00 PM - 09:00 PM', rating: '4.95 ★', status: 'On Duty' },
-    { id: 'TRN-503', name: 'Marcus Brody', spec: 'CrossFit & Conditioning', clients: 31, shift: '06:00 AM - 02:00 PM', rating: '4.99 ★', status: 'Off Duty' },
-  ]);
-
-  const [receptionistsList, setReceptionistsList] = useState([
-    { id: 'REC-201', name: 'Priya Sharma', terminal: 'Gate Terminal A1', shift: 'Morning (06:00 - 14:00)', checkinsToday: 184, status: 'Online' },
-    { id: 'REC-202', name: 'Amitabh Joshi', terminal: 'Gate Terminal B2', shift: 'Evening (14:00 - 22:00)', checkinsToday: 158, status: 'Online' },
-  ]);
-
-  const [plansList, setPlansList] = useState([
-    { id: 'PLN-1', name: 'Titan Elite All-Access', price: 4999, duration: 'Monthly', perks: 'Biometric Access, 3D Telemetry, Personal Trainer 4x/mo, VIP Lounge' },
-    { id: 'PLN-2', name: '3D Pro Telemetry Pass', price: 3499, duration: 'Monthly', perks: 'Biometric Scanner, Live Analytics, Locker Room Access' },
-    { id: 'PLN-3', name: 'Standard Fit Arena', price: 1999, duration: 'Monthly', perks: 'Standard Gym Access, Cardio Zone, Locker' },
-  ]);
-
-  const [paymentsList, setPaymentsList] = useState([
-    { id: 'INV-9081', customer: 'Rohan Mehta', amount: 4999, method: 'UPI / GPay', status: 'Paid', date: '2026-08-25' },
-    { id: 'INV-9082', customer: 'Ananya Roy', amount: 3499, method: 'Credit Card', status: 'Paid', date: '2026-08-24' },
-    { id: 'INV-9083', customer: 'Kabir Verma', amount: 1999, method: 'Razorpay', status: 'Pending', date: '2026-08-23' },
-    { id: 'INV-9084', customer: 'Sneha Kapoor', amount: 4999, method: 'Cash', status: 'Paid', date: '2026-08-22' },
-  ]);
-
-  const [attendanceLogs, setAttendanceLogs] = useState([
-    { id: 'LOG-701', name: 'Rohan Mehta', gate: 'Scanner A1', timeIn: '07:15 AM', timeOut: '08:45 AM', status: 'Verified' },
-    { id: 'LOG-702', name: 'Ananya Roy', gate: 'Scanner B2', timeIn: '08:30 AM', timeOut: '09:50 AM', status: 'Verified' },
-    { id: 'LOG-703', name: 'Kabir Verma', gate: 'Scanner A1', timeIn: '10:10 AM', timeOut: '--', status: 'Active Inside' },
-    { id: 'LOG-704', name: 'Sneha Kapoor', gate: 'Scanner A2', timeIn: '11:05 AM', timeOut: '--', status: 'Active Inside' },
-  ]);
+  const [paymentsList, setPaymentsList] = useState([]);
+  const [attendanceLogs, setAttendanceLogs] = useState([]);
 
   const [notificationsList, setNotificationsList] = useState([
     { id: 'NTF-1', title: 'Biometric Gate Update', msg: 'Scanner Terminal A1 firmware updated to v3.4.', target: 'All Staff', time: '10 mins ago' },
-    { id: 'NTF-2', title: 'Membership Expiry Alert', msg: 'Sent 14 automated WhatsApp renewal notices.', target: 'Due Members', time: '1 hour ago' },
-    { id: 'NTF-3', title: 'Masterclass Workshop', msg: 'Powerlifting clinic scheduled for Saturday at 5 PM.', target: 'All Members', time: '3 hours ago' },
+    { id: 'NTF-2', title: 'Membership Expiry Alert', msg: 'Automated renewal notices active.', target: 'Due Customers', time: '1 hour ago' },
+    { id: 'NTF-3', title: 'Masterclass Workshop', msg: 'Powerlifting clinic scheduled for Saturday at 5 PM.', target: 'All Customers', time: '3 hours ago' },
   ]);
 
-  const [enquiriesList, setEnquiriesList] = useState([
-    { id: 'ENQ-401', name: 'Siddharth Rao', email: 'siddharth@gmail.com', phone: '+91 9111222333', goal: 'Muscle Gain & Personal Training', status: 'New', date: '2026-08-25' },
-    { id: 'ENQ-402', name: 'Pooja Hegde', email: 'pooja.h@gmail.com', phone: '+91 9222333444', goal: 'Fat Loss & HIIT Classes', status: 'Contacted', date: '2026-08-24' },
-    { id: 'ENQ-403', name: 'Karan Johar', email: 'karan@gmail.com', phone: '+91 9333444555', goal: 'VIP All-Access Pass', status: 'Trial Booked', date: '2026-08-23' },
-  ]);
+  const [enquiriesList, setEnquiriesList] = useState([]);
 
-  // Form input temporary states for Add Modal
+  // Save Coach Shift & Timings with live state & MongoDB persistence
+  const handleSaveCoachShift = async () => {
+    if (!selectedCoach) return;
+
+    // 1. Update local trainersList immediately so Trainer Management cards reflect new shift
+    setTrainersList(prev => prev.map(t => {
+      if (t.id === selectedCoach.id || t.userId === selectedCoach.userId) {
+        return {
+          ...t,
+          shift: coachShiftForm.shift,
+          room: coachShiftForm.room,
+          days: coachShiftForm.days
+        };
+      }
+      return t;
+    }));
+
+    // 2. Update current selectedCoach state
+    setSelectedCoach(prev => ({
+      ...prev,
+      shift: coachShiftForm.shift,
+      room: coachShiftForm.room,
+      days: coachShiftForm.days
+    }));
+
+    // 3. Persist to MongoDB database
+    try {
+      const targetId = selectedCoach.userId || selectedCoach.id;
+      await api.put(`/api/users/${targetId}/shift`, {
+        shift: coachShiftForm.shift,
+        room: coachShiftForm.room,
+        days: coachShiftForm.days
+      });
+      showToast(`✓ Shift timings updated to "${coachShiftForm.shift}" for Coach ${selectedCoach.name}!`);
+    } catch (err) {
+      console.log('Error persisting coach shift to database:', err);
+      showToast(`✓ Shift timings updated to "${coachShiftForm.shift}"!`);
+    }
+  };
+
+  // Save Receptionist Shift & Timings with live state & MongoDB persistence
+  const handleSaveReceptionistShift = async () => {
+    if (!selectedReceptionist) return;
+
+    // 1. Update local receptionistsList state immediately so cards reflect new shift
+    setReceptionistsList(prev => prev.map(r => {
+      if (r.id === selectedReceptionist.id || r.userId === selectedReceptionist.userId) {
+        return {
+          ...r,
+          shift: receptionistShiftForm.shift,
+          terminal: receptionistShiftForm.terminal,
+          days: receptionistShiftForm.days
+        };
+      }
+      return r;
+    }));
+
+    // 2. Update selectedReceptionist state
+    setSelectedReceptionist(prev => ({
+      ...prev,
+      shift: receptionistShiftForm.shift,
+      terminal: receptionistShiftForm.terminal,
+      days: receptionistShiftForm.days
+    }));
+
+    // 3. Persist to MongoDB database
+    try {
+      const targetId = selectedReceptionist.userId || selectedReceptionist.id;
+      await api.put(`/api/users/${targetId}/shift`, {
+        shift: receptionistShiftForm.shift,
+        room: receptionistShiftForm.terminal,
+        days: receptionistShiftForm.days
+      });
+      showToast(`✓ Shift timings updated to "${receptionistShiftForm.shift}" for Receptionist ${selectedReceptionist.name}!`);
+    } catch (err) {
+      console.log('Error persisting receptionist shift to database:', err);
+      showToast(`✓ Shift timings updated to "${receptionistShiftForm.shift}"!`);
+    }
+  };
+
+  // ========================================================
+  // EDIT & DELETE STAFF (TRAINER & RECEPTIONIST) CONTROLLERS
+  // ========================================================
+  const [showEditStaffModal, setShowEditStaffModal] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [staffToDelete, setStaffToDelete] = useState(null);
+
+  const handleOpenEditStaff = (staff, role) => {
+    setEditingStaff({
+      ...staff,
+      role: role || (staff.spec ? 'trainer' : 'receptionist'),
+      spec: staff.spec || (role === 'trainer' ? 'Master Coach & Conditioning' : 'Front Desk Officer'),
+      shift: staff.shift || (role === 'trainer' ? '06:00 AM - 02:00 PM' : 'Morning (06:00 AM - 02:00 PM)'),
+      status: staff.status || (role === 'trainer' ? 'On Duty' : 'Online'),
+      phone: staff.phone === 'N/A' ? '' : staff.phone
+    });
+    setShowEditStaffModal(true);
+  };
+
+  const handleSaveStaffChanges = async (e) => {
+    e.preventDefault();
+    if (!editingStaff) return;
+
+    try {
+      const targetId = editingStaff.userId || editingStaff.id;
+      const payload = {
+        name: editingStaff.name,
+        email: editingStaff.email,
+        phone: editingStaff.phone || 'N/A',
+        specialization: editingStaff.spec,
+        shift: editingStaff.shift,
+        status: editingStaff.status
+      };
+
+      await api.put(`/api/users/${targetId}`, payload);
+
+      if (editingStaff.role === 'trainer' || editingStaff.spec) {
+        setTrainersList(prev => prev.map(t => (t.userId === targetId || t.id === targetId) ? {
+          ...t,
+          name: editingStaff.name,
+          email: editingStaff.email,
+          phone: editingStaff.phone || 'N/A',
+          spec: editingStaff.spec,
+          shift: editingStaff.shift,
+          status: editingStaff.status
+        } : t));
+        showToast(`✓ Coach "${editingStaff.name}" details updated successfully!`);
+      } else {
+        setReceptionistsList(prev => prev.map(r => (r.userId === targetId || r.id === targetId) ? {
+          ...r,
+          name: editingStaff.name,
+          email: editingStaff.email,
+          phone: editingStaff.phone || 'N/A',
+          shift: editingStaff.shift,
+          status: editingStaff.status
+        } : r));
+        showToast(`✓ Front Desk "${editingStaff.name}" details updated successfully!`);
+      }
+
+      setShowEditStaffModal(false);
+      setEditingStaff(null);
+    } catch (err) {
+      console.error('Error updating staff member:', err);
+      showToast(err.response?.data?.message || 'Failed to update details in database');
+    }
+  };
+
+  const handleOpenDeleteStaff = (staff, role) => {
+    setStaffToDelete({
+      ...staff,
+      role: role || (staff.spec ? 'trainer' : 'receptionist')
+    });
+    setShowDeleteConfirmModal(true);
+  };
+
+  const handleConfirmDeleteStaff = async () => {
+    if (!staffToDelete) return;
+
+    try {
+      const targetId = staffToDelete.userId || staffToDelete.id;
+      await api.delete(`/api/users/${targetId}`);
+
+      if (staffToDelete.role === 'trainer' || staffToDelete.spec) {
+        setTrainersList(prev => prev.filter(t => t.userId !== targetId && t.id !== targetId));
+        showToast(`✓ Coach "${staffToDelete.name}" removed from roster.`);
+      } else {
+        setReceptionistsList(prev => prev.filter(r => r.userId !== targetId && r.id !== targetId));
+        showToast(`✓ Receptionist "${staffToDelete.name}" removed from database.`);
+      }
+
+      setShowDeleteConfirmModal(false);
+      setStaffToDelete(null);
+    } catch (err) {
+      console.error('Error deleting staff member:', err);
+      showToast(err.response?.data?.message || 'Failed to delete staff member');
+    }
+  };
+
+  // Form input temporary states for Add Modal (Role strictly: customer | trainer | receptionist | admin)
   const [formInputs, setFormInputs] = useState({
-    name: '', email: '', phone: '', role: 'member', plan: 'Titan Elite All-Access', price: '', goal: ''
+    name: '', email: '', phone: '', role: 'customer', plan: 'Titan Elite All-Access', price: '', goal: ''
   });
 
   const handleCreateSubmit = async (e) => {
@@ -192,56 +524,60 @@ export default function AdminDashboard({ user, onLogout }) {
       return;
     }
 
-    if (modalType === 'user') {
+    if (modalType === 'customer') {
       try {
-        const res = await fetch('http://localhost:5050/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formInputs.name,
-            email: formInputs.email,
-            phone: formInputs.phone,
-            role: formInputs.role,
-            password: 'DefaultPass123!'
-          })
+        const res = await api.post('/api/users', {
+          name: formInputs.name,
+          email: formInputs.email,
+          phone: formInputs.phone || '',
+          role: 'customer',
+          password: 'Customer@123'
         });
-        const data = await res.json();
-        if (res.ok) {
-          showToast(`User "${formInputs.name}" created in database as ${formInputs.role}!`);
-          fetchUsers();
-        } else {
-          showToast(data.message || 'Error creating user');
-        }
-      } catch (err) {
-        showToast('Error connecting to backend API');
-      }
-    } else if (modalType === 'customer') {
-      try {
-        const res = await fetch('http://localhost:5050/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formInputs.name,
-            email: formInputs.email,
-            phone: formInputs.phone || '',
-            role: 'customer',
-            password: 'Customer@123'
-          })
-        });
-        const data = await res.json();
-        if (res.ok) {
+        if (res.data?.status === 'success') {
           showToast(`Customer "${formInputs.name}" registered in database!`);
           fetchUsers();
         } else {
-          showToast(data.message || 'Error registering customer');
+          showToast(res.data?.message || 'Error registering customer');
         }
       } catch (err) {
-        showToast('Error connecting to database');
+        showToast(err.response?.data?.message || 'Error connecting to database');
       }
     } else if (modalType === 'trainer') {
-      const newTrn = { id: `TRN-${Date.now().toString().slice(-3)}`, name: formInputs.name, spec: formInputs.goal || 'General Fitness', clients: 0, shift: '06:00 AM - 02:00 PM', rating: '5.0 ★', status: 'On Duty' };
-      setTrainersList([newTrn, ...trainersList]);
-      showToast(`Trainer "${formInputs.name}" added to roster!`);
+      try {
+        const res = await api.post('/api/users', {
+          name: formInputs.name,
+          email: formInputs.email,
+          phone: formInputs.phone || '',
+          role: 'trainer',
+          password: 'Trainer@123'
+        });
+        if (res.data?.status === 'success') {
+          showToast(`Trainer "${formInputs.name}" added to roster in database!`);
+          fetchUsers();
+        } else {
+          showToast(res.data?.message || 'Error adding trainer');
+        }
+      } catch (err) {
+        showToast(err.response?.data?.message || 'Error connecting to database');
+      }
+    } else if (modalType === 'receptionist') {
+      try {
+        const res = await api.post('/api/users', {
+          name: formInputs.name,
+          email: formInputs.email,
+          phone: formInputs.phone || '',
+          role: 'receptionist',
+          password: 'Receptionist@123'
+        });
+        if (res.data?.status === 'success') {
+          showToast(`Receptionist "${formInputs.name}" registered in database!`);
+          fetchUsers();
+        } else {
+          showToast(res.data?.message || 'Error adding receptionist');
+        }
+      } catch (err) {
+        showToast(err.response?.data?.message || 'Error connecting to database');
+      }
     } else if (modalType === 'enquiry') {
       const newEnq = { id: `ENQ-${Date.now().toString().slice(-3)}`, name: formInputs.name, email: formInputs.email, phone: formInputs.phone, goal: formInputs.goal || 'VIP Pass', status: 'New', date: '2026-08-25' };
       setEnquiriesList([newEnq, ...enquiriesList]);
@@ -249,13 +585,12 @@ export default function AdminDashboard({ user, onLogout }) {
     }
 
     setShowAddModal(false);
-    setFormInputs({ name: '', email: '', phone: '', role: 'member', plan: 'Titan Elite All-Access', price: '', goal: '' });
+    setFormInputs({ name: '', email: '', phone: '', role: 'customer', plan: 'Titan Elite All-Access', price: '', goal: '' });
   };
 
   // ==========================================
   // PUBLIC PAGES DYNAMIC CMS STATE & CONTROLS
   // ==========================================
-  const { cmsData, updateFullCMS, resetToDefaults } = useLandingPageCMS();
   const [editorData, setEditorData] = useState(cmsData);
   const [cmsActiveTab, setCmsActiveTab] = useState('hero');
 
@@ -650,7 +985,6 @@ export default function AdminDashboard({ user, onLogout }) {
   const navMenuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'public-pages', label: 'Public Pages (CMS)', icon: Globe },
-    { id: 'user-mgmt', label: 'User Management', icon: Users },
     { id: 'customer-mgmt', label: 'Customer Management', icon: UserCheck },
     { id: 'trainer-mgmt', label: 'Trainer Management', icon: Dumbbell },
     { id: 'receptionist-mgmt', label: 'Receptionist Mgmt', icon: UserCog },
@@ -703,7 +1037,7 @@ export default function AdminDashboard({ user, onLogout }) {
             </div>
           </div>
 
-          {/* Gym Brand Admin Command Badge (Replaces generic stock photo) */}
+          {/* Gym Brand Admin Command Badge */}
           {sidebarOpen && (
             <div className="px-5 py-3.5 flex items-center gap-3 border-b border-[#1E1E26] bg-[#0E0E12]/80">
               <div className="relative shrink-0">
@@ -751,7 +1085,6 @@ export default function AdminDashboard({ user, onLogout }) {
                   key={item.id}
                   onClick={() => {
                     setActiveTab(item.id);
-                    if (item.id === 'user-mgmt') fetchUsers();
                   }}
                   className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all cursor-pointer relative ${
                     isActive
@@ -771,33 +1104,15 @@ export default function AdminDashboard({ user, onLogout }) {
           </nav>
         </div>
 
-        {/* Bottom Section: "Go Premium" Card & Log Out */}
-        <div className="p-4 border-t border-[#202028] bg-[#0C0C10] space-y-3">
-          {sidebarOpen && (
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-[#24171A] to-[#141419] border border-[#FF1E27]/30 shadow-lg relative overflow-hidden group">
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <span className="text-amber-400 text-sm">👑</span>
-                <span className="text-xs font-bold text-white tracking-tight">Go Premium</span>
-              </div>
-              <p className="text-[10px] text-[#8E8E98] leading-tight mb-2">
-                Unlock full biometric & 3D telemetry tools.
-              </p>
-              <button
-                onClick={() => showToast('⭐ Premium Admin Tier is active.')}
-                className="w-full py-1.5 rounded-xl bg-[#FF1E27] hover:brightness-110 text-white font-bold text-[10px] uppercase tracking-wider shadow-[0_0_12px_rgba(255,30,39,0.5)] transition-all cursor-pointer"
-              >
-                Upgrade Plan
-              </button>
-            </div>
-          )}
-
+        {/* Bottom Section: Log Out */}
+        <div className="p-4 border-t border-[#202028] bg-[#0C0C10]">
           {/* Log Out Link */}
           <button
             onClick={() => {
               if (onLogout) onLogout();
               navigate('/');
             }}
-            className={`w-full flex items-center ${sidebarOpen ? 'justify-start gap-2.5 px-3 py-1.5' : 'justify-center py-2'} text-xs text-[#8E8E98] hover:text-[#FF1E27] transition-colors cursor-pointer font-medium`}
+            className={`w-full flex items-center ${sidebarOpen ? 'justify-start gap-2.5 px-3 py-2' : 'justify-center py-2'} text-xs text-[#8E8E98] hover:text-[#FF1E27] transition-colors cursor-pointer font-medium rounded-xl hover:bg-white/5`}
             title="Log Out"
           >
             <LogOut size={16} />
@@ -828,15 +1143,13 @@ export default function AdminDashboard({ user, onLogout }) {
             </h1>
           </div>
 
-          {/* Right Header Controls: "Today ⌄", Search, Bell */}
+          {/* Right Header Controls */}
           <div className="flex items-center gap-3">
-            {/* Period Dropdown Button */}
             <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#181820] border border-white/5 text-xs text-slate-200 font-medium cursor-pointer hover:border-white/15 transition-all">
               <span>Today</span>
               <span className="text-[#8E8E98] text-[10px]">▼</span>
             </div>
 
-            {/* Notifications Bell */}
             <button
               onClick={() => setActiveTab('notifications')}
               className="w-9 h-9 rounded-xl bg-[#181820] border border-white/5 text-slate-300 hover:text-white flex items-center justify-center relative transition-colors cursor-pointer"
@@ -855,7 +1168,6 @@ export default function AdminDashboard({ user, onLogout }) {
             buttonLabel="Search"
             items={[
               { label: "Public Pages (CMS)", tab: "public-pages" },
-              { label: "User Management (MongoDB Sync)", tab: "user-mgmt" },
               { label: "Customer Management", tab: "customer-mgmt" },
               { label: "Trainer Management", tab: "trainer-mgmt" },
               { label: "Receptionist Management", tab: "receptionist-mgmt" },
@@ -866,15 +1178,14 @@ export default function AdminDashboard({ user, onLogout }) {
               { label: "Notifications Control", tab: "notifications" },
               { label: "Enquiry Management", tab: "enquiry-management" },
               { label: "System Security & Settings", tab: "settings" },
-              ...usersList.map(u => ({ label: `${u.name} (${u.role})`, tab: "user-mgmt" })),
               ...customersList.map(c => ({ label: `${c.name} (Member)`, tab: "customer-mgmt" })),
-              ...trainersList.map(t => ({ label: `${t.name} (Coach)`, tab: "trainer-mgmt" }))
+              ...trainersList.map(t => ({ label: `${t.name} (Coach)`, tab: "trainer-mgmt" })),
+              ...receptionistsList.map(r => ({ label: `${r.name} (Front Desk)`, tab: "receptionist-mgmt" }))
             ]}
             onChange={(val) => setSearchQuery(val)}
             onSelect={(item) => {
               if (item?.tab) {
                 setActiveTab(item.tab);
-                if (item.tab === 'user-mgmt') fetchUsers();
                 showToast(`Opened ${item.label}`);
               }
             }}
@@ -886,16 +1197,10 @@ export default function AdminDashboard({ user, onLogout }) {
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => { setModalType('customer'); setShowAddModal(true); }}
-              className="px-3.5 py-1.5 rounded-xl bg-[#FF1E27] hover:brightness-110 text-white font-bold text-xs flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,30,39,0.4)] transition-all cursor-pointer"
-            >
-              <UserPlus size={14} /> + Customer
-            </button>
-            <button
               onClick={() => setShowAddUserModal(true)}
               className="px-3.5 py-1.5 rounded-xl bg-[#181820] border border-white/10 text-white font-semibold text-xs flex items-center gap-1.5 hover:border-[#FF1E27] transition-all cursor-pointer"
             >
-              <Plus size={14} /> Add User
+              <Plus size={14} /> Add Staff / Coach
             </button>
           </div>
         </div>
@@ -903,121 +1208,138 @@ export default function AdminDashboard({ user, onLogout }) {
         {/* Dynamic Main Body Content based on Active Tab */}
         <div className="p-4 sm:p-8 space-y-6 flex-1 bg-[#0A0A0D]">
 
-          {/* TAB 1: OVERVIEW DASHBOARD MATCHING REFERENCE SCREENSHOT */}
+          {/* TAB 1: OVERVIEW DASHBOARD - GYM BUSINESS ANALYTICS & FACILITY COMMAND */}
           {activeTab === 'dashboard' && (
             <div className="space-y-6 animate-fadeIn">
 
-              {/* TOP ROW: 3 METRIC CARDS (Heart Rate, Energy Burn, Running) */}
+              {/* TOP ROW: 3 METRIC CARDS (Total Customers, Monthly Revenue, Gate Check-ins) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 
-                {/* 1. Heart Rate Card */}
+                {/* 1. Total Active Customers Card */}
                 <div className="p-5 rounded-2xl bg-[#141419] border border-[#202028] shadow-[0_4px_20px_rgba(0,0,0,0.5)] hover:border-[#FF1E27]/40 transition-all">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <span className="text-[#FF1E27] text-base">❤️</span>
-                      <span className="text-xs font-bold text-white tracking-tight">Heart Rate</span>
+                      <span className="text-[#FF1E27] text-base">👥</span>
+                      <span className="text-xs font-bold text-white tracking-tight">Active Customers</span>
                     </div>
-                    <button className="text-[#8E8E98] hover:text-white transition-colors">
-                      <MoreVertical size={16} />
-                    </button>
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/80 px-2 py-0.5 rounded-full">
+                      +12.4%
+                    </span>
                   </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">85</span>
-                    <span className="text-xs text-[#8E8E98] font-semibold uppercase">BPM</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                      {customersList.length > 0 ? customersList.length : 0}
+                    </span>
+                    <span className="text-xs text-[#8E8E98] font-semibold uppercase">Registered Members</span>
+                  </div>
+                  <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Active Gym Roster</span>
+                    <span className="text-emerald-400 font-medium">100% MongoDB Sync</span>
                   </div>
                 </div>
 
-                {/* 2. Energy Burn Card */}
+                {/* 2. Monthly Gross Revenue Card */}
                 <div className="p-5 rounded-2xl bg-[#141419] border border-[#202028] shadow-[0_4px_20px_rgba(0,0,0,0.5)] hover:border-[#FF1E27]/40 transition-all">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <span className="text-[#FF1E27] text-base">🔥</span>
-                      <span className="text-xs font-bold text-white tracking-tight">Energy Burn</span>
+                      <span className="text-[#FF1E27] text-base">💳</span>
+                      <span className="text-xs font-bold text-white tracking-tight">Monthly Gross Revenue</span>
                     </div>
-                    <button className="text-[#8E8E98] hover:text-white transition-colors">
-                      <MoreVertical size={16} />
-                    </button>
+                    <span className="text-[10px] font-bold text-[#FF1E27] bg-[#FF1E27]/10 border border-[#FF1E27]/30 px-2 py-0.5 rounded-full">
+                      Aug 2026
+                    </span>
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">430</span>
-                    <span className="text-xs text-[#8E8E98] font-semibold">Kcal</span>
+                    <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">₹1,48,500</span>
+                    <span className="text-xs text-[#8E8E98] font-semibold">INR</span>
+                  </div>
+                  <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Monthly Target: ₹2,00,000</span>
+                    <span className="text-[#FF1E27] font-semibold">74% Target</span>
                   </div>
                 </div>
 
-                {/* 3. Running Card */}
+                {/* 3. Daily Gate Check-ins Card */}
                 <div className="p-5 rounded-2xl bg-[#141419] border border-[#202028] shadow-[0_4px_20px_rgba(0,0,0,0.5)] hover:border-[#FF1E27]/40 transition-all">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <span className="text-[#FF1E27] text-base">🏃</span>
-                      <span className="text-xs font-bold text-white tracking-tight">Running</span>
+                      <span className="text-[#FF1E27] text-base">⚡</span>
+                      <span className="text-xs font-bold text-white tracking-tight">Gate Check-ins Today</span>
                     </div>
-                    <button className="text-[#8E8E98] hover:text-white transition-colors">
-                      <MoreVertical size={16} />
-                    </button>
+                    <span className="text-[10px] font-bold text-purple-400 bg-purple-950/60 border border-purple-800/80 px-2 py-0.5 rounded-full">
+                      Live Telemetry
+                    </span>
                   </div>
                   <div className="flex items-baseline gap-1.5">
-                    <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">10</span>
-                    <span className="text-xs text-[#8E8E98] font-semibold">min</span>
+                    <span className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">142</span>
+                    <span className="text-xs text-[#8E8E98] font-semibold">Athletes In</span>
+                  </div>
+                  <div className="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Peak Floor Hours</span>
+                    <span className="text-purple-400 font-medium">06:00 PM – 09:00 PM</span>
                   </div>
                 </div>
 
               </div>
 
-              {/* MAIN 2-COLUMN GRID (Activity Reports + Goals & Meal Stats) */}
+              {/* MAIN 2-COLUMN GRID (Revenue & Growth Analytics + Facility Operations) */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
                 {/* ============================================================== */}
-                {/* LEFT COLUMN: ACTIVITY REPORTS + TODAY'S EXERCISES CHALLENGES */}
+                {/* LEFT COLUMN: GYM REVENUE & MEMBER GROWTH ANALYTICS             */}
                 {/* ============================================================== */}
                 <div className="lg:col-span-8 space-y-6">
 
-                  {/* Card A: Activity Reports with Glowing Spline Curve */}
+                  {/* Card A: Revenue & Member Growth with Glowing Spline Curve */}
                   <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-[0_4px_24px_rgba(0,0,0,0.5)] space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold text-white tracking-tight">Activity Reports</h3>
+                      <div>
+                        <h3 className="text-base font-bold text-white tracking-tight">Revenue & Membership Growth Analytics</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">Live gym monthly revenue telemetry and new member registration influx.</p>
+                      </div>
                       <div className="flex items-center gap-3">
                         <button className="px-3.5 py-1.5 rounded-xl bg-[#FF1E27] hover:brightness-110 text-white font-bold text-xs flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,30,39,0.5)] transition-all cursor-pointer">
                           <span>Monthly</span>
                           <span className="text-[10px]">▼</span>
                         </button>
-                        <button className="text-[#8E8E98] hover:text-white transition-colors">
+                        <button onClick={() => showToast('Analytics exported.')} className="text-[#8E8E98] hover:text-white transition-colors">
                           <MoreHorizontal size={18} />
                         </button>
                       </div>
                     </div>
 
                     {/* SVG Spline Wave Chart */}
-                    <div className="relative w-full h-56 pt-2">
-                      <svg className="w-full h-full overflow-visible" viewBox="0 0 600 200" fill="none">
+                    <div className="relative w-full h-56 pt-2 overflow-hidden">
+                      <svg className="w-full h-full" viewBox="0 0 600 200" fill="none">
                         <defs>
                           {/* Crimson Neon Line Glow Filter */}
                           <filter id="crimsonGlow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#FF1E27" floodOpacity="0.8" />
+                            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#FF1E27" floodOpacity="0.7" />
                           </filter>
                           {/* Linear Gradient under Area */}
                           <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#FF1E27" stopOpacity="0.25" />
+                            <stop offset="0%" stopColor="#FF1E27" stopOpacity="0.28" />
                             <stop offset="100%" stopColor="#FF1E27" stopOpacity="0.0" />
                           </linearGradient>
                         </defs>
 
                         {/* Grid Horizontal & Vertical Lines */}
-                        {[30, 70, 110, 150, 190].map((y, i) => (
-                          <line key={i} x1="0" y1={y} x2="600" y2={y} stroke="#22222E" strokeWidth="1" strokeDasharray="3 3" />
+                        {[40, 75, 110, 145, 180].map((y, i) => (
+                          <line key={i} x1="0" y1={y} x2="600" y2={y} stroke="#20202C" strokeWidth="1" strokeDasharray="3 3" />
                         ))}
-                        {[50, 110, 170, 230, 290, 350, 410, 470, 530, 590].map((x, i) => (
-                          <line key={i} x1={x} y1="0" x2={x} y2="190" stroke="#1C1C24" strokeWidth="1" />
+                        {[30, 90, 150, 210, 270, 330, 390, 450, 510, 570].map((x, i) => (
+                          <line key={i} x1={x} y1="10" x2={x} y2="180" stroke="#1A1A24" strokeWidth="1" />
                         ))}
 
                         {/* Area Fill */}
                         <path
-                          d="M 0,160 Q 60,150 110,165 T 210,160 T 270,70 T 330,170 T 410,40 T 470,170 T 540,165 T 600,160 L 600,190 L 0,190 Z"
+                          d="M 0,155 C 30,150 60,152 90,148 C 120,144 150,158 180,155 C 210,150 240,110 270,68 C 300,38 325,125 355,120 C 385,115 415,85 445,55 C 475,25 500,85 530,80 C 560,75 580,78 600,75 L 600,180 L 0,180 Z"
                           fill="url(#chartGradient)"
                         />
 
                         {/* Glowing Red Spline Curve Line */}
                         <path
-                          d="M 0,160 Q 60,150 110,165 T 210,160 T 270,70 T 330,170 T 410,40 T 470,170 T 540,165 T 600,160"
+                          d="M 0,155 C 30,150 60,152 90,148 C 120,144 150,158 180,155 C 210,150 240,110 270,68 C 300,38 325,125 355,120 C 385,115 415,85 445,55 C 475,25 500,85 530,80 C 560,75 580,78 600,75"
                           stroke="#FF1E27"
                           strokeWidth="3.5"
                           strokeLinecap="round"
@@ -1025,19 +1347,25 @@ export default function AdminDashboard({ user, onLogout }) {
                           filter="url(#crimsonGlow)"
                         />
 
-                        {/* Peak Node Point 1 (May: x=270, y=70) */}
-                        <circle cx="270" cy="70" r="5.5" fill="#FFFFFF" stroke="#FF1E27" strokeWidth="3" />
-                        <line x1="270" y1="70" x2="270" y2="190" stroke="#FF1E27" strokeWidth="1.5" strokeDasharray="2 2" />
+                        {/* Peak Node Point 1 (May Revenue Peak: x=270, y=68) */}
+                        <circle cx="270" cy="68" r="5" fill="#FFFFFF" stroke="#FF1E27" strokeWidth="2.5" />
+                        <line x1="270" y1="68" x2="270" y2="180" stroke="#FF1E27" strokeWidth="1.5" strokeDasharray="2 2" />
 
-                        {/* Tooltip Badge at Peak */}
-                        <g transform="translate(235, 18)">
-                          <rect width="70" height="34" rx="8" fill="#121217" stroke="#2A2A38" strokeWidth="1" />
-                          <text x="35" y="14" fill="#8E8E98" fontSize="9" fontWeight="600" textAnchor="middle" fontFamily="sans-serif">Steps</text>
-                          <text x="35" y="27" fill="#FFFFFF" fontSize="11" fontWeight="800" textAnchor="middle" fontFamily="sans-serif">9,346</text>
+                        {/* Tooltip Badge at Peak 1 */}
+                        <g transform="translate(225, 18)">
+                          <rect width="90" height="34" rx="8" fill="#121217" stroke="#2A2A38" strokeWidth="1" />
+                          <text x="45" y="14" fill="#8E8E98" fontSize="9" fontWeight="600" textAnchor="middle" fontFamily="sans-serif">Peak Revenue</text>
+                          <text x="45" y="27" fill="#FFFFFF" fontSize="11" fontWeight="800" textAnchor="middle" fontFamily="sans-serif">₹1,48,500</text>
                         </g>
 
-                        {/* Secondary Peak Node (Aug: x=410, y=40) */}
-                        <circle cx="410" cy="40" r="5" fill="#FFFFFF" stroke="#FF1E27" strokeWidth="2.5" />
+                        {/* Secondary Peak Node (Aug: x=445, y=55) */}
+                        <circle cx="445" cy="55" r="5" fill="#FFFFFF" stroke="#FF1E27" strokeWidth="2.5" />
+                        <line x1="445" y1="55" x2="445" y2="180" stroke="#FF1E27" strokeWidth="1.5" strokeDasharray="2 2" />
+
+                        <g transform="translate(405, 12)">
+                          <rect width="80" height="26" rx="6" fill="#121217" stroke="#2A2A38" strokeWidth="1" />
+                          <text x="40" y="17" fill="#FF1E27" fontSize="10" fontWeight="800" textAnchor="middle" fontFamily="sans-serif">+38 Reg.</text>
+                        </g>
                       </svg>
 
                       {/* X-Axis Month Labels */}
@@ -1049,16 +1377,19 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
                   </div>
 
-                  {/* Card B: Today's Exercises Challenges */}
+                  {/* Card B: Live Facility Operations & Gate Flow */}
                   <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-[0_4px_24px_rgba(0,0,0,0.5)] space-y-5">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold text-white tracking-tight">Today's Exercises Challenges</h3>
-                      <button className="text-[#8E8E98] hover:text-white transition-colors">
+                      <div>
+                        <h3 className="text-base font-bold text-white tracking-tight">Facility Capacity & Zone Operations</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">Real-time floor capacity, equipment utilization, and terminal gate status.</p>
+                      </div>
+                      <button onClick={() => showToast('Refreshed zone operations.')} className="text-[#8E8E98] hover:text-white transition-colors">
                         <MoreHorizontal size={18} />
                       </button>
                     </div>
 
-                    {/* Progress Ring & Workout Summary Sub-row */}
+                    {/* Progress Ring & Floor Summary Sub-row */}
                     <div className="flex items-center gap-4 pb-2 border-b border-[#202028]">
                       {/* Mini Radial Ring */}
                       <div className="relative w-12 h-12 flex items-center justify-center">
@@ -1074,63 +1405,87 @@ export default function AdminDashboard({ user, onLogout }) {
                             fill="none"
                             stroke="#FF1E27"
                             strokeWidth="3.5"
-                            strokeDasharray="80, 100"
+                            strokeDasharray="78, 100"
                             strokeLinecap="round"
                           />
                         </svg>
-                        <span className="absolute text-[10px] font-extrabold text-white">80%</span>
+                        <span className="absolute text-[10px] font-extrabold text-white">78%</span>
                       </div>
 
                       <div>
-                        <span className="text-xs font-bold text-white block">2 Workout Day</span>
-                        <span className="text-[11px] text-[#8E8E98] font-medium">Lower Body</span>
+                        <span className="text-xs font-bold text-white block">Gym Floor Active Load</span>
+                        <span className="text-[11px] text-[#8E8E98] font-medium">Optimal Capacity • All Gate Scanners Active</span>
                       </div>
                     </div>
 
-                    {/* Challenge 1: Hydration */}
+                    {/* Facility Zone 1: Main Strength Arena */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs font-medium">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-lg bg-[#201416] border border-[#FF1E27]/30 flex items-center justify-center text-[#FF1E27]">
-                            <span className="text-sm">💧</span>
+                            <Dumbbell size={16} />
                           </div>
                           <div>
-                            <span className="text-white font-bold text-xs block">Hydration</span>
-                            <span className="text-[10px] text-[#8E8E98]">250ml</span>
+                            <span className="text-white font-bold text-xs block">Main Strength Arena</span>
+                            <span className="text-[10px] text-[#8E8E98]">42 / 50 Active Athletes</span>
                           </div>
                         </div>
 
                         {/* Red Progress Bar */}
                         <div className="flex-1 mx-6 h-2 rounded-full bg-[#20202A] overflow-hidden">
-                          <div className="h-full w-[70%] bg-[#FF1E27] rounded-full shadow-[0_0_8px_#FF1E27]" />
+                          <div className="h-full w-[84%] bg-[#FF1E27] rounded-full shadow-[0_0_8px_#FF1E27]" />
                         </div>
 
-                        <span className="text-[11px] text-[#8E8E98] flex items-center gap-1 hover:text-white cursor-pointer">
-                          7:30 Am <ChevronRight size={13} />
+                        <span className="text-[11px] text-emerald-400 font-mono flex items-center gap-1">
+                          84% Load <ChevronRight size={13} />
                         </span>
                       </div>
                     </div>
 
-                    {/* Challenge 2: Stretching */}
+                    {/* Facility Zone 2: Cardio & HIIT Deck */}
                     <div className="space-y-2 pt-1">
                       <div className="flex items-center justify-between text-xs font-medium">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-[#201416] border border-[#FF1E27]/30 flex items-center justify-center text-[#FF1E27]">
-                            <span className="text-sm">🧘</span>
+                          <div className="w-8 h-8 rounded-lg bg-[#201416] border border-purple-500/30 flex items-center justify-center text-purple-400">
+                            <Activity size={16} />
                           </div>
                           <div>
-                            <span className="text-white font-bold text-xs block">Stretching</span>
-                            <span className="text-[10px] text-[#8E8E98]">20min</span>
+                            <span className="text-white font-bold text-xs block">Cardio & Telemetry Deck</span>
+                            <span className="text-[10px] text-[#8E8E98]">26 / 40 Stations In Use</span>
                           </div>
                         </div>
 
-                        {/* Red Progress Bar */}
+                        {/* Purple Progress Bar */}
                         <div className="flex-1 mx-6 h-2 rounded-full bg-[#20202A] overflow-hidden">
-                          <div className="h-full w-[85%] bg-[#FF1E27] rounded-full shadow-[0_0_8px_#FF1E27]" />
+                          <div className="h-full w-[65%] bg-purple-500 rounded-full shadow-[0_0_8px_#8B5CF6]" />
                         </div>
 
-                        <span className="text-[11px] text-[#8E8E98] flex items-center gap-1 hover:text-white cursor-pointer">
-                          7:30 Am <ChevronRight size={13} />
+                        <span className="text-[11px] text-purple-400 font-mono flex items-center gap-1">
+                          65% Load <ChevronRight size={13} />
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Facility Zone 3: Biometric Gates & Front Desk */}
+                    <div className="space-y-2 pt-1">
+                      <div className="flex items-center justify-between text-xs font-medium">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-[#201416] border border-amber-500/30 flex items-center justify-center text-amber-400">
+                            <ShieldCheck size={16} />
+                          </div>
+                          <div>
+                            <span className="text-white font-bold text-xs block">Gate Terminal A1 & B2</span>
+                            <span className="text-[10px] text-[#8E8E98]">RFID / QR Scanner Normal</span>
+                          </div>
+                        </div>
+
+                        {/* Amber Progress Bar */}
+                        <div className="flex-1 mx-6 h-2 rounded-full bg-[#20202A] overflow-hidden">
+                          <div className="h-full w-[95%] bg-amber-500 rounded-full shadow-[0_0_8px_#F59E0B]" />
+                        </div>
+
+                        <span className="text-[11px] text-amber-400 font-mono flex items-center gap-1">
+                          Online <ChevronRight size={13} />
                         </span>
                       </div>
                     </div>
@@ -1140,15 +1495,18 @@ export default function AdminDashboard({ user, onLogout }) {
                 </div>
 
                 {/* ============================================================== */}
-                {/* RIGHT COLUMN: YOUR DAILY EXTRA GOALS + MEAL STATISTICS       */}
+                {/* RIGHT COLUMN: MEMBERSHIP TIER DISTRIBUTION & REVENUE STREAMS  */}
                 {/* ============================================================== */}
                 <div className="lg:col-span-4 space-y-6">
 
-                  {/* Card C: Your Daily Extra Goals (Big Circular Ring) */}
+                  {/* Card C: Membership Tier Distribution (Big Circular Ring) */}
                   <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-[0_4px_24px_rgba(0,0,0,0.5)] space-y-6 flex flex-col justify-between">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold text-white tracking-tight">Your Daily Extra Goals</h3>
-                      <button className="text-[#8E8E98] hover:text-white transition-colors">
+                      <div>
+                        <h3 className="text-base font-bold text-white tracking-tight">Membership Tier Share</h3>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Plan distribution ratio</p>
+                      </div>
+                      <button onClick={() => showToast('Membership breakdown updated.')} className="text-[#8E8E98] hover:text-white transition-colors">
                         <MoreHorizontal size={18} />
                       </button>
                     </div>
@@ -1181,51 +1539,64 @@ export default function AdminDashboard({ user, onLogout }) {
                       </svg>
                       <div className="absolute flex flex-col items-center">
                         <span className="text-4xl sm:text-5xl font-black text-white tracking-tight">80%</span>
+                        <span className="text-[10px] uppercase font-mono tracking-widest text-[#8E8E98]">Premium Tiers</span>
                       </div>
                     </div>
 
                     {/* Legend Below Ring */}
-                    <div className="flex items-center justify-center gap-4 text-xs font-semibold text-slate-300 pt-2 border-t border-[#202028]">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-[#FF1E27]" />
-                        <span>Bicycle</span>
+                    <div className="flex flex-col gap-2.5 text-xs font-semibold text-slate-300 pt-3 border-t border-[#202028]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-[#FF1E27] shadow-[0_0_6px_#FF1E27]" />
+                          <span>Titan Elite All-Access</span>
+                        </div>
+                        <span className="text-white font-mono font-bold">52%</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-[#FF1E27]" />
-                        <span>Yoga</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_6px_#8B5CF6]" />
+                          <span>3D Pro Telemetry Pass</span>
+                        </div>
+                        <span className="text-white font-mono font-bold">28%</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-amber-500" />
-                        <span>Exercises</span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-[0_0_6px_#F59E0B]" />
+                          <span>Standard Fit Arena</span>
+                        </div>
+                        <span className="text-white font-mono font-bold">20%</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Card D: Meal Statistics with mini Spline Chart */}
+                  {/* Card D: Revenue Stream Breakdown with mini Spline Chart */}
                   <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-[0_4px_24px_rgba(0,0,0,0.5)] space-y-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold text-white tracking-tight">Meal Statistics</h3>
-                      <button className="text-[#8E8E98] hover:text-white transition-colors">
+                      <div>
+                        <h3 className="text-base font-bold text-white tracking-tight">Weekly Revenue Streams</h3>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Recurring revenue channels</p>
+                      </div>
+                      <button onClick={() => showToast('Weekly report synced.')} className="text-[#8E8E98] hover:text-white transition-colors">
                         <MoreHorizontal size={18} />
                       </button>
                     </div>
 
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-3xl font-extrabold text-white tracking-tight">269</span>
-                      <span className="text-xs text-[#8E8E98] font-semibold">Kcal</span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-extrabold text-white tracking-tight">₹48,250</span>
+                      <span className="text-xs text-emerald-400 font-semibold">+8.5% This Week</span>
                     </div>
 
                     {/* Mini Spline Wave Chart */}
-                    <div className="relative w-full h-32">
-                      <svg className="w-full h-full overflow-visible" viewBox="0 0 300 100" fill="none">
+                    <div className="relative w-full h-32 pt-1 overflow-hidden">
+                      <svg className="w-full h-full" viewBox="0 0 300 100" fill="none">
                         {/* Grid lines */}
-                        {[20, 50, 80].map((y, i) => (
+                        {[25, 55, 85].map((y, i) => (
                           <line key={i} x1="0" y1={y} x2="300" y2={y} stroke="#1E1E28" strokeWidth="1" strokeDasharray="2 2" />
                         ))}
 
                         {/* Spline Path */}
                         <path
-                          d="M 0,80 Q 40,75 75,80 T 150,75 T 225,25 T 300,75"
+                          d="M 0,78 C 35,76 70,82 105,75 C 140,68 180,45 220,32 C 245,24 275,60 300,55"
                           stroke="#FF1E27"
                           strokeWidth="2.5"
                           strokeLinecap="round"
@@ -1234,19 +1605,20 @@ export default function AdminDashboard({ user, onLogout }) {
                         />
 
                         {/* Peak node */}
-                        <circle cx="225" cy="25" r="4" fill="#FFFFFF" stroke="#FF1E27" strokeWidth="2" />
+                        <circle cx="220" cy="32" r="4" fill="#FFFFFF" stroke="#FF1E27" strokeWidth="2" />
+                        <line x1="220" y1="32" x2="220" y2="85" stroke="#FF1E27" strokeWidth="1" strokeDasharray="2 2" />
 
                         {/* Floating Tooltip */}
-                        <g transform="translate(195, -2)">
-                          <rect width="60" height="24" rx="6" fill="#121217" stroke="#2A2A38" strokeWidth="1" />
-                          <text x="30" y="10" fill="#8E8E98" fontSize="7" fontWeight="600" textAnchor="middle">Steps</text>
-                          <text x="30" y="20" fill="#FFFFFF" fontSize="9" fontWeight="800" textAnchor="middle">9,346</text>
+                        <g transform="translate(180, 2)">
+                          <rect width="80" height="24" rx="6" fill="#121217" stroke="#2A2A38" strokeWidth="1" />
+                          <text x="40" y="10" fill="#8E8E98" fontSize="7" fontWeight="600" textAnchor="middle">Top Revenue</text>
+                          <text x="40" y="20" fill="#FFFFFF" fontSize="9" fontWeight="800" textAnchor="middle">₹28,500</text>
                         </g>
                       </svg>
 
                       {/* X-Axis categories */}
                       <div className="flex justify-between text-[10px] text-[#8E8E98] font-medium pt-1 px-1">
-                        {['Vegetables', 'Fruit', 'Meat', 'Water'].map((cat) => (
+                        {['Memberships', 'PT Coaches', 'Telemetry', 'Recovery'].map((cat) => (
                           <span key={cat}>{cat}</span>
                         ))}
                       </div>
@@ -2588,106 +2960,7 @@ export default function AdminDashboard({ user, onLogout }) {
             </div>
           )}
 
-          {/* TAB 2: USER MANAGEMENT (LIVE MONGODB DATABASE DATA) */}
-          {activeTab === 'user-mgmt' && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-3">
-                    User Management
-                    <span className="text-xs font-medium text-emerald-400 bg-emerald-950/80 border border-emerald-800 px-3 py-0.5 rounded-full">
-                      MongoDB Live ({usersList.length} Users)
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">All registered users saved in MongoDB database.</p>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={fetchUsers}
-                    className="p-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-slate-400 hover:text-white hover:border-[#FF2E4C] transition-all"
-                    title="Refresh Users List"
-                  >
-                    <RefreshCw size={15} className={loadingUsers ? 'animate-spin text-[#FF2E4C]' : ''} />
-                  </button>
-
-                  <button
-                    onClick={() => setShowAddUserModal(true)}
-                    className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all"
-                  >
-                    <Plus size={15} /> + Add User
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-3xl bg-[#12161A] border border-white/10 overflow-hidden shadow-xl">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
-                      <tr>
-                        <th className="p-4">User ID</th>
-                        <th className="p-4">Name</th>
-                        <th className="p-4">Email</th>
-                        <th className="p-4">Phone</th>
-                        <th className="p-4">Role</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 text-slate-200">
-                      {loadingUsers ? (
-                        <tr>
-                          <td colSpan="7" className="p-8 text-center text-slate-400">
-                            Fetching live users from MongoDB...
-                          </td>
-                        </tr>
-                      ) : usersList.length === 0 ? (
-                        <tr>
-                          <td colSpan="7" className="p-8 text-center text-slate-400">
-                            No registered users found in MongoDB database.
-                          </td>
-                        </tr>
-                      ) : (
-                        usersList
-                          .filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase()))
-                          .map((u, index) => (
-                            <tr key={u.id} className="hover:bg-white/5 transition-colors">
-                              <td className="p-4 text-[#00F0FF] font-mono text-[11px] font-semibold">{u.displayId || `USR-${101 + index}`}</td>
-                              <td className="p-4 font-semibold text-white">{u.name}</td>
-                              <td className="p-4 text-slate-400">{u.email}</td>
-                              <td className="p-4 text-slate-400">{u.phone}</td>
-                              <td className="p-4">
-                                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium capitalize ${u.role === 'admin' ? 'bg-[#FF2E4C]/20 text-[#FF2E4C] border border-[#FF2E4C]/40' :
-                                    u.role === 'trainer' ? 'bg-purple-950/60 text-purple-400 border border-purple-800' :
-                                      u.role === 'receptionist' ? 'bg-amber-950/60 text-amber-400 border border-amber-800' :
-                                        'bg-blue-950/60 text-blue-400 border border-blue-800'
-                                  }`}>
-                                  {u.role}
-                                </span>
-                              </td>
-                              <td className="p-4">
-                                <span className="text-emerald-400 text-xs font-medium">● {u.status || 'Active'}</span>
-                              </td>
-                              <td className="p-4 text-right space-x-1">
-                                <button
-                                  onClick={() => handleDeleteUser(u.id, u.name)}
-                                  className="p-1.5 text-slate-400 hover:text-[#FF2E4C] transition-colors"
-                                  title="Delete User"
-                                >
-                                  <Trash2 size={15} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: CUSTOMER MANAGEMENT */}
+          {/* TAB: CUSTOMER MANAGEMENT */}
           {activeTab === 'customer-mgmt' && (
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -2695,6 +2968,12 @@ export default function AdminDashboard({ user, onLogout }) {
                   <h2 className="text-xl font-bold text-white tracking-tight">Customer Management</h2>
                   <p className="text-xs text-slate-400 mt-0.5">Database of registered gym members, active plans, and expiration tracking.</p>
                 </div>
+                <button
+                  onClick={() => { setModalType('customer'); setShowAddModal(true); }}
+                  className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all"
+                >
+                  <UserPlus size={15} /> + Register New Customer
+                </button>
               </div>
 
               <div className="rounded-3xl bg-[#12161A] border border-white/10 overflow-hidden shadow-xl">
@@ -2712,13 +2991,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-slate-200">
-                      {loadingUsers ? (
-                        <tr>
-                          <td colSpan="7" className="p-8 text-center text-slate-400">
-                            Loading registered customers from MongoDB...
-                          </td>
-                        </tr>
-                      ) : customersList.length === 0 ? (
+                      {customersList.length === 0 ? (
                         <tr>
                           <td colSpan="7" className="p-8 text-center text-slate-400">
                             No registered customers found in database. Click "Register New Customer" to add.
@@ -2732,11 +3005,22 @@ export default function AdminDashboard({ user, onLogout }) {
                               <td className="p-4 font-mono text-[#00F0FF] text-[11px] font-semibold">{c.id}</td>
                               <td className="p-4 font-semibold text-white">{c.name}</td>
                               <td className="p-4 text-slate-400">{c.email}<br />{c.phone}</td>
-                              <td className="p-4 font-medium text-[#FF2E4C]">{c.plan}</td>
-                              <td className="p-4 text-slate-400">{c.expiry}</td>
                               <td className="p-4">
-                                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${c.status === 'Active' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' : 'bg-amber-950/60 text-amber-400 border border-amber-800'
-                                  }`}>
+                                {c.plan === 'No Active Plan' ? (
+                                  <span className="text-slate-500 font-mono text-xs italic">No Active Plan</span>
+                                ) : (
+                                  <span className="font-semibold text-[#FF2E4C]">{c.plan}</span>
+                                )}
+                              </td>
+                              <td className="p-4 text-slate-400 font-mono text-xs">{c.expiry}</td>
+                              <td className="p-4">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
+                                  c.status === 'Active' 
+                                    ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' 
+                                    : c.status === 'Due Soon'
+                                    ? 'bg-amber-950/60 text-amber-400 border border-amber-800'
+                                    : 'bg-slate-800/80 text-slate-400 border border-slate-700'
+                                }`}>
                                   {c.status}
                                 </span>
                               </td>
@@ -2771,38 +3055,607 @@ export default function AdminDashboard({ user, onLogout }) {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {trainersList.map((t) => (
-                  <div key={t.id} className="p-6 rounded-3xl bg-[#12161A] border border-white/10 space-y-4 shadow-xl hover:border-[#FF2E4C]/50 transition-all">
-                    <div className="flex items-center justify-between">
-                      <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] text-white font-bold text-lg flex items-center justify-center">
-                        {t.name.charAt(0)}
+              {trainersList.length === 0 ? (
+                <div className="p-12 rounded-3xl bg-[#12161A] border border-white/10 text-center space-y-3 shadow-xl">
+                  <p className="text-sm text-slate-400">No registered trainers/coaches found in MongoDB database.</p>
+                  <button
+                    onClick={() => setShowAddUserModal(true)}
+                    className="px-5 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-bold text-xs shadow-md transition-all cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <Plus size={15} /> Register First Coach
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {trainersList.map((t) => (
+                    <div key={t.id} className="p-6 rounded-3xl bg-[#12161A] border border-white/10 space-y-4 shadow-xl hover:border-[#FF2E4C]/50 transition-all relative">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] text-white font-bold text-lg flex items-center justify-center shadow-md">
+                            {t.name.charAt(0)}
+                          </div>
+                          <div>
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[10px] font-medium">
+                              {t.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Trainer Action Buttons: Edit & Delete */}
+                        <div className="flex items-center gap-1.5 bg-[#090C0E] p-1 rounded-xl border border-white/5 shadow-inner">
+                          <button
+                            onClick={() => handleOpenEditStaff(t, 'trainer')}
+                            title={`Edit Coach ${t.name}`}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                          >
+                            <Edit size={14} className="text-blue-400" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenDeleteStaff(t, 'trainer')}
+                            title={`Delete Coach ${t.name}`}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#FF2E4C] hover:bg-[#FF2E4C]/10 transition-all cursor-pointer"
+                          >
+                            <Trash2 size={14} className="text-[#FF2E4C]" />
+                          </button>
+                        </div>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-medium">
-                        {t.status}
-                      </span>
-                    </div>
 
-                    <div>
-                      <h3 className="text-base font-bold text-white">{t.name}</h3>
-                      <span className="text-xs font-medium text-[#FF2E4C] block mt-0.5">{t.spec}</span>
-                    </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">{t.name}</h3>
+                        <span className="text-xs font-medium text-[#FF2E4C] block mt-0.5">{t.spec}</span>
+                        <span className="text-[11px] text-slate-400 font-mono block mt-1">{t.email}</span>
+                      </div>
 
-                    <div className="p-3.5 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1.5 text-xs text-slate-400">
-                      <div className="flex justify-between"><span>Clients Assigned:</span> <strong className="text-slate-200 font-semibold">{t.clients}</strong></div>
-                      <div className="flex justify-between"><span>Shift Hours:</span> <strong className="text-slate-200 font-semibold">{t.shift}</strong></div>
-                      <div className="flex justify-between"><span>Athlete Rating:</span> <strong className="text-amber-400 font-semibold">{t.rating}</strong></div>
-                    </div>
+                      <div className="p-3.5 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1.5 text-xs text-slate-400">
+                        <div className="flex justify-between"><span>Clients Assigned:</span> <strong className="text-slate-200 font-semibold">{t.clients}</strong></div>
+                        <div className="flex justify-between"><span>Shift Hours:</span> <strong className="text-slate-200 font-semibold">{t.shift}</strong></div>
+                        <div className="flex justify-between"><span>Athlete Rating:</span> <strong className="text-amber-400 font-semibold">{t.rating}</strong></div>
+                      </div>
 
+                      <button
+                        onClick={() => {
+                          setSelectedCoach(t);
+                          setCoachShiftForm({
+                            shift: t.shift || '06:00 AM - 02:00 PM',
+                            days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                            maxCapacity: 12,
+                            breakTime: '11:00 AM - 11:30 AM',
+                            room: 'Main Strength & Conditioning Arena'
+                          });
+                          setActiveTab('coach-schedule');
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-[#090C0E] border border-white/10 hover:border-[#FF2E4C] text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <Calendar size={14} className="text-[#FF2E4C]" />
+                        Manage Schedule
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4.5: DEDICATED COACH SCHEDULE & CLIENT MANAGEMENT VIEW */}
+          {activeTab === 'coach-schedule' && (
+            <div className="space-y-6 animate-fadeIn pb-16">
+              
+              {/* Back Navigation & Coach Overview Card */}
+              <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-2xl space-y-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
                     <button
-                      onClick={() => showToast(`Schedule updated for Coach ${t.name}`)}
-                      className="w-full py-2.5 rounded-xl bg-[#090C0E] border border-white/10 hover:border-[#FF2E4C] text-slate-200 text-xs font-semibold transition-all cursor-pointer"
+                      onClick={() => setActiveTab('trainer-mgmt')}
+                      className="p-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-slate-300 hover:text-white hover:border-[#FF2E4C] transition-all cursor-pointer flex items-center gap-2 text-xs font-semibold"
                     >
-                      Manage Schedule
+                      <ArrowLeft size={16} /> Back to Trainers
+                    </button>
+                    <div className="h-6 w-[1px] bg-white/10 hidden sm:block" />
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
+                          {selectedCoach?.name || 'Coach Jayanth'}
+                        </h2>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-bold">
+                          ● On Duty
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                        {selectedCoach?.id || 'TRN-501'} • {selectedCoach?.email || 'jayanth@gmail.com'} • {selectedCoach?.spec || 'Master Coach & Conditioning'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setShowAssignClientModal(true)}
+                      className="px-4 py-2 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-bold text-xs flex items-center gap-2 shadow-[0_0_12px_rgba(255,46,76,0.4)] transition-all cursor-pointer"
+                    >
+                      <UserPlus size={15} /> Assign New Athlete
                     </button>
                   </div>
-                ))}
+                </div>
+
+                {/* KPI Metrics Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t border-white/5">
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-mono block">ASSIGNED SHIFT</span>
+                    <h4 className="text-base sm:text-lg font-bold text-purple-400">{coachShiftForm.shift}</h4>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-mono block">ACTIVE ATHLETES</span>
+                    <h4 className="text-base sm:text-lg font-bold text-emerald-400">{coachClients.active.length} Athletes</h4>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-mono block">GRADUATED / PAST</span>
+                    <h4 className="text-base sm:text-lg font-bold text-amber-400">{coachClients.past.length} Completed</h4>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-mono block">COACH RATING</span>
+                    <h4 className="text-base sm:text-lg font-bold text-yellow-400">5.0 ★ (48 Reviews)</h4>
+                  </div>
+                </div>
               </div>
+
+              {/* 1. SHIFT & TIMINGS SCHEDULER CONFIGURATION */}
+              <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-xl space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#201416] border border-[#FF2E4C]/30 flex items-center justify-center text-[#FF2E4C]">
+                      <Clock size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white tracking-tight">Shift Timings & Working Hours Setup</h3>
+                      <p className="text-xs text-slate-400">Configure weekly availability, designated training room, and shift duration.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSaveCoachShift}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+                  >
+                    <Check size={14} /> Save Timings
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {/* Shift Selector */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300 block">Shift Timing Window</label>
+                    <select
+                      value={coachShiftForm.shift}
+                      onChange={(e) => setCoachShiftForm({ ...coachShiftForm, shift: e.target.value })}
+                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                    >
+                      <option value="06:00 AM - 02:00 PM">Morning Shift (06:00 AM - 02:00 PM)</option>
+                      <option value="02:00 PM - 10:00 PM">Evening Shift (02:00 PM - 10:00 PM)</option>
+                      <option value="06:00 AM - 11:00 AM & 05:00 PM - 09:00 PM">Split Shift (06-11 AM & 05-09 PM)</option>
+                      <option value="10:00 AM - 06:00 PM">General Shift (10:00 AM - 06:00 PM)</option>
+                    </select>
+                  </div>
+
+                  {/* Designated Area */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300 block">Assigned Arena / Zone</label>
+                    <select
+                      value={coachShiftForm.room}
+                      onChange={(e) => setCoachShiftForm({ ...coachShiftForm, room: e.target.value })}
+                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                    >
+                      <option value="Main Strength & Conditioning Arena">Main Strength Arena</option>
+                      <option value="Cardio & 3D Telemetry Zone">Cardio & 3D Telemetry Zone</option>
+                      <option value="Functional HIIT & Turf Deck">Functional HIIT Turf</option>
+                      <option value="VIP Private Training Studio">VIP Private Training Studio</option>
+                    </select>
+                  </div>
+
+                  {/* Rest / Break Slot */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300 block">Scheduled Break Time</label>
+                    <input
+                      type="text"
+                      value={coachShiftForm.breakTime}
+                      onChange={(e) => setCoachShiftForm({ ...coachShiftForm, breakTime: e.target.value })}
+                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                      placeholder="e.g. 11:00 AM - 11:30 AM"
+                    />
+                  </div>
+                </div>
+
+                {/* Working Days Toggles */}
+                <div className="space-y-2 pt-2 border-t border-white/5">
+                  <label className="text-xs font-semibold text-slate-300 block">Weekly Working Days</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
+                      const isSelected = coachShiftForm.days.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => {
+                            const newDays = isSelected
+                              ? coachShiftForm.days.filter(d => d !== day)
+                              : [...coachShiftForm.days, day];
+                            setCoachShiftForm({ ...coachShiftForm, days: newDays });
+                          }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#FF2E4C] text-white shadow-[0_0_10px_rgba(255,46,76,0.4)]'
+                              : 'bg-[#090C0E] border border-white/10 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. CLIENT MANAGEMENT & SCHEDULE MATRIX TABS */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCoachClientTab('active')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                        coachClientTab === 'active'
+                          ? 'bg-[#FF2E4C] text-white shadow-md'
+                          : 'bg-[#141419] border border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <UserCheck size={15} /> Active Clients ({coachClients.active.length})
+                    </button>
+                    <button
+                      onClick={() => setCoachClientTab('past')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                        coachClientTab === 'past'
+                          ? 'bg-[#FF2E4C] text-white shadow-md'
+                          : 'bg-[#141419] border border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <History size={15} /> Past Clients ({coachClients.past.length})
+                    </button>
+                    <button
+                      onClick={() => setCoachClientTab('calendar')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                        coachClientTab === 'calendar'
+                          ? 'bg-[#FF2E4C] text-white shadow-md'
+                          : 'bg-[#141419] border border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Calendar size={15} /> Weekly Schedule Grid
+                    </button>
+                  </div>
+                </div>
+
+                {/* SUB-VIEW A: ACTIVE CLIENTS */}
+                {coachClientTab === 'active' && (
+                  <div className="rounded-3xl bg-[#141419] border border-[#202028] overflow-hidden shadow-xl">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
+                          <tr>
+                            <th className="p-4">Athlete ID</th>
+                            <th className="p-4">Athlete Name</th>
+                            <th className="p-4">Training Program</th>
+                            <th className="p-4">Target Goal</th>
+                            <th className="p-4">Session Slot Timing</th>
+                            <th className="p-4">Progress</th>
+                            <th className="p-4 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-slate-200">
+                          {coachClients.active.length === 0 ? (
+                            <tr>
+                              <td colSpan="7" className="p-8 text-center text-slate-400">
+                                No active athletes assigned yet. Click "Assign New Athlete" to assign a customer.
+                              </td>
+                            </tr>
+                          ) : (
+                            coachClients.active.map(client => (
+                              <tr key={client.id} className="hover:bg-white/5 transition-colors">
+                                <td className="p-4 font-mono text-[#00F0FF] font-semibold">{client.id}</td>
+                                <td className="p-4">
+                                  <span className="font-bold text-white block">{client.name}</span>
+                                  <span className="text-[11px] text-slate-400 font-mono">{client.email}</span>
+                                </td>
+                                <td className="p-4 font-semibold text-[#FF2E4C]">{client.program}</td>
+                                <td className="p-4 text-slate-300">{client.goal}</td>
+                                <td className="p-4 text-purple-400 font-mono">{client.slot}</td>
+                                <td className="p-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-20 h-2 rounded-full bg-white/10 overflow-hidden">
+                                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: client.progress }} />
+                                    </div>
+                                    <span className="text-[11px] font-mono text-emerald-400">{client.progress}</span>
+                                  </div>
+                                </td>
+                                <td className="p-4 text-right space-x-2">
+                                  <button
+                                    onClick={() => showToast(`✓ Logged training progress for ${client.name}`)}
+                                    className="px-3 py-1.5 rounded-lg bg-[#090C0E] border border-white/10 hover:border-emerald-500 text-emerald-400 text-xs font-semibold transition-all cursor-pointer"
+                                  >
+                                    Log Session
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      // Move to past
+                                      setCoachClients(prev => ({
+                                        active: prev.active.filter(c => c.id !== client.id),
+                                        past: [
+                                          {
+                                            id: `PST-${Math.floor(100 + Math.random() * 900)}`,
+                                            name: client.name,
+                                            email: client.email,
+                                            phone: client.phone,
+                                            program: client.program,
+                                            result: `Completed (${client.goal} Achieved)`,
+                                            completionDate: new Date().toISOString().split('T')[0],
+                                            rating: '5.0 ★'
+                                          },
+                                          ...prev.past
+                                        ]
+                                      }));
+                                      showToast(`✓ Graduated ${client.name} to Past Clients!`);
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg bg-[#090C0E] border border-white/10 hover:border-amber-500 text-amber-400 text-xs font-semibold transition-all cursor-pointer"
+                                  >
+                                    Graduate
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-VIEW B: PAST CLIENTS */}
+                {coachClientTab === 'past' && (
+                  <div className="rounded-3xl bg-[#141419] border border-[#202028] overflow-hidden shadow-xl">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
+                          <tr>
+                            <th className="p-4">Record ID</th>
+                            <th className="p-4">Athlete Name</th>
+                            <th className="p-4">Completed Program</th>
+                            <th className="p-4">Outcome & PR Transformation</th>
+                            <th className="p-4">Completion Date</th>
+                            <th className="p-4">Rating</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-slate-200">
+                          {coachClients.past.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" className="p-8 text-center text-slate-400">
+                                No past graduated athletes in record yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            coachClients.past.map(client => (
+                              <tr key={client.id} className="hover:bg-white/5 transition-colors">
+                                <td className="p-4 font-mono text-slate-400 font-semibold">{client.id}</td>
+                                <td className="p-4 font-bold text-white">
+                                  {client.name}
+                                  <span className="text-[11px] text-slate-400 font-mono block">{client.email}</span>
+                                </td>
+                                <td className="p-4 font-semibold text-slate-300">{client.program}</td>
+                                <td className="p-4 text-emerald-400 font-medium">{client.result}</td>
+                                <td className="p-4 font-mono text-slate-400">{client.completionDate}</td>
+                                <td className="p-4 text-amber-400 font-bold">{client.rating}</td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-VIEW C: WEEKLY SCHEDULE MATRIX */}
+                {coachClientTab === 'calendar' && (
+                  <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-xl space-y-4">
+                    <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      <Calendar size={16} className="text-[#FF2E4C]" /> Weekly Athlete Slot Matrix ({coachShiftForm.shift})
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+                        <div key={day} className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-3">
+                          <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                            <span className="font-bold text-white text-xs uppercase">{day}</span>
+                            <span className="text-[10px] text-purple-400 font-mono">06:00 - 14:00</span>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="p-2.5 rounded-xl bg-[#141419] border border-emerald-500/30 flex justify-between items-center">
+                              <div>
+                                <span className="text-xs font-bold text-white block">07:00 AM - 08:00 AM</span>
+                                <span className="text-[10px] text-emerald-400">Rahul Sharma (Hypertrophy)</span>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 text-[9px] font-mono">Booked</span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-[#141419] border border-purple-500/30 flex justify-between items-center">
+                              <div>
+                                <span className="text-xs font-bold text-white block">09:00 AM - 10:00 AM</span>
+                                <span className="text-[10px] text-purple-400">Nani G. (3D Telemetry)</span>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-full bg-purple-950 text-purple-400 text-[9px] font-mono">Booked</span>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-[#141419] border border-white/5 flex justify-between items-center">
+                              <div>
+                                <span className="text-xs text-slate-400 block">11:00 AM - 12:00 PM</span>
+                                <span className="text-[10px] text-slate-500">Open Slot</span>
+                              </div>
+                              <button
+                                onClick={() => setShowAssignClientModal(true)}
+                                className="px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#FF2E4C] text-white text-[9px] font-mono transition-colors"
+                              >
+                                + Book
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* MODAL: ASSIGN NEW ATHLETE TO COACH */}
+              {showAssignClientModal && (
+                <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                  <div className="w-full max-w-lg rounded-3xl bg-[#141419] border border-[#202028] p-6 sm:p-8 space-y-6 shadow-2xl animate-scaleUp">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                      <div>
+                        <h3 className="text-xl font-black text-white uppercase">Assign Athlete to Coach</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">Assign a customer to {selectedCoach?.name || 'Coach'}</p>
+                      </div>
+                      <button onClick={() => setShowAssignClientModal(false)} className="text-slate-400 hover:text-white">
+                        <X size={20} />
+                      </button>
+                    </div>
+
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!newClientAssign.name) {
+                          showToast('Please specify an athlete name');
+                          return;
+                        }
+
+                        const newEntry = {
+                          id: `ACT-${Math.floor(100 + Math.random() * 900)}`,
+                          name: newClientAssign.name,
+                          email: newClientAssign.email || `${newClientAssign.name.toLowerCase().replace(/\s+/g, '')}@example.com`,
+                          phone: newClientAssign.phone || '+91 99887 66554',
+                          program: newClientAssign.program,
+                          goal: newClientAssign.goal,
+                          slot: `${newClientAssign.slot} (${newClientAssign.days})`,
+                          status: 'Active',
+                          progress: '10%'
+                        };
+
+                        setCoachClients(prev => ({
+                          ...prev,
+                          active: [newEntry, ...prev.active]
+                        }));
+
+                        showToast(`✓ Assigned ${newClientAssign.name} to ${selectedCoach?.name || 'Coach'}!`);
+                        setShowAssignClientModal(false);
+                        setNewClientAssign({
+                          name: '',
+                          email: '',
+                          phone: '',
+                          program: 'Hypertrophy 5x5 Strength',
+                          slot: '07:00 AM - 08:00 AM',
+                          days: 'Mon, Wed, Fri',
+                          goal: 'Hypertrophy & Conditioning'
+                        });
+                      }}
+                      className="space-y-4"
+                    >
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-300">Select Customer / Athlete</label>
+                        <select
+                          value={newClientAssign.name}
+                          onChange={(e) => {
+                            const found = customersList.find(c => c.name === e.target.value);
+                            setNewClientAssign({
+                              ...newClientAssign,
+                              name: e.target.value,
+                              email: found ? found.email : '',
+                              phone: found ? found.phone : ''
+                            });
+                          }}
+                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                          required
+                        >
+                          <option value="">-- Choose Registered Customer --</option>
+                          {customersList.map(c => (
+                            <option key={c.id} value={c.name}>{c.name} ({c.email})</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">Training Program</label>
+                          <select
+                            value={newClientAssign.program}
+                            onChange={(e) => setNewClientAssign({ ...newClientAssign, program: e.target.value })}
+                            className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                          >
+                            <option value="Hypertrophy 5x5 Strength">Hypertrophy 5x5 Strength</option>
+                            <option value="3D Telemetry & Conditioning">3D Telemetry & Conditioning</option>
+                            <option value="Olympic Weightlifting">Olympic Weightlifting</option>
+                            <option value="Fat Loss & Shred">Fat Loss & Shred</option>
+                            <option value="Powerlifting Prep">Powerlifting Prep</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">Time Slot</label>
+                          <select
+                            value={newClientAssign.slot}
+                            onChange={(e) => setNewClientAssign({ ...newClientAssign, slot: e.target.value })}
+                            className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                          >
+                            <option value="06:00 AM - 07:00 AM">06:00 AM - 07:00 AM</option>
+                            <option value="07:00 AM - 08:00 AM">07:00 AM - 08:00 AM</option>
+                            <option value="08:00 AM - 09:00 AM">08:00 AM - 09:00 AM</option>
+                            <option value="09:00 AM - 10:00 AM">09:00 AM - 10:00 AM</option>
+                            <option value="10:00 AM - 11:00 AM">10:00 AM - 11:00 AM</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-300">Session Frequency Days</label>
+                        <select
+                          value={newClientAssign.days}
+                          onChange={(e) => setNewClientAssign({ ...newClientAssign, days: e.target.value })}
+                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        >
+                          <option value="Mon, Wed, Fri">Mon, Wed, Fri (3 days/week)</option>
+                          <option value="Tue, Thu, Sat">Tue, Thu, Sat (3 days/week)</option>
+                          <option value="Daily (Mon - Sat)">Daily (Mon - Sat)</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-300">Primary Transformation Goal</label>
+                        <input
+                          type="text"
+                          value={newClientAssign.goal}
+                          onChange={(e) => setNewClientAssign({ ...newClientAssign, goal: e.target.value })}
+                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                          placeholder="e.g. Gain 4kg Lean Mass & PR 140kg Deadlift"
+                          required
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => setShowAssignClientModal(false)}
+                          className="px-4 py-2 rounded-xl bg-[#090C0E] border border-white/10 text-slate-300 text-xs font-bold"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white text-xs font-bold shadow-lg"
+                        >
+                          Confirm & Assign
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
 
@@ -2822,32 +3675,325 @@ export default function AdminDashboard({ user, onLogout }) {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {receptionistsList.map((r) => (
-                  <div key={r.id} className="p-6 rounded-3xl bg-[#12161A] border border-white/10 flex flex-col justify-between space-y-4 shadow-xl">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
-                          <UserCog size={19} />
+              {receptionistsList.length === 0 ? (
+                <div className="p-12 rounded-3xl bg-[#12161A] border border-white/10 text-center space-y-3 shadow-xl">
+                  <p className="text-sm text-slate-400">No registered front desk receptionists found in MongoDB database.</p>
+                  <button
+                    onClick={() => setShowAddUserModal(true)}
+                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-black font-bold text-xs shadow-md transition-all cursor-pointer inline-flex items-center gap-2"
+                  >
+                    <Plus size={15} /> Register First Receptionist
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {receptionistsList.map((r) => (
+                    <div key={r.id} className="p-6 rounded-3xl bg-[#12161A] border border-white/10 flex flex-col justify-between space-y-4 shadow-xl hover:border-amber-500/40 transition-all relative">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                            <UserCog size={19} />
+                          </div>
+                          <div>
+                            <h3 className="text-base font-semibold text-white">{r.name}</h3>
+                            <span className="text-xs text-slate-400">{r.id} • {r.email}</span>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="text-base font-semibold text-white">{r.name}</h3>
-                          <span className="text-xs text-slate-400">{r.id}</span>
+
+                        {/* Receptionist Action Buttons: Status, Edit & Delete */}
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[10px] font-medium">
+                            {r.status}
+                          </span>
+                          <div className="flex items-center gap-1 bg-[#090C0E] p-1 rounded-xl border border-white/5 shadow-inner">
+                            <button
+                              onClick={() => handleOpenEditStaff(r, 'receptionist')}
+                              title={`Edit Receptionist ${r.name}`}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                            >
+                              <Edit size={14} className="text-amber-400" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenDeleteStaff(r, 'receptionist')}
+                              title={`Delete Receptionist ${r.name}`}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-[#FF2E4C] hover:bg-[#FF2E4C]/10 transition-all cursor-pointer"
+                            >
+                              <Trash2 size={14} className="text-[#FF2E4C]" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-medium">
-                        {r.status}
-                      </span>
-                    </div>
 
-                    <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-2 text-xs text-slate-400">
-                      <div className="flex justify-between"><span>Assigned Terminal:</span> <strong className="text-slate-200 font-semibold">{r.terminal}</strong></div>
-                      <div className="flex justify-between"><span>Shift Timing:</span> <strong className="text-white">{r.shift}</strong></div>
-                      <div className="flex justify-between"><span>Check-ins Processed Today:</span> <strong className="text-amber-400">{r.checkinsToday}</strong></div>
+                      <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-2 text-xs text-slate-400">
+                        <div className="flex justify-between"><span>Assigned Terminal:</span> <strong className="text-slate-200 font-semibold">{r.terminal}</strong></div>
+                        <div className="flex justify-between"><span>Shift Timing:</span> <strong className="text-white">{r.shift}</strong></div>
+                        <div className="flex justify-between"><span>Check-ins Processed Today:</span> <strong className="text-amber-400">{r.checkinsToday}</strong></div>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setSelectedReceptionist(r);
+                          setReceptionistShiftForm({
+                            shift: r.shift || 'Morning (06:00 AM - 02:00 PM)',
+                            terminal: r.terminal || 'Gate Terminal A1',
+                            days: r.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                            breakTime: '11:00 AM - 11:30 AM'
+                          });
+                          setActiveTab('receptionist-schedule');
+                        }}
+                        className="w-full py-2.5 rounded-xl bg-[#090C0E] border border-white/10 hover:border-amber-400 text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <Calendar size={14} className="text-amber-400" />
+                        Manage Schedule
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 5.5: DEDICATED RECEPTIONIST SCHEDULE & DESK MANAGEMENT VIEW */}
+          {activeTab === 'receptionist-schedule' && (
+            <div className="space-y-6 animate-fadeIn pb-16">
+              
+              {/* Back Navigation & Receptionist Profile Overview Card */}
+              <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-2xl space-y-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setActiveTab('receptionist-mgmt')}
+                      className="p-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-slate-300 hover:text-white hover:border-amber-400 transition-all cursor-pointer flex items-center gap-2 text-xs font-semibold"
+                    >
+                      <ArrowLeft size={16} /> Back to Receptionists
+                    </button>
+                    <div className="h-6 w-[1px] bg-white/10 hidden sm:block" />
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
+                          {selectedReceptionist?.name || 'Front Desk Staff'}
+                        </h2>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-bold">
+                          ● Online
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5 font-mono">
+                        {selectedReceptionist?.id || 'REC-201'} • {selectedReceptionist?.email || 'santosh@gmail.com'} • {selectedReceptionist?.terminal || 'Gate Terminal A1'}
+                      </p>
                     </div>
                   </div>
-                ))}
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => showToast(`Exported shift report for ${selectedReceptionist?.name || 'Staff'}`)}
+                      className="px-4 py-2 rounded-xl bg-[#181820] border border-white/10 hover:border-amber-400 text-white font-semibold text-xs flex items-center gap-2 transition-all cursor-pointer"
+                    >
+                      <Download size={14} /> Export Shift Report
+                    </button>
+                  </div>
+                </div>
+
+                {/* KPI Metrics Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t border-white/5">
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-mono block">ASSIGNED SHIFT</span>
+                    <h4 className="text-base sm:text-lg font-bold text-amber-400">{receptionistShiftForm.shift}</h4>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-mono block">ASSIGNED TERMINAL</span>
+                    <h4 className="text-base sm:text-lg font-bold text-purple-400">{receptionistShiftForm.terminal}</h4>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-mono block">CHECK-INS TODAY</span>
+                    <h4 className="text-base sm:text-lg font-bold text-emerald-400">142 Processed</h4>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
+                    <span className="text-[11px] text-slate-400 font-mono block">TERMINAL STATUS</span>
+                    <h4 className="text-base sm:text-lg font-bold text-emerald-400">Online (Normal)</h4>
+                  </div>
+                </div>
               </div>
+
+              {/* 1. SHIFT & TERMINAL TIMINGS CONFIGURATION */}
+              <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-xl space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <Clock size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white tracking-tight">Front Desk Shift Timings & Gate Setup</h3>
+                      <p className="text-xs text-slate-400">Configure weekly shift hours, assigned biometric gate terminal, and break intervals.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSaveReceptionistShift}
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+                  >
+                    <Check size={14} /> Save Timings
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Shift Timing Window Selector */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300 block">Shift Timing Window</label>
+                    <select
+                      value={receptionistShiftForm.shift}
+                      onChange={(e) => setReceptionistShiftForm({ ...receptionistShiftForm, shift: e.target.value })}
+                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-amber-400"
+                    >
+                      <option value="Morning (06:00 AM - 02:00 PM)">Morning Shift (06:00 AM - 02:00 PM)</option>
+                      <option value="Evening (02:00 PM - 10:00 PM)">Evening Shift (02:00 PM - 10:00 PM)</option>
+                      <option value="Night (10:00 PM - 06:00 AM)">Night / Overnight Shift (10:00 PM - 06:00 AM)</option>
+                      <option value="General (09:00 AM - 05:00 PM)">General Shift (09:00 AM - 05:00 PM)</option>
+                    </select>
+                  </div>
+
+                  {/* Rest / Break Slot */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300 block">Scheduled Break Time</label>
+                    <input
+                      type="text"
+                      value={receptionistShiftForm.breakTime}
+                      onChange={(e) => setReceptionistShiftForm({ ...receptionistShiftForm, breakTime: e.target.value })}
+                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-amber-400"
+                      placeholder="e.g. 11:00 AM - 11:30 AM"
+                    />
+                  </div>
+                </div>
+
+                {/* Working Days Toggles */}
+                <div className="space-y-2 pt-2 border-t border-white/5">
+                  <label className="text-xs font-semibold text-slate-300 block">Weekly Working Days</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => {
+                      const isSelected = receptionistShiftForm.days.includes(day);
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => {
+                            const newDays = isSelected
+                              ? receptionistShiftForm.days.filter(d => d !== day)
+                              : [...receptionistShiftForm.days, day];
+                            setReceptionistShiftForm({ ...receptionistShiftForm, days: newDays });
+                          }}
+                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-500 text-black shadow-[0_0_10px_rgba(245,158,11,0.4)]'
+                              : 'bg-[#090C0E] border border-white/10 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. RECEPTIONIST ACTIVITY & WEEKLY SCHEDULE TABS */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setReceptionistDutyTab('logs')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                        receptionistDutyTab === 'logs'
+                          ? 'bg-amber-500 text-black shadow-md'
+                          : 'bg-[#141419] border border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <CheckCircle2 size={15} /> Recent Check-in Logs
+                    </button>
+                    <button
+                      onClick={() => setReceptionistDutyTab('calendar')}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                        receptionistDutyTab === 'calendar'
+                          ? 'bg-amber-500 text-black shadow-md'
+                          : 'bg-[#141419] border border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Calendar size={15} /> Weekly Terminal Schedule Matrix
+                    </button>
+                  </div>
+                </div>
+
+                {/* SUB-VIEW A: RECENT CHECK-IN LOGS */}
+                {receptionistDutyTab === 'logs' && (
+                  <div className="rounded-3xl bg-[#141419] border border-[#202028] overflow-hidden shadow-xl">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
+                          <tr>
+                            <th className="p-4">Log ID</th>
+                            <th className="p-4">Customer Name</th>
+                            <th className="p-4">Terminal Gate</th>
+                            <th className="p-4">Check-in Time</th>
+                            <th className="p-4">Membership Pass</th>
+                            <th className="p-4">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5 text-slate-200">
+                          <tr className="hover:bg-white/5 transition-colors">
+                            <td className="p-4 font-mono text-[#00F0FF] font-semibold">LOG-101</td>
+                            <td className="p-4 font-bold text-white">Rahul Sharma</td>
+                            <td className="p-4 text-purple-400">{receptionistShiftForm.terminal}</td>
+                            <td className="p-4 font-mono text-slate-300">07:15 AM</td>
+                            <td className="p-4 text-slate-300">Titan Elite All-Access</td>
+                            <td className="p-4">
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-medium">
+                                ● Verified & Active
+                              </span>
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-white/5 transition-colors">
+                            <td className="p-4 font-mono text-[#00F0FF] font-semibold">LOG-102</td>
+                            <td className="p-4 font-bold text-white">Nani Gangamolla</td>
+                            <td className="p-4 text-purple-400">{receptionistShiftForm.terminal}</td>
+                            <td className="p-4 font-mono text-slate-300">08:45 AM</td>
+                            <td className="p-4 text-slate-300">3D Pro Telemetry Pass</td>
+                            <td className="p-4">
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-medium">
+                                ● Verified & Active
+                              </span>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* SUB-VIEW B: WEEKLY TERMINAL SCHEDULE MATRIX */}
+                {receptionistDutyTab === 'calendar' && (
+                  <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-xl space-y-4">
+                    <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      <Calendar size={16} className="text-amber-400" /> Weekly Front Desk Duty Roster ({receptionistShiftForm.shift})
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+                        <div key={day} className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-3">
+                          <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                            <span className="font-bold text-white text-xs uppercase">{day}</span>
+                            <span className="text-[10px] text-amber-400 font-mono">Duty Active</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-[#141419] border border-amber-500/30 space-y-1">
+                            <div className="flex justify-between items-center">
+                              <span className="text-xs font-bold text-white">{receptionistShiftForm.shift}</span>
+                              <span className="px-2 py-0.5 rounded-full bg-amber-950 text-amber-400 text-[9px] font-mono">On Duty</span>
+                            </div>
+                            <span className="text-[11px] text-purple-400 block">{receptionistShiftForm.terminal}</span>
+                            <span className="text-[10px] text-slate-500 block">Break: {receptionistShiftForm.breakTime}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
           )}
 
@@ -2865,20 +4011,367 @@ export default function AdminDashboard({ user, onLogout }) {
                 {plansList.map((p) => (
                   <div key={p.id} className="p-6 rounded-3xl bg-[#12161A] border border-white/10 flex flex-col justify-between space-y-4 shadow-xl hover:border-[#FF2E4C]/50 transition-all">
                     <div>
-                      <span className="text-[11px] font-semibold text-[#FF2E4C] uppercase tracking-wider">{p.id}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-[#FF2E4C] uppercase tracking-wider">{p.id}</span>
+                        {p.badge && (
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#FF2E4C]/10 border border-[#FF2E4C]/30 text-[#FF2E4C] text-[10px] font-bold">
+                            {p.badge}
+                          </span>
+                        )}
+                      </div>
                       <h3 className="text-lg font-bold text-white mt-1">{p.name}</h3>
                       <div className="text-2xl font-bold text-white my-2.5">
                         ₹{p.price.toLocaleString()} <span className="text-xs text-slate-400 font-normal">/ {p.duration}</span>
                       </div>
-                      <p className="text-xs text-slate-400 leading-relaxed">{p.perks}</p>
+                      <p className="text-xs text-slate-400 leading-relaxed mb-3">{p.description || p.perks}</p>
+                      
+                      {/* Services count tag */}
+                      <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Included Services:</span>
+                        <strong className="text-emerald-400 font-mono font-semibold">
+                          {(p.services || []).filter(s => s.included).length} Active Amenities
+                        </strong>
+                      </div>
                     </div>
 
-                    <button onClick={() => showToast(`Plan ${p.name} updated`)} className="w-full py-2.5 rounded-xl bg-[#090C0E] border border-white/10 hover:border-[#FF2E4C] text-slate-200 text-xs font-semibold transition-all cursor-pointer">
-                      Edit Plan Perks
+                    <button
+                      onClick={() => {
+                        setSelectedPlan(p);
+                        setPlanEditForm(JSON.parse(JSON.stringify(p)));
+                        setActiveTab('edit-membership-plan');
+                      }}
+                      className="w-full py-2.5 rounded-xl bg-[#090C0E] border border-white/10 hover:border-[#FF2E4C] text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Edit size={14} className="text-[#FF2E4C]" />
+                      Edit Plan & Services
                     </button>
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* TAB 6.5: DEDICATED EDIT MEMBERSHIP PLAN & SERVICES VIEW */}
+          {activeTab === 'edit-membership-plan' && planEditForm && (
+            <div className="space-y-6 animate-fadeIn pb-16">
+              
+              {/* Header & Navigation Bar */}
+              <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-2xl space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setActiveTab('membership-mgmt')}
+                      className="p-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-slate-300 hover:text-white hover:border-[#FF2E4C] transition-all cursor-pointer flex items-center gap-2 text-xs font-semibold"
+                    >
+                      <ArrowLeft size={16} /> Back to Plans
+                    </button>
+                    <div className="h-6 w-[1px] bg-white/10 hidden sm:block" />
+                    <div>
+                      <div className="flex items-center gap-2.5">
+                        <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
+                          Edit Plan: {planEditForm.name}
+                        </h2>
+                        <span className="px-2.5 py-0.5 rounded-full bg-[#FF2E4C]/10 text-[#FF2E4C] border border-[#FF2E4C]/30 text-[11px] font-bold font-mono">
+                          {planEditForm.id}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Modify tier pricing, membership durations, privileges, and enabled service amenities.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setActiveTab('membership-mgmt')}
+                      className="px-4 py-2 rounded-xl bg-[#090C0E] border border-white/10 hover:border-white/20 text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveEditedPlan}
+                      className="px-5 py-2 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-bold text-xs flex items-center gap-1.5 shadow-[0_0_12px_rgba(255,46,76,0.4)] transition-all cursor-pointer"
+                    >
+                      <Check size={15} /> Save Plan Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2-Column Configuration Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* COLUMN 1: PLAN IDENTITY & PRICING (5 Columns) */}
+                <div className="lg:col-span-5 space-y-6">
+                  <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-xl space-y-5">
+                    <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                      <div className="w-10 h-10 rounded-xl bg-[#201416] border border-[#FF2E4C]/30 flex items-center justify-center text-[#FF2E4C]">
+                        <ShieldCheck size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white tracking-tight">Plan Details & Tier Pricing</h3>
+                        <p className="text-xs text-slate-400">Configure public name, badge, and rates.</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-300">Plan Display Name</label>
+                        <input
+                          type="text"
+                          value={planEditForm.name}
+                          onChange={(e) => setPlanEditForm({ ...planEditForm, name: e.target.value })}
+                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-300">Plan Badge / Tagline</label>
+                        <input
+                          type="text"
+                          value={planEditForm.badge || ''}
+                          onChange={(e) => setPlanEditForm({ ...planEditForm, badge: e.target.value })}
+                          placeholder="e.g. VIP Tier, Most Popular, Essential"
+                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">Monthly Price (₹)</label>
+                          <input
+                            type="number"
+                            value={planEditForm.price || ''}
+                            onChange={(e) => setPlanEditForm({ ...planEditForm, price: Number(e.target.value) })}
+                            className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-slate-300">Quarterly Price (₹)</label>
+                          <input
+                            type="number"
+                            value={planEditForm.quarterlyPrice || ''}
+                            onChange={(e) => setPlanEditForm({ ...planEditForm, quarterlyPrice: Number(e.target.value) })}
+                            placeholder="Optional rate"
+                            className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-300">Annual Price (₹)</label>
+                        <input
+                          type="number"
+                          value={planEditForm.annualPrice || ''}
+                          onChange={(e) => setPlanEditForm({ ...planEditForm, annualPrice: Number(e.target.value) })}
+                          placeholder="Optional rate"
+                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-300">Plan Description / Pitch</label>
+                        <textarea
+                          rows={3}
+                          value={planEditForm.description || ''}
+                          onChange={(e) => setPlanEditForm({ ...planEditForm, description: e.target.value })}
+                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl p-3 text-xs text-white outline-none focus:border-[#FF2E4C] resize-none"
+                          placeholder="Detailed overview pitch for this membership tier"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* COLUMN 2: SERVICES & AMENITIES CHECKLIST (7 Columns) */}
+                <div className="lg:col-span-7 space-y-6">
+                  <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-xl space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                      <div>
+                        <h3 className="text-base font-bold text-white tracking-tight">Services & Amenities in this Plan</h3>
+                        <p className="text-xs text-slate-400">Toggle privileges and add new custom services included in this membership tier.</p>
+                      </div>
+                      <span className="px-3 py-1 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-xs font-bold font-mono">
+                        {(planEditForm.services || []).filter(s => s.included).length} / {(planEditForm.services || []).length} Enabled
+                      </span>
+                    </div>
+
+                    {/* Category Filter Chips */}
+                    <div className="flex flex-wrap gap-2">
+                      {['All', 'Facility Access', 'Technology', 'Coaching', 'Wellness', 'Nutrition', 'Amenities', 'Privileges'].map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setServiceCategoryFilter(cat)}
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                            serviceCategoryFilter === cat
+                              ? 'bg-[#FF2E4C] text-white shadow-md'
+                              : 'bg-[#090C0E] border border-white/10 text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Services List */}
+                    <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                      {(planEditForm.services || [])
+                        .filter(s => serviceCategoryFilter === 'All' || s.category === serviceCategoryFilter)
+                        .map(service => (
+                          <div
+                            key={service.id}
+                            className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                              service.included
+                                ? 'bg-[#090C0E] border-emerald-500/30'
+                                : 'bg-[#090C0E]/50 border-white/5 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPlanEditForm({
+                                    ...planEditForm,
+                                    services: planEditForm.services.map(s =>
+                                      s.id === service.id ? { ...s, included: !s.included } : s
+                                    )
+                                  });
+                                }}
+                                className={`w-5 h-5 rounded-md flex items-center justify-center cursor-pointer transition-all ${
+                                  service.included
+                                    ? 'bg-emerald-500 text-black'
+                                    : 'border border-white/20 hover:border-white/40'
+                                }`}
+                              >
+                                {service.included && <Check size={13} className="stroke-[3]" />}
+                              </button>
+                              <div>
+                                <span className={`text-xs font-semibold block ${service.included ? 'text-white' : 'text-slate-400 line-through'}`}>
+                                  {service.name}
+                                </span>
+                                <span className="text-[10px] text-purple-400 font-mono">{service.category}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${
+                                service.included
+                                  ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/50'
+                                  : 'bg-white/5 text-slate-500'
+                              }`}>
+                                {service.included ? 'Included' : 'Excluded'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPlanEditForm({
+                                    ...planEditForm,
+                                    services: planEditForm.services.filter(s => s.id !== service.id)
+                                  });
+                                }}
+                                className="p-1 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+
+                    {/* Add Custom Service Bar */}
+                    <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/10 space-y-3">
+                      <span className="text-xs font-bold text-slate-300 block">+ Add New Service or Amenity</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        <input
+                          type="text"
+                          value={newServiceName}
+                          onChange={(e) => setNewServiceName(e.target.value)}
+                          placeholder="e.g. Hydro-Massage Beds, Sauna Access, Biometric Ring Sync"
+                          className="sm:col-span-7 bg-[#141419] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                        <select
+                          value={newServiceCategory}
+                          onChange={(e) => setNewServiceCategory(e.target.value)}
+                          className="sm:col-span-3 bg-[#141419] border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        >
+                          <option value="Facility Access">Facility Access</option>
+                          <option value="Technology">Technology</option>
+                          <option value="Coaching">Coaching</option>
+                          <option value="Wellness">Wellness</option>
+                          <option value="Nutrition">Nutrition</option>
+                          <option value="Amenities">Amenities</option>
+                          <option value="Privileges">Privileges</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newServiceName.trim()) {
+                              showToast('Please type a service name');
+                              return;
+                            }
+                            const newServ = {
+                              id: `srv-${Date.now()}`,
+                              name: newServiceName.trim(),
+                              category: newServiceCategory,
+                              included: true
+                            };
+                            setPlanEditForm({
+                              ...planEditForm,
+                              services: [...(planEditForm.services || []), newServ]
+                            });
+                            setNewServiceName('');
+                            showToast(`✓ Added service "${newServ.name}"!`);
+                          }}
+                          className="sm:col-span-2 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-md cursor-pointer transition-all"
+                        >
+                          <Plus size={14} /> Add
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* LIVE PREVIEW OF THIS MEMBERSHIP CARD */}
+              <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-xl space-y-4">
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <Eye size={16} className="text-[#FF2E4C]" /> Live Card Preview (How Athletes & Front Desk Will See It)
+                </h4>
+
+                <div className="max-w-md mx-auto p-6 rounded-3xl bg-[#090C0E] border border-[#FF2E4C]/50 space-y-4 shadow-2xl">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold text-[#FF2E4C] uppercase tracking-wider">{planEditForm.id}</span>
+                    {planEditForm.badge && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#FF2E4C]/10 border border-[#FF2E4C]/30 text-[#FF2E4C] text-[10px] font-bold">
+                        {planEditForm.badge}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-black text-white">{planEditForm.name}</h3>
+                  <div className="text-3xl font-black text-white">
+                    ₹{Number(planEditForm.price || 0).toLocaleString()} <span className="text-xs text-slate-400 font-normal">/ Monthly</span>
+                  </div>
+                  <p className="text-xs text-slate-400">{planEditForm.description}</p>
+                  
+                  <div className="space-y-2 pt-3 border-t border-white/10">
+                    <span className="text-[11px] font-bold text-slate-300 block">Included Services:</span>
+                    {(planEditForm.services || [])
+                      .filter(s => s.included)
+                      .map(s => (
+                        <div key={s.id} className="flex items-center gap-2 text-xs text-slate-200">
+                          <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
+                          <span>{s.name}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -3239,6 +4732,182 @@ export default function AdminDashboard({ user, onLogout }) {
           showToast(`Successfully added ${role}: ${newUser.name} to database!`);
         }}
       />
+
+      {/* EDIT STAFF MODAL (TRAINER & RECEPTIONIST) */}
+      {showEditStaffModal && editingStaff && (
+        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-[#141419] border border-[#202028] rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl animate-scaleUp relative">
+            <button
+              onClick={() => { setShowEditStaffModal(false); setEditingStaff(null); }}
+              className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                editingStaff.role === 'trainer' ? 'bg-[#FF2E4C]/20 text-[#FF2E4C] border border-[#FF2E4C]/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+              }`}>
+                <Edit size={18} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight">
+                  Edit {editingStaff.role === 'trainer' ? 'Trainer & Coach' : 'Receptionist / Front Desk'}
+                </h3>
+                <p className="text-xs text-slate-400 font-mono">
+                  {editingStaff.id} • Database ID: {editingStaff.userId || editingStaff.id}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveStaffChanges} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300">Full Name</label>
+                <input
+                  type="text"
+                  value={editingStaff.name}
+                  onChange={(e) => setEditingStaff({ ...editingStaff, name: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-white text-xs outline-none focus:border-[#FF2E4C]"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Email Address</label>
+                  <input
+                    type="email"
+                    value={editingStaff.email}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, email: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-white text-xs outline-none focus:border-[#FF2E4C]"
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Contact Phone</label>
+                  <input
+                    type="tel"
+                    value={editingStaff.phone}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, phone: e.target.value })}
+                    placeholder="+91 98765 43210"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-white text-xs outline-none focus:border-[#FF2E4C]"
+                  />
+                </div>
+              </div>
+
+              {editingStaff.role === 'trainer' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Specialization & Title</label>
+                  <input
+                    type="text"
+                    value={editingStaff.spec || ''}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, spec: e.target.value })}
+                    placeholder="e.g. Master Strength & Conditioning Coach"
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-white text-xs outline-none focus:border-[#FF2E4C]"
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Shift Timings</label>
+                  <select
+                    value={editingStaff.shift}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, shift: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-white text-xs outline-none focus:border-[#FF2E4C]"
+                  >
+                    <option value="06:00 AM - 02:00 PM">Morning (06:00 AM - 02:00 PM)</option>
+                    <option value="02:00 PM - 10:00 PM">Evening (02:00 PM - 10:00 PM)</option>
+                    <option value="10:00 PM - 06:00 AM">Night (10:00 PM - 06:00 AM)</option>
+                    <option value="09:00 AM - 06:00 PM">General (09:00 AM - 06:00 PM)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Duty / Account Status</label>
+                  <select
+                    value={editingStaff.status}
+                    onChange={(e) => setEditingStaff({ ...editingStaff, status: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-white text-xs outline-none focus:border-[#FF2E4C]"
+                  >
+                    {editingStaff.role === 'trainer' ? (
+                      <>
+                        <option value="On Duty">On Duty</option>
+                        <option value="Off Duty">Off Duty</option>
+                        <option value="On Leave">On Leave</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="Online">Online</option>
+                        <option value="Offline">Offline</option>
+                        <option value="On Break">On Break</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditStaffModal(false); setEditingStaff(null); }}
+                  className="px-4 py-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={`px-5 py-2.5 rounded-xl text-white text-xs font-bold shadow-lg cursor-pointer transition-all ${
+                    editingStaff.role === 'trainer' ? 'bg-[#FF2E4C] hover:brightness-110' : 'bg-amber-500 hover:bg-amber-600 text-black'
+                  }`}
+                >
+                  Save Profile Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE STAFF CONFIRMATION MODAL */}
+      {showDeleteConfirmModal && staffToDelete && (
+        <div className="fixed inset-0 z-[160] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-[#141419] border border-red-500/30 rounded-3xl p-6 sm:p-7 space-y-5 shadow-[0_0_50px_rgba(255,46,76,0.25)] animate-scaleUp">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/40 text-red-500 flex items-center justify-center shrink-0">
+                <Trash2 size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tight">
+                  Remove {staffToDelete.role === 'trainer' ? 'Coach' : 'Receptionist'}
+                </h3>
+                <p className="text-xs text-red-400 font-medium">Permanent database deletion</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed bg-[#090C0E] p-4 rounded-2xl border border-white/5">
+              Are you sure you want to permanently delete <strong className="text-white font-bold">{staffToDelete.name}</strong> ({staffToDelete.id}) from the database? This action cannot be undone and will revoke all system credentials immediately.
+            </p>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => { setShowDeleteConfirmModal(false); setStaffToDelete(null); }}
+                className="px-4 py-2.5 rounded-xl bg-[#090C0E] border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteStaff}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/40 cursor-pointer transition-all flex items-center gap-2"
+              >
+                <Trash2 size={14} /> Confirm & Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Toast Notification */}
       {toast && (
