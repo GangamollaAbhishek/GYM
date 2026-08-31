@@ -34,10 +34,12 @@ import CustomerDashboard from './components/CustomerDashboard';
 import ForbiddenPage from './components/ForbiddenPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
+import MyCartPage from './components/MyCartPage';
 
 import { X, Shield, Sparkles } from 'lucide-react';
 import { LandingPageCMSProvider } from './context/LandingPageCMSContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -121,17 +123,27 @@ function MainAppContent() {
   };
 
   const handleReserveSpot = (zoneName) => {
-    const msg = `Spot Reserved: "${zoneName}". QR Pass ready in app!`;
-    triggerToast(msg);
-    setModalMessage(msg);
-    setPassModalOpen(true);
+    if (user) {
+      const role = (user.role || '').toLowerCase().trim();
+      if (role === 'admin') navigate('/admin');
+      else if (role === 'receptionist') navigate('/receptionist');
+      else if (role === 'trainer') navigate('/trainer');
+      else navigate('/account?tab=personal&sub=profile');
+      return;
+    }
+    navigate('/login');
   };
 
   const handleBookCoach = (coachName) => {
-    const msg = `Session Requested: ${coachName}. Manager will call to confirm.`;
-    triggerToast(msg);
-    setModalMessage(msg);
-    setPassModalOpen(true);
+    if (user) {
+      const role = (user.role || '').toLowerCase().trim();
+      if (role === 'admin') navigate('/admin');
+      else if (role === 'receptionist') navigate('/receptionist');
+      else if (role === 'trainer') navigate('/trainer');
+      else navigate('/account?tab=trainers&sub=book');
+      return;
+    }
+    navigate('/login');
   };
 
   const handleAuthSuccess = (userData, mode) => {
@@ -156,11 +168,27 @@ function MainAppContent() {
   };
 
   const openSignInModal = () => {
+    if (user) {
+      const role = (user.role || '').toLowerCase().trim();
+      if (role === 'admin') navigate('/admin');
+      else if (role === 'receptionist') navigate('/receptionist');
+      else if (role === 'trainer') navigate('/trainer');
+      else navigate('/account?tab=personal&sub=profile');
+      return;
+    }
     setAuthMode('sign-in');
     setAuthModalOpen(true);
   };
 
   const openSignUpModal = () => {
+    if (user) {
+      const role = (user.role || '').toLowerCase().trim();
+      if (role === 'admin') navigate('/admin');
+      else if (role === 'receptionist') navigate('/receptionist');
+      else if (role === 'trainer') navigate('/trainer');
+      else navigate('/account?tab=personal&sub=profile');
+      return;
+    }
     setAuthMode('sign-up');
     setAuthModalOpen(true);
   };
@@ -257,6 +285,22 @@ function MainAppContent() {
                 <Footer onScrollToTop={handleScrollToTop} />
               </>
             } 
+          />
+
+          {/* MY CART & CHECKOUT PAGE ROUTES (REQUIRES LOGIN) */}
+          <Route 
+            path="/cart" 
+            element={
+              <ProtectedRoute allowedRoles={['customer', 'CUSTOMER', 'admin', 'ADMIN', 'trainer', 'TRAINER', 'receptionist', 'RECEPTIONIST']}>
+                <SpotlightNavbar user={user} onLogout={handleLogout} />
+                <MyCartPage />
+                <Footer onScrollToTop={handleScrollToTop} />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/my-cart" 
+            element={<Navigate to="/cart" replace />} 
           />
 
           {/* DEDICATED LOGIN & SIGN UP PAGE ROUTES */}
@@ -393,7 +437,9 @@ function MainAppContent() {
 export default function App() {
   return (
     <LandingPageCMSProvider>
-      <MainAppContent />
+      <CartProvider>
+        <MainAppContent />
+      </CartProvider>
     </LandingPageCMSProvider>
   );
 }

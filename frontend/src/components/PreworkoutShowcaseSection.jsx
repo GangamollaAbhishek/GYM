@@ -3,6 +3,8 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Zap, Flame, ShieldCheck, Sparkles, Star, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { useLandingPageCMS } from '../context/LandingPageCMSContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import './PreworkoutShowcaseSection.css';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -51,6 +53,8 @@ const DEFAULT_PRODUCTS = [
 ];
 
 export default function PreworkoutShowcaseSection({ onReserveSpot }) {
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const { cmsData } = useLandingPageCMS();
   const suppData = cmsData?.supplements || {};
   const productsData = (suppData.products && suppData.products.length > 0) ? suppData.products : DEFAULT_PRODUCTS;
@@ -72,6 +76,17 @@ export default function PreworkoutShowcaseSection({ onReserveSpot }) {
   const handleReserve = (productTitle, productId) => {
     const chosenFlavor = selectedFlavors[productId];
     const fullItemName = `${productTitle} (${chosenFlavor})`;
+
+    if (user || isAuthenticated) {
+      const role = (user?.role || '').toLowerCase().trim();
+      if (role === 'admin') navigate('/admin');
+      else if (role === 'receptionist') navigate('/receptionist');
+      else if (role === 'trainer') navigate('/trainer');
+      else navigate('/account?tab=personal&sub=profile');
+    } else {
+      navigate('/login');
+    }
+
     if (onReserveSpot) {
       onReserveSpot(fullItemName);
     }

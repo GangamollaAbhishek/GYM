@@ -96,14 +96,8 @@ export default function AdminDashboard({ user, onLogout }) {
     room: 'Main Strength & Conditioning Arena'
   });
   const [coachClients, setCoachClients] = useState({
-    active: [
-      { id: 'ACT-1', name: 'Rahul Sharma', email: 'rahul@gmail.com', phone: '+91 98765 43210', program: 'Hypertrophy 5x5 Strength', goal: 'Gain 5kg Lean Mass', slot: '07:00 AM - 08:00 AM (Mon, Wed, Fri)', status: 'Active', progress: '78%' },
-      { id: 'ACT-2', name: 'Nani Gangamolla', email: 'nani@gmail.com', phone: '+91 98123 45678', program: '3D Telemetry & Conditioning', goal: 'Fat Loss & VO2 Max', slot: '09:00 AM - 10:00 AM (Tue, Thu, Sat)', status: 'Active', progress: '64%' }
-    ],
-    past: [
-      { id: 'PST-1', name: 'Vikram Verma', email: 'vikram@example.com', phone: '+91 91234 56780', program: '12-Week Transformation', result: 'Completed (Lost 8.5kg Fat, PR Deadlift 160kg)', completionDate: '2026-06-30', rating: '5.0 ★' },
-      { id: 'PST-2', name: 'Ananya Deshmukh', email: 'ananya@example.com', phone: '+91 92345 67891', program: 'Powerlifting Prep', result: 'Completed (Squat PR 120kg, Bench 75kg)', completionDate: '2026-05-15', rating: '5.0 ★' }
-    ]
+    active: [],
+    past: []
   });
   const [showAssignClientModal, setShowAssignClientModal] = useState(false);
   const [newClientAssign, setNewClientAssign] = useState({
@@ -3117,10 +3111,10 @@ export default function AdminDashboard({ user, onLogout }) {
                           setSelectedCoach(t);
                           setCoachShiftForm({
                             shift: t.shift || '06:00 AM - 02:00 PM',
-                            days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+                            days: t.days || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
                             maxCapacity: 12,
                             breakTime: '11:00 AM - 11:30 AM',
-                            room: 'Main Strength & Conditioning Arena'
+                            room: t.room || 'Main Strength & Conditioning Arena'
                           });
                           setActiveTab('coach-schedule');
                         }}
@@ -3154,14 +3148,14 @@ export default function AdminDashboard({ user, onLogout }) {
                     <div>
                       <div className="flex items-center gap-2.5">
                         <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
-                          {selectedCoach?.name || 'Coach Jayanth'}
+                          {selectedCoach?.name || 'Coach'}
                         </h2>
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-bold">
-                          ● On Duty
+                          ● {selectedCoach?.status || 'On Duty'}
                         </span>
                       </div>
                       <p className="text-xs text-slate-400 mt-0.5 font-mono">
-                        {selectedCoach?.id || 'TRN-501'} • {selectedCoach?.email || 'jayanth@gmail.com'} • {selectedCoach?.spec || 'Master Coach & Conditioning'}
+                        {selectedCoach?.id || 'TRN-501'} • {selectedCoach?.email} • {selectedCoach?.spec || 'Master Coach'}
                       </p>
                     </div>
                   </div>
@@ -3192,7 +3186,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
                   <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
                     <span className="text-[11px] text-slate-400 font-mono block">COACH RATING</span>
-                    <h4 className="text-base sm:text-lg font-bold text-yellow-400">5.0 ★ (48 Reviews)</h4>
+                    <h4 className="text-base sm:text-lg font-bold text-yellow-400">{selectedCoach?.rating || '5.0 ★'}</h4>
                   </div>
                 </div>
               </div>

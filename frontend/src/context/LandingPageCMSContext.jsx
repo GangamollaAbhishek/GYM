@@ -237,20 +237,55 @@ export function LandingPageCMSProvider({ children }) {
   const [cmsData, setCmsData] = useState(() => {
     try {
       const saved = localStorage.getItem('titan_landing_cms');
-      return saved ? JSON.parse(saved) : defaultLandingData;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.memberships && !Array.isArray(parsed.memberships) && typeof parsed.memberships === 'object') {
+          parsed.memberships = Object.values(parsed.memberships);
+        }
+        return parsed;
+      }
+      return defaultLandingData;
     } catch (e) {
       return defaultLandingData;
     }
   });
 
+  // Listen for storage events (e.g. when Admin updates CMS in admin panel)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'titan_landing_cms' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed.memberships && !Array.isArray(parsed.memberships) && typeof parsed.memberships === 'object') {
+            parsed.memberships = Object.values(parsed.memberships);
+          }
+          setCmsData(parsed);
+        } catch (err) {
+          console.warn('Error parsing storage event for CMS:', err);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const updateSection = (sectionKey, newSectionData) => {
     setCmsData(prev => {
-      const updated = {
-        ...prev,
-        [sectionKey]: {
+      let finalSectionData;
+      if (Array.isArray(newSectionData)) {
+        finalSectionData = newSectionData;
+      } else if (typeof newSectionData === 'object' && newSectionData !== null && !Array.isArray(prev[sectionKey])) {
+        finalSectionData = {
           ...prev[sectionKey],
           ...newSectionData
-        }
+        };
+      } else {
+        finalSectionData = newSectionData;
+      }
+
+      const updated = {
+        ...prev,
+        [sectionKey]: finalSectionData
       };
       localStorage.setItem('titan_landing_cms', JSON.stringify(updated));
       return updated;

@@ -30,7 +30,7 @@ export default function AuthPage({ onAuthSuccess }) {
       const userRole = (user.role || '').toLowerCase().trim();
       const redirectFrom = location.state?.from?.pathname;
 
-      if (redirectFrom && redirectFrom !== '/login' && redirectFrom !== '/signup') {
+      if (redirectFrom && redirectFrom !== '/login' && redirectFrom !== '/signup' && redirectFrom !== '/register') {
         navigate(redirectFrom, { replace: true });
       } else if (userRole === 'admin') {
         navigate('/admin', { replace: true });
@@ -39,7 +39,7 @@ export default function AuthPage({ onAuthSuccess }) {
       } else if (userRole === 'trainer') {
         navigate('/trainer', { replace: true });
       } else {
-        navigate('/', { replace: true });
+        navigate('/account?tab=personal&sub=profile', { replace: true });
       }
     }
   }, [location.pathname, isAuthenticated, user, navigate, location.state]);
@@ -63,7 +63,7 @@ export default function AuthPage({ onAuthSuccess }) {
         const role = (result.user.role || '').toLowerCase().trim();
         const fromPath = location.state?.from?.pathname;
 
-        if (fromPath && fromPath !== '/login' && fromPath !== '/signup') {
+        if (fromPath && fromPath !== '/login' && fromPath !== '/signup' && fromPath !== '/register') {
           navigate(fromPath, { replace: true });
         } else if (role === 'admin') {
           navigate('/admin', { replace: true });
@@ -72,7 +72,7 @@ export default function AuthPage({ onAuthSuccess }) {
         } else if (role === 'trainer') {
           navigate('/trainer', { replace: true });
         } else {
-          navigate('/', { replace: true });
+          navigate('/account?tab=personal&sub=profile', { replace: true });
         }
       } else {
         setErrorMsg(result.message || 'Invalid email or password.');
@@ -98,7 +98,7 @@ export default function AuthPage({ onAuthSuccess }) {
 
       if (result.success && result.user) {
         if (onAuthSuccess) onAuthSuccess(result.user, 'sign-up');
-        navigate('/', { replace: true });
+        navigate('/account?tab=personal&sub=profile', { replace: true });
       } else {
         setErrorMsg(result.message || 'Registration failed.');
       }

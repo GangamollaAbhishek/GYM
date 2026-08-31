@@ -47,7 +47,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
         } else if (role === 'trainer') {
           navigate('/trainer');
         } else {
-          navigate('/');
+          navigate('/account?tab=personal&sub=profile');
         }
       } else {
         setErrorMsg(result.message || 'Invalid email or password.');
@@ -74,7 +74,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
       if (result.success && result.user) {
         if (onSuccess) onSuccess(result.user, 'sign-up');
         onClose();
-        navigate('/');
+        navigate('/account?tab=personal&sub=profile');
       } else {
         setErrorMsg(result.message || 'Registration failed.');
       }

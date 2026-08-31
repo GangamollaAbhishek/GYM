@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, Zap, Star, X, ShieldCheck } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -73,12 +75,10 @@ export default function PopularDestinations({ onReserveSpot }) {
   const pinRef = useRef(null);
   const containerRef = useRef(null);
   const [scrollProgress, setScrollProgress] = useState(0);
-
-  const [cart, setCart] = useState([
-    { ...supplementProducts[0], quantity: 1 },
-    { ...supplementProducts[1], quantity: 1 }
-  ]);
   const [cartOpen, setCartOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const { cart, addToCart, updateQuantity, removeFromCart, totalItemsCount, totalPrice } = useCart();
 
   // GSAP Horizontal Scroll Pinning Effect
   useEffect(() => {
@@ -105,35 +105,9 @@ export default function PopularDestinations({ onReserveSpot }) {
     return () => ctx.revert();
   }, []);
 
-  const addToCart = (product) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      if (existing) {
-        return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-      }
-      return [...prev, { ...product, quantity: 1 }];
-    });
-  };
-
-  const updateQuantity = (productId, delta) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === productId) {
-        const newQty = item.quantity + delta;
-        return newQty > 0 ? { ...item, quantity: newQty } : null;
-      }
-      return item;
-    }).filter(Boolean));
-  };
-
-  const totalItemsCount = cart.reduce((sum, i) => sum + i.quantity, 0);
-  const totalPrice = cart.reduce((sum, i) => sum + (i.price * i.quantity), 0);
-
   const handleCheckout = () => {
-    const summary = cart.map(i => `${i.name} (x${i.quantity})`).join(', ');
-    if (onReserveSpot) {
-      onReserveSpot(`Order Claimed: ${summary} • Total: ₹${totalPrice.toLocaleString()}`);
-    }
     setCartOpen(false);
+    navigate('/cart');
   };
 
   return (
@@ -319,16 +293,17 @@ export default function PopularDestinations({ onReserveSpot }) {
               </div>
 
               {cart.length > 0 && (
-                <div className="pt-4 border-t border-white/10">
-                  <div className="flex items-center justify-between mb-4 text-sm font-mono">
+                <div className="pt-4 border-t border-white/10 space-y-3">
+                  <div className="flex items-center justify-between text-sm font-mono">
                     <span className="text-[#8A94A0]">TOTAL AMOUNT:</span>
-                    <span className="text-2xl font-black text-white">₹{totalPrice.toLocaleString()}</span>
+                    <span className="text-2xl font-black text-white font-mono">₹{totalPrice.toLocaleString('en-IN')}</span>
                   </div>
                   <button 
                     onClick={handleCheckout}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#FF2E4C] to-[#FF526B] hover:brightness-110 text-white font-extrabold text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(255,46,76,0.5)] transition-all"
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] hover:brightness-110 text-white font-extrabold text-xs uppercase tracking-wider shadow-[0_0_25px_rgba(255,30,39,0.5)] transition-all cursor-pointer flex items-center justify-center gap-2"
                   >
-                    Confirm & Reserve Order
+                    <ShoppingBag size={15} />
+                    <span>Proceed to My Cart & Checkout</span>
                   </button>
                 </div>
               )}

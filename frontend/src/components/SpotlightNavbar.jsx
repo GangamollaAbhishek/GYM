@@ -20,11 +20,13 @@ import {
   ChevronDown,
   ChevronUp,
   Shield,
-  Sparkles
+  Sparkles,
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import CreepyButton from "./CreepyButton";
 import { useLandingPageCMS } from "../context/LandingPageCMSContext";
+import { useCart } from "../context/CartContext";
 
 
 export function SpotlightNavbar({
@@ -47,6 +49,7 @@ export function SpotlightNavbar({
 }) {
   const { cmsData } = useLandingPageCMS();
   const brandData = cmsData?.brand || {};
+  const { totalItemsCount } = useCart();
 
   const navigate = useNavigate();
   const navRef = useRef(null);
@@ -299,95 +302,57 @@ export function SpotlightNavbar({
                         </span>
                       </div>
 
-                      {/* Dropdown Menu Items */}
-                      <div className="py-1.5 space-y-0.5 max-h-72 overflow-y-auto no-scrollbar">
+                      {/* Dropdown Menu Items - Exactly 6 Main Sections */}
+                      <div className="py-1.5 space-y-0.5 max-h-80 overflow-y-auto no-scrollbar">
                         <button
                           onClick={() => handleOpenAccountTab('personal')}
-                          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                         >
-                          <User size={15} className="text-slate-400" />
+                          <User size={16} className="text-[#FF2E4C] group-hover:scale-110 transition-transform" />
                           <span>Personal Information</span>
                         </button>
 
                         <button
                           onClick={() => handleOpenAccountTab('membership')}
-                          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
+                          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                         >
                           <div className="flex items-center gap-3">
-                            <Crown size={15} className="text-amber-400" />
-                            <span>Membership details</span>
+                            <Crown size={16} className="text-amber-400 group-hover:scale-110 transition-transform" />
+                            <span>Membership Details</span>
                           </div>
                           <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-mono font-bold">PRO</span>
                         </button>
 
                         <button
-                          onClick={() => handleOpenAccountTab('payments')}
-                          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
-                        >
-                          <CreditCard size={15} className="text-emerald-400" />
-                          <span>Payment history</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleOpenAccountTab('attendance')}
-                          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
-                        >
-                          <div className="flex items-center gap-3">
-                            <CalendarCheck size={15} className="text-cyan-400" />
-                            <span>Attendance history</span>
-                          </div>
-                          <span className="text-[10px] text-emerald-400 font-mono font-bold">22 Streak</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleOpenAccountTab('workout')}
-                          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
-                        >
-                          <Dumbbell size={15} className="text-[#FF2E4C]" />
-                          <span>Workout plan</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleOpenAccountTab('diet')}
-                          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
-                        >
-                          <Apple size={15} className="text-green-400" />
-                          <span>Diet plan</span>
-                        </button>
-
-                        <button
                           onClick={() => handleOpenAccountTab('trainers')}
-                          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                         >
-                          <Users size={15} className="text-purple-400" />
+                          <Users size={16} className="text-purple-400 group-hover:scale-110 transition-transform" />
                           <span>Trainers</span>
                         </button>
 
                         <button
-                          onClick={() => handleOpenAccountTab('notifications')}
-                          className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
+                          onClick={() => handleOpenAccountTab('payments')}
+                          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                         >
-                          <div className="flex items-center gap-3">
-                            <Bell size={15} className="text-yellow-400" />
-                            <span>Notifications</span>
-                          </div>
-                          <span className="w-4 h-4 rounded-full bg-[#FF2E4C] text-white text-[9px] font-bold flex items-center justify-center">3</span>
+                          <CreditCard size={16} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                          <span>Payments</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleOpenAccountTab('workout-diet')}
+                          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
+                        >
+                          <Dumbbell size={16} className="text-cyan-400 group-hover:scale-110 transition-transform" />
+                          <span>Workout & Diet Plan</span>
                         </button>
 
                         <button
                           onClick={() => handleOpenAccountTab('feedback')}
-                          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
+                          className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                         >
-                          <MessageSquare size={15} className="text-blue-400" />
-                          <span>Feedback/support</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleOpenAccountTab('settings')}
-                          className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer"
-                        >
-                          <Settings size={15} className="text-slate-400" />
-                          <span>Settings</span>
+                          <MessageSquare size={16} className="text-blue-400 group-hover:scale-110 transition-transform" />
+                          <span>Feedback & Support</span>
                         </button>
                       </div>
 
@@ -453,15 +418,42 @@ export function SpotlightNavbar({
                 Login
               </button>
             )}
+
+            {/* CART BUTTON WITH BADGE */}
+            <Link
+              to="/cart"
+              className="relative p-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white hover:text-[#FF1E27] transition-all flex items-center justify-center cursor-pointer shadow-sm group"
+              title="View My Cart"
+            >
+              <ShoppingBag size={18} />
+              {totalItemsCount > 0 && (
+                <span className="absolute -top-1 -right-1 px-1.5 py-0.5 min-w-[18px] h-[18px] rounded-full bg-[#FF1E27] text-white text-[10px] font-black font-mono flex items-center justify-center shadow-[0_0_10px_rgba(255,30,39,0.8)] animate-pulse">
+                  {totalItemsCount}
+                </span>
+              )}
+            </Link>
           </div>
 
           {/* MOBILE MENU TOGGLE BUTTON */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="lg:hidden p-2.5 rounded-xl bg-[#151515] border border-white/10 text-white hover:text-[#E50914] transition-colors"
-          >
-            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
+          <div className="flex items-center gap-2 lg:hidden">
+            <Link
+              to="/cart"
+              className="relative p-2 rounded-xl bg-[#151515] border border-white/10 text-white hover:text-[#E50914] transition-colors"
+            >
+              <ShoppingBag size={20} />
+              {totalItemsCount > 0 && (
+                <span className="absolute -top-1 -right-1 px-1 py-0.5 min-w-[16px] h-[16px] rounded-full bg-[#FF1E27] text-white text-[9px] font-black font-mono flex items-center justify-center">
+                  {totalItemsCount}
+                </span>
+              )}
+            </Link>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2.5 rounded-xl bg-[#151515] border border-white/10 text-white hover:text-[#E50914] transition-colors"
+            >
+              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
 
         </div>
 
@@ -510,19 +502,34 @@ export function SpotlightNavbar({
                         <User size={14} className="text-[#FF2E4C]" /> Personal Information
                       </button>
                       <button
-                        onClick={() => handleOpenAccountTab('orders')}
-                        className="py-2.5 px-3 rounded-xl bg-white/5 text-slate-200 text-xs font-semibold text-left flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <Package size={14} className="text-emerald-400" /> My Orders
-                        </div>
-                        <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-mono font-bold">4</span>
-                      </button>
-                      <button
-                        onClick={() => handleOpenAccountTab('password')}
+                        onClick={() => handleOpenAccountTab('membership')}
                         className="py-2.5 px-3 rounded-xl bg-white/5 text-slate-200 text-xs font-semibold text-left flex items-center gap-2.5"
                       >
-                        <Lock size={14} className="text-[#FF2E4C]" /> Change Password
+                        <Crown size={14} className="text-amber-400" /> Membership Details
+                      </button>
+                      <button
+                        onClick={() => handleOpenAccountTab('trainers')}
+                        className="py-2.5 px-3 rounded-xl bg-white/5 text-slate-200 text-xs font-semibold text-left flex items-center gap-2.5"
+                      >
+                        <Users size={14} className="text-purple-400" /> Trainers
+                      </button>
+                      <button
+                        onClick={() => handleOpenAccountTab('payments')}
+                        className="py-2.5 px-3 rounded-xl bg-white/5 text-slate-200 text-xs font-semibold text-left flex items-center gap-2.5"
+                      >
+                        <CreditCard size={14} className="text-emerald-400" /> Payments
+                      </button>
+                      <button
+                        onClick={() => handleOpenAccountTab('workout-diet')}
+                        className="py-2.5 px-3 rounded-xl bg-white/5 text-slate-200 text-xs font-semibold text-left flex items-center gap-2.5"
+                      >
+                        <Dumbbell size={14} className="text-cyan-400" /> Workout & Diet Plan
+                      </button>
+                      <button
+                        onClick={() => handleOpenAccountTab('feedback')}
+                        className="py-2.5 px-3 rounded-xl bg-white/5 text-slate-200 text-xs font-semibold text-left flex items-center gap-2.5"
+                      >
+                        <MessageSquare size={14} className="text-blue-400" /> Feedback & Support
                       </button>
                     </div>
                   </div>

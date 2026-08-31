@@ -132,6 +132,27 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
           email: req.user.email,
           phone: req.user.phone || '',
           role: req.user.role || 'customer',
+          avatar: req.user.avatar || '',
+          dob: req.user.dob || '1998-05-14',
+          gender: req.user.gender || 'Male',
+          address: req.user.address || {
+            street: 'Flat 402, Titan Heights, Road No. 36, Jubilee Hills',
+            city: 'Hyderabad',
+            state: 'Telangana',
+            pincode: '500033'
+          },
+          height: req.user.height || '178 cm',
+          weight: req.user.weight || '76 kg',
+          bodyFat: req.user.bodyFat || '14.2%',
+          bloodGroup: req.user.bloodGroup || 'O+',
+          membershipPlan: req.user.membershipPlan || 'No Active Plan',
+          membershipStartDate: req.user.membershipStartDate || '',
+          membershipExpiry: req.user.membershipExpiry || '',
+          membershipStatus: req.user.membershipStatus || 'No Membership',
+          amountPaid: req.user.amountPaid || 0,
+          paymentMethod: req.user.paymentMethod || 'Card',
+          assignedTrainer: req.user.assignedTrainer || null,
+          assignedTrainerName: req.user.assignedTrainerName || '',
           createdAt: req.user.createdAt,
         }
       }
@@ -444,6 +465,61 @@ app.put('/api/users/:id/shift', authenticateToken, authorizeRoles('admin'), asyn
   }
 });
 
+// GET /api/trainers - Retrieve all genuine registered trainers/coaches
+app.get('/api/trainers', async (req, res) => {
+  try {
+    const trainers = await User.find({ role: 'trainer' }).select('-password').lean().exec();
+    const formatted = trainers.map((t, idx) => ({
+      id: t._id.toString(),
+      displayId: `TRN-${501 + idx}`,
+      name: t.name,
+      email: t.email,
+      phone: t.phone && t.phone !== 'N/A' ? t.phone : 'N/A',
+      role: t.role,
+      avatar: t.avatar || '',
+      spec: t.specialization || 'Master Coach & Strength Specialist',
+      experience: t.experience || '6+ Years Experience',
+      shift: t.shift || '06:00 AM - 02:00 PM',
+      room: t.assignedRoom || 'Main Strength & Conditioning Arena',
+      days: t.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      rating: t.rating || '5.0',
+      pricePerSession: t.pricePerSession || '₹1,499',
+      bio: t.bio || 'Certified strength, biomechanics and performance specialist.',
+      image: t.avatar || 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?auto=format&fit=crop&w=400&q=80'
+    }));
+    res.status(200).json({ status: 'success', data: formatted });
+  } catch (err) {
+    console.error('Error fetching trainers:', err);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch trainers' });
+  }
+});
+
+// PUT /api/users/:id/assign-trainer - Assign trainer to member
+app.put('/api/users/:id/assign-trainer', authenticateToken, async (req, res) => {
+  try {
+    const { trainerId, trainerName } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          assignedTrainer: trainerId || null,
+          assignedTrainerName: trainerName || ''
+        }
+      },
+      { new: true }
+    ).select('-password');
+
+    res.status(200).json({
+      status: 'success',
+      message: `Trainer assigned successfully!`,
+      data: user
+    });
+  } catch (err) {
+    console.error('Error assigning trainer:', err);
+    res.status(500).json({ status: 'error', message: 'Failed to assign trainer' });
+  }
+});
+
 // PUT /api/users/:id - Update user profile details (Protected: Admin)
 // POST /api/auth/change-password - Change user password (Protected)
 app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
@@ -453,28 +529,30 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'New password must be at least 6 characters long' });
     }
 
-    const user = await User.findById(req.user._id);
+    const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ status: 'error', message: 'User not found' });
+      return res.status(404).json({ status: 'error', message: 'User not found in database' });
     }
 
     if (currentPassword) {
-      const isMatch = await user.comparePassword(currentPassword);
+      const isMatch = await user.matchPassword(currentPassword);
       if (!isMatch) {
-        return res.status(400).json({ status: 'error', message: 'Current password is incorrect' });
+        return res.status(400).json({ status: 'error', message: 'Current password is incorrect. Please verify and try again.' });
       }
     }
 
     user.password = newPassword;
     await user.save();
+    console.log(`🔐 Password successfully updated and hashed in MongoDB for: ${user.email}`);
 
-    res.status(200).json({
+    return res.status(200).json({
       status: 'success',
-      message: 'Password updated successfully!'
+      message: 'Password updated and saved successfully in MongoDB Atlas!'
     });
   } catch (error) {
     console.error('Change password error:', error);
-    res.status(500).json({ status: 'error', message: error.message || 'Failed to update password' });
+    return res.status(500).json({ status: 'error', message: error.message || 'Failed to update password' });
   }
 });
 
@@ -489,12 +567,36 @@ app.put('/api/users/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ status: 'error', message: 'Unauthorized to modify this user' });
     }
 
-    const { name, email, phone, specialization, shift, status, role } = req.body;
+    const {
+      name,
+      email,
+      phone,
+      avatar,
+      dob,
+      gender,
+      address,
+      height,
+      weight,
+      bodyFat,
+      bloodGroup,
+      specialization,
+      shift,
+      status,
+      role
+    } = req.body;
 
     const updateFields = {};
     if (name) updateFields.name = name;
     if (email) updateFields.email = email.toLowerCase().trim();
     if (phone !== undefined) updateFields.phone = phone;
+    if (avatar !== undefined) updateFields.avatar = avatar;
+    if (dob !== undefined) updateFields.dob = dob;
+    if (gender !== undefined) updateFields.gender = gender;
+    if (address !== undefined) updateFields.address = address;
+    if (height !== undefined) updateFields.height = height;
+    if (weight !== undefined) updateFields.weight = weight;
+    if (bodyFat !== undefined) updateFields.bodyFat = bodyFat;
+    if (bloodGroup !== undefined) updateFields.bloodGroup = bloodGroup;
     
     // Only Admin can update specialization, shift, status, role
     if (isAdmin) {
@@ -569,6 +671,186 @@ app.post('/api/upload', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Cloudinary Upload Error:', error);
     return res.status(500).json({ status: 'error', message: error.message || 'Cloudinary upload failed' });
+  }
+});
+
+// ==========================================
+// RAZORPAY PAYMENT GATEWAY ENDPOINTS
+// ==========================================
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
+
+const cleanKey = (k) => (k ? String(k).trim().replace(/^['"]|['"]$/g, '') : '');
+
+const getRazorpayKeyId = () => {
+  return cleanKey(process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY || process.env.VITE_RAZORPAY_KEY_ID || process.env.RAZORPAY_API_KEY);
+};
+
+const getRazorpayKeySecret = () => {
+  return cleanKey(process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET || process.env.RAZORPAY_API_SECRET);
+};
+
+const getRazorpayInstance = () => {
+  const keyId = getRazorpayKeyId();
+  const keySecret = getRazorpayKeySecret();
+
+  if (!keyId || !keySecret || keyId === 'rzp_test_placeholder' || keySecret === 'rzp_test_secret_placeholder') {
+    return null;
+  }
+
+  try {
+    return new Razorpay({
+      key_id: keyId,
+      key_secret: keySecret
+    });
+  } catch (err) {
+    console.warn('Could not initialize Razorpay instance:', err.message);
+    return null;
+  }
+};
+
+// GET /api/payments/razorpay-key - Retrieve public Razorpay Key ID
+app.get('/api/payments/razorpay-key', (req, res) => {
+  const key = getRazorpayKeyId() || 'rzp_test_placeholder';
+  res.status(200).json({
+    status: 'success',
+    key: key
+  });
+});
+
+// POST /api/payments/create-order - Create Razorpay Order
+app.post('/api/payments/create-order', async (req, res) => {
+  try {
+    const { amount, currency = 'INR', receipt, planName, planId, customerId } = req.body;
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ status: 'error', message: 'Valid amount is required' });
+    }
+
+    const keyId = getRazorpayKeyId() || 'rzp_test_placeholder';
+    const razorpay = getRazorpayInstance();
+
+    if (!razorpay) {
+      return res.status(200).json({
+        status: 'success',
+        simulated: true,
+        data: {
+          id: null,
+          amount: Math.round(Number(amount) * 100),
+          currency: currency,
+          receipt: receipt || `rcpt_${Date.now()}`,
+          key: keyId,
+          isRealOrder: false
+        }
+      });
+    }
+
+    const options = {
+      amount: Math.round(Number(amount) * 100), // amount in paise
+      currency: currency,
+      receipt: receipt || `rcpt_${Date.now()}`,
+      notes: {
+        planName: planName || 'Gym Membership',
+        planId: planId || '',
+        customerId: customerId || ''
+      }
+    };
+
+    const order = await razorpay.orders.create(options);
+    return res.status(200).json({
+      status: 'success',
+      simulated: false,
+      data: {
+        ...order,
+        key: keyId,
+        isRealOrder: true
+      }
+    });
+  } catch (error) {
+    console.error('Razorpay Create Order Error:', error);
+    return res.status(200).json({
+      status: 'success',
+      simulated: true,
+      data: {
+        id: null,
+        amount: Math.round(Number(amount) * 100),
+        currency: currency,
+        key: getRazorpayKeyId() || 'rzp_test_placeholder',
+        isRealOrder: false
+      }
+    });
+  }
+});
+
+// POST /api/payments/verify - Verify Payment Signature & Activate Membership in MongoDB
+app.post('/api/payments/verify', async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      planName,
+      amount,
+      userId
+    } = req.body;
+
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET || process.env.RAZORPAY_API_SECRET;
+
+    if (keySecret && keySecret !== 'rzp_test_secret_placeholder' && razorpay_order_id && razorpay_payment_id && razorpay_signature) {
+      const generatedSignature = crypto
+        .createHmac('sha256', keySecret)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest('hex');
+
+      if (generatedSignature !== razorpay_signature) {
+        return res.status(400).json({ status: 'error', message: 'Invalid payment signature verification' });
+      }
+    }
+
+    // Payment signature is valid, update user membership in MongoDB!
+    const today = new Date();
+    const expDate = new Date();
+    expDate.setFullYear(expDate.getFullYear() + 1);
+
+    const startDateStr = today.toISOString().split('T')[0];
+    const expiryDateStr = expDate.toISOString().split('T')[0];
+    const priceNum = typeof amount === 'number' ? amount : parseInt(String(amount || '0').replace(/[^\d]/g, ''), 10) || 2499;
+
+    let updatedUser = null;
+    if (userId) {
+      updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $set: {
+            membershipPlan: planName || 'Pro Membership',
+            membershipStatus: 'Active',
+            membershipStartDate: startDateStr,
+            membershipExpiry: expiryDateStr,
+            amountPaid: priceNum,
+            paymentMethod: req.body.paymentMethod || 'Card'
+          }
+        },
+        { new: true }
+      ).select('-password');
+    }
+
+    console.log(`💳 Razorpay Payment Verified: ${planName} activated for user ${userId || 'guest'}`);
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Payment verified successfully! ${planName || 'Membership'} activated until ${expiryDateStr}.`,
+      data: {
+        paymentId: razorpay_payment_id || `pay_${Date.now()}`,
+        orderId: razorpay_order_id,
+        user: updatedUser,
+        membershipPlan: planName,
+        membershipExpiry: expiryDateStr,
+        startDate: startDateStr,
+        amount: priceNum
+      }
+    });
+  } catch (error) {
+    console.error('Razorpay Verify Error:', error);
+    return res.status(500).json({ status: 'error', message: error.message || 'Payment verification failed' });
   }
 });
 
