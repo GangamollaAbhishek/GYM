@@ -7,11 +7,23 @@ export default function SmoothScroll() {
     useEffect(() => {
         gsap.registerPlugin(ScrollTrigger);
 
+        // Destroy any leftover instance
+        if (window.__lenis) {
+            try {
+                window.__lenis.destroy();
+            } catch (e) {}
+        }
+
+        // Initialize single ultra-fluid Lenis instance
         const lenis = new Lenis({
-            duration: 1.2,
+            duration: 1.4,
             easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            orientation: 'vertical',
+            gestureOrientation: 'vertical',
             smoothWheel: true,
-            touchMultiplier: 1.5,
+            wheelMultiplier: 0.95,
+            touchMultiplier: 1.6,
+            infinite: false,
             prevent: (node) => 
                 node?.classList?.contains('custom-scrollbar') || 
                 node?.classList?.contains('no-scrollbar') || 
@@ -20,10 +32,12 @@ export default function SmoothScroll() {
                 node?.tagName === 'FORM' ||
                 node?.closest?.('.auth-container') ||
                 node?.closest?.('.admin-portal-wrapper') ||
+                node?.closest?.('.customer-portal-wrapper') ||
                 node?.closest?.('[data-lenis-prevent]')
         });
 
         lenis.on('scroll', ScrollTrigger.update);
+
         const tickerCallback = (time) => {
             lenis.raf(time * 1000);
         };
@@ -38,7 +52,7 @@ export default function SmoothScroll() {
         };
         document.addEventListener('visibilitychange', handleVisibility);
 
-        // Store lenis on window so other components can access it globally
+        // Store lenis on window globally
         window.__lenis = lenis;
 
         return () => {

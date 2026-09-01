@@ -4,7 +4,7 @@ import { Flame } from 'lucide-react';
 
 export default function CylinderSection() {
   return (
-    <section className="py-16 bg-[#0B0B0B] border-y border-white/10 relative overflow-hidden">
+    <section id="cylinder-arena" className="py-16 bg-[#0B0B0B] border-y border-white/10 relative overflow-hidden">
       {/* Background Lighting Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-[radial-gradient(ellipse_at_center,_rgba(229,9,20,0.22)_0%,_transparent_70%)] blur-[90px] pointer-events-none" />
 

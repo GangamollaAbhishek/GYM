@@ -106,26 +106,23 @@ html.lenis, html.lenis body {
   perspective: 1000px;
 }
 
-/* Custom Scrollbar */
+/* Hide all scrollbars while preserving scrolling functionality */
 ::-webkit-scrollbar {
-  width: 6px;
+  display: none !important;
+  width: 0px !important;
+  height: 0px !important;
 }
 
-::-webkit-scrollbar-track {
-  background: #0B0B0B;
+* {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
 }
 
-::-webkit-scrollbar-thumb {
-  background: #E50914;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #FF2B35;
-}
-
-/* Hide scrollbars across Admin Portal and no-scrollbar elements */
+/* Hide scrollbars across portals and elements */
 .no-scrollbar,
+.no-scrollbar *,
+.customer-portal-wrapper,
+.customer-portal-wrapper *,
 .admin-portal-wrapper,
 .admin-portal-wrapper * {
   -ms-overflow-style: none !important; /* IE and Edge */
@@ -133,6 +130,8 @@ html.lenis, html.lenis body {
 }
 
 .no-scrollbar::-webkit-scrollbar,
+.customer-portal-wrapper::-webkit-scrollbar,
+.customer-portal-wrapper *::-webkit-scrollbar,
 .admin-portal-wrapper::-webkit-scrollbar,
 .admin-portal-wrapper *::-webkit-scrollbar {
   display: none !important;

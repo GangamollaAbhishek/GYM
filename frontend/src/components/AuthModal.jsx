@@ -1,17 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Eye, EyeOff, X, Activity, Phone } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { useAuth } from '../context/AuthContext';
+import AstroBotAuthMascot, { astroAudio } from './AstroBotAuthMascot';
 import './AuthModal.css';
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', onSuccess }) {
   const [isRightPanelActive, setIsRightPanelActive] = useState(initialMode === 'sign-up');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [signInData, setSignInData] = useState({ email: '', password: '' });
   const [signUpData, setSignUpData] = useState({ name: '', email: '', phone: '', password: '' });
   const [errorMsg, setErrorMsg] = useState('');
 
+  const botRef = useRef(null);
   const navigate = useNavigate();
   const { login, signup } = useAuth();
 
@@ -26,6 +30,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
     e.preventDefault();
     if (!signInData.email || !signInData.password) {
       setErrorMsg('Please fill in both email and password fields.');
+      botRef.current?.think();
       return;
     }
     setErrorMsg('');
@@ -36,25 +41,40 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
       setLoading(false);
 
       if (result.success && result.user) {
-        if (onSuccess) onSuccess(result.user, 'sign-in');
-        onClose();
+        botRef.current?.celebrate();
 
-        const role = (result.user.role || '').toLowerCase().trim();
-        if (role === 'admin') {
-          navigate('/admin');
-        } else if (role === 'receptionist') {
-          navigate('/receptionist');
-        } else if (role === 'trainer') {
-          navigate('/trainer');
-        } else {
-          navigate('/account?tab=personal&sub=profile');
-        }
+        confetti({
+          particleCount: 90,
+          spread: 75,
+          origin: { y: 0.6 },
+          colors: ['#FF2E4C', '#E50914', '#00F2FE', '#10B981', '#F59E0B']
+        });
+
+        if (onSuccess) onSuccess(result.user, 'sign-in');
+
+        setTimeout(() => {
+          onClose();
+          const role = (result.user.role || '').toLowerCase().trim();
+          if (role === 'admin') {
+            navigate('/admin');
+          } else if (role === 'receptionist') {
+            navigate('/receptionist');
+          } else if (role === 'trainer') {
+            navigate('/trainer');
+          } else {
+            navigate('/account?tab=personal&sub=profile');
+          }
+        }, 1600);
       } else {
         setErrorMsg(result.message || 'Invalid email or password.');
+        astroAudio.playShy();
+        botRef.current?.think();
       }
     } catch (err) {
       setLoading(false);
       setErrorMsg('An unexpected error occurred. Please try again.');
+      astroAudio.playShy();
+      botRef.current?.think();
     }
   };
 
@@ -62,6 +82,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
     e.preventDefault();
     if (!signUpData.name || !signUpData.email || !signUpData.password) {
       setErrorMsg('Please complete all registration fields.');
+      botRef.current?.think();
       return;
     }
     setErrorMsg('');
@@ -72,15 +93,31 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
       setLoading(false);
 
       if (result.success && result.user) {
+        botRef.current?.celebrate();
+
+        confetti({
+          particleCount: 100,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#FF2E4C', '#E50914', '#00F2FE', '#10B981', '#F59E0B']
+        });
+
         if (onSuccess) onSuccess(result.user, 'sign-up');
-        onClose();
-        navigate('/account?tab=personal&sub=profile');
+
+        setTimeout(() => {
+          onClose();
+          navigate('/account?tab=personal&sub=profile');
+        }, 1600);
       } else {
         setErrorMsg(result.message || 'Registration failed.');
+        astroAudio.playShy();
+        botRef.current?.think();
       }
     } catch (err) {
       setLoading(false);
       setErrorMsg('An unexpected error occurred during registration.');
+      astroAudio.playShy();
+      botRef.current?.think();
     }
   };
 
@@ -88,6 +125,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
     <div className="auth-modal-overlay" onClick={onClose}>
       <div className="auth-wrapper" onClick={(e) => e.stopPropagation()}>
         
+        {/* Floating 3D AstroBot Mascot */}
+        <div className="relative z-20 mb-[-32px]">
+          <AstroBotAuthMascot
+            ref={botRef}
+            modelType="robot"
+            bodyColor="white"
+            ledColor="cyan"
+          />
+        </div>
+
         {/* Modal Close Button */}
         <button 
           className="auth-close-btn" 
@@ -135,7 +182,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
                   type="text" 
                   placeholder="Full Name"
                   value={signUpData.name}
-                  onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
+                  onChange={(e) => {
+                    setSignUpData({ ...signUpData, name: e.target.value });
+                    botRef.current?.trackInput(e.target);
+                  }}
+                  onFocus={(e) => {
+                    astroAudio.playBleep(540);
+                    botRef.current?.trackInput(e.target);
+                    botRef.current?.say('What is your full athlete name? ✍️', 2000);
+                  }}
+                  onBlur={() => botRef.current?.resetLook()}
                   required
                 />
                 <User className="auth-input-icon" size={18} />
@@ -146,7 +202,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
                   type="email" 
                   placeholder="Email Address" 
                   value={signUpData.email}
-                  onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
+                  onChange={(e) => {
+                    setSignUpData({ ...signUpData, email: e.target.value });
+                    botRef.current?.trackInput(e.target);
+                  }}
+                  onFocus={(e) => {
+                    astroAudio.playBleep(580);
+                    botRef.current?.trackInput(e.target);
+                    botRef.current?.say('Enter your email address ✉️', 2000);
+                  }}
+                  onBlur={() => botRef.current?.resetLook()}
                   required
                 />
                 <Mail className="auth-input-icon" size={18} />
@@ -157,26 +222,51 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
                   type="tel" 
                   placeholder="Phone Number" 
                   value={signUpData.phone}
-                  onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value })}
+                  onChange={(e) => {
+                    setSignUpData({ ...signUpData, phone: e.target.value });
+                    botRef.current?.trackInput(e.target);
+                  }}
+                  onFocus={(e) => {
+                    astroAudio.playBleep(560);
+                    botRef.current?.trackInput(e.target);
+                  }}
+                  onBlur={() => botRef.current?.resetLook()}
                 />
                 <Phone className="auth-input-icon" size={18} />
               </div>
 
               <div className="auth-input-group">
                 <input 
-                  type={showPassword ? 'text' : 'password'} 
+                  type={showSignUpPassword ? 'text' : 'password'} 
                   placeholder="Create Password" 
                   value={signUpData.password}
                   onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
+                  onFocus={() => {
+                    if (showSignUpPassword) {
+                      botRef.current?.peek();
+                    } else {
+                      botRef.current?.coverEyes();
+                    }
+                  }}
+                  onBlur={() => botRef.current?.uncoverEyes()}
                   required
                 />
                 <Lock className="auth-input-icon" size={18} />
                 <button 
                   type="button" 
                   className="auth-eye-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => {
+                    const next = !showSignUpPassword;
+                    setShowSignUpPassword(next);
+                    if (next) {
+                      botRef.current?.peek();
+                    } else {
+                      botRef.current?.coverEyes();
+                    }
+                  }}
+                  title={showSignUpPassword ? 'Hide Password' : 'Show Password (AstroBot Peeks!)'}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showSignUpPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
 
@@ -226,7 +316,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
                   type="email" 
                   placeholder="Email Address" 
                   value={signInData.email}
-                  onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
+                  onChange={(e) => {
+                    setSignInData({ ...signInData, email: e.target.value });
+                    botRef.current?.trackInput(e.target);
+                  }}
+                  onFocus={(e) => {
+                    astroAudio.playBleep(580);
+                    botRef.current?.trackInput(e.target);
+                    botRef.current?.say('Enter your email address ✉️', 2000);
+                  }}
+                  onBlur={() => botRef.current?.resetLook()}
                   required
                 />
                 <Mail className="auth-input-icon" size={18} />
@@ -234,19 +333,36 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
 
               <div className="auth-input-group">
                 <input 
-                  type={showPassword ? 'text' : 'password'} 
+                  type={showSignInPassword ? 'text' : 'password'} 
                   placeholder="Password" 
                   value={signInData.password}
                   onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
+                  onFocus={() => {
+                    if (showSignInPassword) {
+                      botRef.current?.peek();
+                    } else {
+                      botRef.current?.coverEyes();
+                    }
+                  }}
+                  onBlur={() => botRef.current?.uncoverEyes()}
                   required
                 />
                 <Lock className="auth-input-icon" size={18} />
                 <button 
                   type="button" 
                   className="auth-eye-toggle"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => {
+                    const next = !showSignInPassword;
+                    setShowSignInPassword(next);
+                    if (next) {
+                      botRef.current?.peek();
+                    } else {
+                      botRef.current?.coverEyes();
+                    }
+                  }}
+                  title={showSignInPassword ? 'Hide Password' : 'Show Password (AstroBot Peeks!)'}
                 >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showSignInPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
 

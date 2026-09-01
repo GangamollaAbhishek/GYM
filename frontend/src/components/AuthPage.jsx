@@ -1,19 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Mail, Lock, User, Eye, EyeOff, Activity, ArrowLeft, Phone } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Activity, ArrowLeft, Phone, Sparkles } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import { useAuth } from '../context/AuthContext';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
+import AstroBotAuthMascot, { astroAudio } from './AstroBotAuthMascot';
 import './AuthModal.css';
 
 export default function AuthPage({ onAuthSuccess }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isAuthenticated, login, signup } = useAuth();
+  const { cmsData } = useLandingPageCMS();
+  const botRef = useRef(null);
 
   // Determine initial mode from current path (/signup vs /login)
   const isSignUpPath = location.pathname === '/signup' || location.pathname === '/register';
   const [isRightPanelActive, setIsRightPanelActive] = useState(isSignUpPath);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // 3D Mascot & Customizer State
+  const [modelType, setModelType] = useState('robot'); // 'robot' | 'xbot' | 'soldier'
+  const [botColor, setBotColor] = useState('white');
+  const [ledColor, setLedColor] = useState('cyan');
+  const [isMuted, setIsMuted] = useState(false);
 
   // Form state
   const [signInData, setSignInData] = useState({ email: '', password: '' });
@@ -30,24 +42,41 @@ export default function AuthPage({ onAuthSuccess }) {
       const userRole = (user.role || '').toLowerCase().trim();
       const redirectFrom = location.state?.from?.pathname;
 
-      if (redirectFrom && redirectFrom !== '/login' && redirectFrom !== '/signup' && redirectFrom !== '/register') {
-        navigate(redirectFrom, { replace: true });
-      } else if (userRole === 'admin') {
+      if (userRole === 'admin') {
         navigate('/admin', { replace: true });
       } else if (userRole === 'receptionist') {
         navigate('/receptionist', { replace: true });
       } else if (userRole === 'trainer') {
         navigate('/trainer', { replace: true });
+      } else if (redirectFrom && redirectFrom !== '/login' && redirectFrom !== '/signup' && redirectFrom !== '/register') {
+        navigate(redirectFrom, { replace: true });
       } else {
         navigate('/account?tab=personal&sub=profile', { replace: true });
       }
     }
   }, [location.pathname, isAuthenticated, user, navigate, location.state]);
 
+  const switchToSignUp = () => {
+    setIsRightPanelActive(true);
+    setErrorMsg('');
+    navigate('/signup', { replace: true });
+    astroAudio.playBleep(620);
+    botRef.current?.say('Beep! Let’s get you registered 📝', 2500);
+  };
+
+  const switchToSignIn = () => {
+    setIsRightPanelActive(false);
+    setErrorMsg('');
+    navigate('/login', { replace: true });
+    astroAudio.playBleep(620);
+    botRef.current?.say('Welcome back! Good to see you 😊', 2500);
+  };
+
   const handleSignInSubmit = async (e) => {
     e.preventDefault();
     if (!signInData.email || !signInData.password) {
       setErrorMsg('Please fill in both email and password fields.');
+      botRef.current?.think();
       return;
     }
     setErrorMsg('');
@@ -58,28 +87,43 @@ export default function AuthPage({ onAuthSuccess }) {
       setLoading(false);
 
       if (result.success && result.user) {
+        botRef.current?.celebrate();
+
+        confetti({
+          particleCount: 90,
+          spread: 75,
+          origin: { y: 0.6 },
+          colors: ['#FF2E4C', '#E50914', '#00F2FE', '#10B981', '#F59E0B']
+        });
+
         if (onAuthSuccess) onAuthSuccess(result.user, 'sign-in');
 
-        const role = (result.user.role || '').toLowerCase().trim();
-        const fromPath = location.state?.from?.pathname;
+        setTimeout(() => {
+          const role = (result.user.role || '').toLowerCase().trim();
+          const fromPath = location.state?.from?.pathname;
 
-        if (fromPath && fromPath !== '/login' && fromPath !== '/signup' && fromPath !== '/register') {
-          navigate(fromPath, { replace: true });
-        } else if (role === 'admin') {
-          navigate('/admin', { replace: true });
-        } else if (role === 'receptionist') {
-          navigate('/receptionist', { replace: true });
-        } else if (role === 'trainer') {
-          navigate('/trainer', { replace: true });
-        } else {
-          navigate('/account?tab=personal&sub=profile', { replace: true });
-        }
+          if (role === 'admin') {
+            navigate('/admin', { replace: true });
+          } else if (role === 'receptionist') {
+            navigate('/receptionist', { replace: true });
+          } else if (role === 'trainer') {
+            navigate('/trainer', { replace: true });
+          } else if (fromPath && fromPath !== '/login' && fromPath !== '/signup' && fromPath !== '/register' && !fromPath.startsWith('/admin')) {
+            navigate(fromPath, { replace: true });
+          } else {
+            navigate('/account?tab=personal&sub=profile', { replace: true });
+          }
+        }, 1600);
       } else {
         setErrorMsg(result.message || 'Invalid email or password.');
+        astroAudio.playShy();
+        botRef.current?.think();
       }
     } catch (err) {
       setLoading(false);
       setErrorMsg('An unexpected error occurred. Please try again.');
+      astroAudio.playShy();
+      botRef.current?.think();
     }
   };
 
@@ -87,6 +131,7 @@ export default function AuthPage({ onAuthSuccess }) {
     e.preventDefault();
     if (!signUpData.name || !signUpData.email || !signUpData.password) {
       setErrorMsg('Please complete all registration fields.');
+      botRef.current?.think();
       return;
     }
     setErrorMsg('');
@@ -97,49 +142,105 @@ export default function AuthPage({ onAuthSuccess }) {
       setLoading(false);
 
       if (result.success && result.user) {
+        botRef.current?.celebrate();
+
+        confetti({
+          particleCount: 100,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#FF2E4C', '#E50914', '#00F2FE', '#10B981', '#F59E0B']
+        });
+
         if (onAuthSuccess) onAuthSuccess(result.user, 'sign-up');
-        navigate('/account?tab=personal&sub=profile', { replace: true });
+        setTimeout(() => {
+          navigate('/account?tab=personal&sub=profile', { replace: true });
+        }, 1600);
       } else {
         setErrorMsg(result.message || 'Registration failed.');
+        astroAudio.playShy();
+        botRef.current?.think();
       }
     } catch (err) {
       setLoading(false);
       setErrorMsg('An unexpected error occurred during registration.');
+      astroAudio.playShy();
+      botRef.current?.think();
     }
   };
 
-  const switchToSignUp = () => {
-    setIsRightPanelActive(true);
-    navigate('/signup', { replace: true });
-  };
-
-  const switchToSignIn = () => {
-    setIsRightPanelActive(false);
-    navigate('/login', { replace: true });
+  const handleSoundToggle = () => {
+    const muted = astroAudio.toggleMute();
+    setIsMuted(muted);
+    if (!muted) astroAudio.playBleep(600);
   };
 
   return (
-    <div className="h-screen w-screen bg-[#0B0B0B] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden selection:bg-[#E50914] selection:text-white">
+    <div className="min-h-screen w-screen bg-[#0B0B0B] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden selection:bg-[#E50914] selection:text-white">
       
       {/* Glow & Atmospheric Background Elements */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-[#E50914]/15 rounded-full blur-[130px] pointer-events-none" />
-      <div className="absolute bottom-5 right-5 w-[350px] h-[350px] bg-[#FF2E4C]/10 rounded-full blur-[110px] pointer-events-none" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#E50914]/15 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-5 right-5 w-[380px] h-[380px] bg-[#FF2E4C]/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Header Bar */}
       <header className="absolute top-0 left-0 right-0 h-20 px-6 sm:px-12 flex items-center justify-between z-20">
-        <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.5)] group-hover:scale-105 transition-transform duration-300">
-            <Activity size={22} className="stroke-[2.5]" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bebas text-2xl text-white tracking-wider leading-none">
-              TITAN<span className="text-[#E50914]">•</span>PULSE
+        <Link to="/" className="flex items-center gap-3 group min-w-0">
+          {cmsData?.brand?.logo ? (
+            <div className="w-10 h-10 rounded-xl bg-[#121217] border border-white/15 overflow-hidden flex items-center justify-center p-1.5 shadow-[0_0_20px_rgba(229,9,20,0.4)] group-hover:scale-105 transition-transform shrink-0">
+              <img src={cmsData.brand.logo} alt={cmsData?.brand?.name || 'Logo'} className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.5)] group-hover:scale-105 transition-transform duration-300 shrink-0">
+              <Activity size={22} className="stroke-[2.5]" />
+            </div>
+          )}
+          <div className="flex flex-col min-w-0">
+            <span className="font-bebas text-2xl text-white tracking-wider leading-none truncate">
+              {cmsData?.brand?.name || 'TITAN•PULSE'}
             </span>
-            <span className="text-[9px] uppercase tracking-[0.25em] text-[#A0A0A0] font-mono leading-tight">
-              3D FITNESS SYSTEM
+            <span className="text-[9px] uppercase tracking-[0.25em] text-[#A0A0A0] font-mono leading-tight truncate">
+              {cmsData?.brand?.subname || '3D FITNESS SYSTEM'}
             </span>
           </div>
         </Link>
+
+        {/* Top 3D Mascot Quick Bar */}
+        <div className="hidden sm:flex items-center gap-3 bg-[#15151A]/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/10 shadow-lg">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono">Avatar:</span>
+          <select
+            value={modelType}
+            onChange={(e) => setModelType(e.target.value)}
+            className="bg-[#090C0E] border border-white/10 text-white text-xs font-semibold rounded-lg px-2 py-1 outline-none cursor-pointer"
+          >
+            <option value="robot">🤖 AstroBot</option>
+            <option value="xbot">🦾 Xbot.glb</option>
+            <option value="soldier">🪖 Soldier.glb</option>
+          </select>
+
+          {modelType === 'robot' && (
+            <div className="flex items-center gap-1.5 border-l border-white/10 pl-3">
+              {['cyan', 'emerald', 'amber', 'pink'].map((col) => (
+                <button
+                  key={col}
+                  type="button"
+                  onClick={() => setLedColor(col)}
+                  className={`w-4 h-4 rounded-full transition-transform ${ledColor === col ? 'scale-125 ring-2 ring-white' : 'opacity-70 hover:opacity-100'}`}
+                  style={{
+                    backgroundColor: col === 'cyan' ? '#00F2FE' : col === 'emerald' ? '#10B981' : col === 'amber' ? '#F59E0B' : '#EC4899'
+                  }}
+                  title={`LED ${col}`}
+                />
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleSoundToggle}
+            className="ml-2 text-xs font-bold text-slate-300 hover:text-white px-2.5 py-0.5 rounded-md bg-white/5 hover:bg-white/10 transition-all cursor-pointer"
+          >
+            {isMuted ? '🔇 Off' : '🔊 Sound'}
+          </button>
+        </div>
 
         <Link 
           to="/" 
@@ -150,8 +251,19 @@ export default function AuthPage({ onAuthSuccess }) {
         </Link>
       </header>
 
-      {/* Main Double-Slider Container Card */}
-      <div className="w-full max-w-4xl z-10 flex flex-col items-center justify-center pt-12">
+      {/* Main Double-Slider Container Card with 3D Mascot Floating Above */}
+      <div className="w-full max-w-4xl z-10 flex flex-col items-center justify-center pt-16 sm:pt-10">
+        
+        {/* Floating 3D AstroBot Mascot */}
+        <div className="relative z-20 mb-[-32px]">
+          <AstroBotAuthMascot
+            ref={botRef}
+            modelType={modelType}
+            bodyColor={botColor}
+            ledColor={ledColor}
+          />
+        </div>
+
         <div className="auth-wrapper">
           <div className={`auth-container ${isRightPanelActive ? 'right-panel-active' : ''}`} id="container">
             
@@ -163,7 +275,7 @@ export default function AuthPage({ onAuthSuccess }) {
                   <h2>Sign Up</h2>
                 </div>
                 <span>Join TITAN PULSE 3D Gym Ecosystem</span>
-
+                
                 <div className="social-container">
                   <button type="button" title="Sign up with Google" onClick={() => alert('Social authentication will use OAuth provider.')}>
                     <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -190,7 +302,16 @@ export default function AuthPage({ onAuthSuccess }) {
                     type="text" 
                     placeholder="Full Name"
                     value={signUpData.name}
-                    onChange={(e) => setSignUpData({ ...signUpData, name: e.target.value })}
+                    onChange={(e) => {
+                      setSignUpData({ ...signUpData, name: e.target.value });
+                      botRef.current?.trackInput(e.target);
+                    }}
+                    onFocus={(e) => {
+                      astroAudio.playBleep(540);
+                      botRef.current?.trackInput(e.target);
+                      botRef.current?.say('What is your full athlete name? ✍️', 2000);
+                    }}
+                    onBlur={() => botRef.current?.resetLook()}
                     required
                   />
                   <User className="auth-input-icon" size={18} />
@@ -201,7 +322,16 @@ export default function AuthPage({ onAuthSuccess }) {
                     type="email" 
                     placeholder="Email Address" 
                     value={signUpData.email}
-                    onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
+                    onChange={(e) => {
+                      setSignUpData({ ...signUpData, email: e.target.value });
+                      botRef.current?.trackInput(e.target);
+                    }}
+                    onFocus={(e) => {
+                      astroAudio.playBleep(580);
+                      botRef.current?.trackInput(e.target);
+                      botRef.current?.say('Enter your email address ✉️', 2000);
+                    }}
+                    onBlur={() => botRef.current?.resetLook()}
                     required
                   />
                   <Mail className="auth-input-icon" size={18} />
@@ -212,31 +342,56 @@ export default function AuthPage({ onAuthSuccess }) {
                     type="tel" 
                     placeholder="Phone Number" 
                     value={signUpData.phone}
-                    onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value })}
+                    onChange={(e) => {
+                      setSignUpData({ ...signUpData, phone: e.target.value });
+                      botRef.current?.trackInput(e.target);
+                    }}
+                    onFocus={(e) => {
+                      astroAudio.playBleep(560);
+                      botRef.current?.trackInput(e.target);
+                    }}
+                    onBlur={() => botRef.current?.resetLook()}
                   />
                   <Phone className="auth-input-icon" size={18} />
                 </div>
 
                 <div className="auth-input-group">
                   <input 
-                    type={showPassword ? 'text' : 'password'} 
+                    type={showSignUpPassword ? 'text' : 'password'} 
                     placeholder="Create Password" 
                     value={signUpData.password}
                     onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
+                    onFocus={() => {
+                      if (showSignUpPassword) {
+                        botRef.current?.peek();
+                      } else {
+                        botRef.current?.coverEyes();
+                      }
+                    }}
+                    onBlur={() => botRef.current?.uncoverEyes()}
                     required
                   />
                   <Lock className="auth-input-icon" size={18} />
                   <button 
                     type="button" 
                     className="auth-eye-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => {
+                      const next = !showSignUpPassword;
+                      setShowSignUpPassword(next);
+                      if (next) {
+                        botRef.current?.peek();
+                      } else {
+                        botRef.current?.coverEyes();
+                      }
+                    }}
+                    title={showSignUpPassword ? 'Hide Password' : 'Show Password (AstroBot Peeks!)'}
                   >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showSignUpPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
 
                 <button type="submit" className="auth-btn-primary" disabled={loading}>
-                  {loading ? 'Creating Account...' : 'Register'}
+                  {loading ? 'Creating Account...' : 'Register Now'}
                 </button>
 
                 <div className="mobile-auth-switch">
@@ -281,7 +436,16 @@ export default function AuthPage({ onAuthSuccess }) {
                     type="email" 
                     placeholder="Email Address" 
                     value={signInData.email}
-                    onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
+                    onChange={(e) => {
+                      setSignInData({ ...signInData, email: e.target.value });
+                      botRef.current?.trackInput(e.target);
+                    }}
+                    onFocus={(e) => {
+                      astroAudio.playBleep(580);
+                      botRef.current?.trackInput(e.target);
+                      botRef.current?.say('Enter your email address ✉️', 2000);
+                    }}
+                    onBlur={() => botRef.current?.resetLook()}
                     required
                   />
                   <Mail className="auth-input-icon" size={18} />
@@ -289,19 +453,36 @@ export default function AuthPage({ onAuthSuccess }) {
 
                 <div className="auth-input-group">
                   <input 
-                    type={showPassword ? 'text' : 'password'} 
+                    type={showSignInPassword ? 'text' : 'password'} 
                     placeholder="Password" 
                     value={signInData.password}
                     onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
+                    onFocus={() => {
+                      if (showSignInPassword) {
+                        botRef.current?.peek();
+                      } else {
+                        botRef.current?.coverEyes();
+                      }
+                    }}
+                    onBlur={() => botRef.current?.uncoverEyes()}
                     required
                   />
                   <Lock className="auth-input-icon" size={18} />
                   <button 
                     type="button" 
                     className="auth-eye-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => {
+                      const next = !showSignInPassword;
+                      setShowSignInPassword(next);
+                      if (next) {
+                        botRef.current?.peek();
+                      } else {
+                        botRef.current?.coverEyes();
+                      }
+                    }}
+                    title={showSignInPassword ? 'Hide Password' : 'Show Password (AstroBot Peeks!)'}
                   >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showSignInPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
 
@@ -366,8 +547,40 @@ export default function AuthPage({ onAuthSuccess }) {
 
           </div>
         </div>
-      </div>
 
+        {/* Quick Action Interactive Bar */}
+        <div className="mt-4 flex items-center justify-center gap-2 z-20">
+          <button
+            type="button"
+            onClick={() => botRef.current?.wave()}
+            className="px-3.5 py-1.5 rounded-full bg-[#15151A] hover:bg-white/15 border border-white/10 text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer shadow-md"
+          >
+            👋 Wave
+          </button>
+          <button
+            type="button"
+            onClick={() => botRef.current?.think()}
+            className="px-3.5 py-1.5 rounded-full bg-[#15151A] hover:bg-white/15 border border-white/10 text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer shadow-md"
+          >
+            🤔 Think
+          </button>
+          <button
+            type="button"
+            onClick={() => botRef.current?.coverEyes()}
+            className="px-3.5 py-1.5 rounded-full bg-[#15151A] hover:bg-white/15 border border-white/10 text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer shadow-md"
+          >
+            🔄 Turn Back
+          </button>
+          <button
+            type="button"
+            onClick={() => botRef.current?.peek()}
+            className="px-3.5 py-1.5 rounded-full bg-[#15151A] hover:bg-white/15 border border-white/10 text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer shadow-md"
+          >
+            🫣 Peek
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 }

@@ -38,11 +38,13 @@ import {
   CheckSquare
 } from 'lucide-react';
 import GooeySearch from './GooeySearch';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 import api from '../lib/api';
 
 export default function ReceptionistDashboard({ user, onLogout }) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('checkin'); // 'checkin' | 'customers' | 'memberships' | 'renewals' | 'payments' | 'invoices' | 'trainers' | 'enquiries' | 'expiries'
+  const { cmsData } = useLandingPageCMS();
+  const [activeTab, setActiveTab] = useState('overview'); // 'checkin' | 'customers' | 'memberships' | 'renewals' | 'payments' | 'invoices' | 'trainers' | 'enquiries' | 'expiries'
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState(null);
@@ -318,17 +320,23 @@ export default function ReceptionistDashboard({ user, onLogout }) {
         <div>
           {/* Brand Logo Header */}
           <div className="h-20 px-4 sm:px-6 flex items-center justify-between border-b border-white/10">
-            <Link to="/" className="flex items-center gap-3 group cursor-pointer">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-black font-black shadow-[0_0_20px_rgba(245,158,11,0.4)]">
-                <Activity size={20} className="stroke-[2.5]" />
-              </div>
+            <Link to="/" className="flex items-center gap-3 group cursor-pointer min-w-0">
+              {cmsData?.brand?.logo ? (
+                <div className="w-9 h-9 rounded-xl bg-[#141419] border border-amber-500/30 p-1 flex items-center justify-center shadow-[0_0_15px_rgba(245,158,11,0.3)] shrink-0">
+                  <img src={cmsData.brand.logo} alt={cmsData?.brand?.name || 'Logo'} className="w-full h-full object-contain" />
+                </div>
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-black font-black shadow-[0_0_20px_rgba(245,158,11,0.4)] shrink-0">
+                  <Activity size={20} className="stroke-[2.5]" />
+                </div>
+              )}
               {sidebarOpen && (
-                <div className="flex flex-col">
-                  <span className="font-bold text-lg text-white tracking-tight leading-none">
-                    Titan<span className="text-amber-400">Pulse</span>
+                <div className="flex flex-col min-w-0">
+                  <span className="font-bold text-lg text-white tracking-tight leading-none truncate">
+                    {cmsData?.brand?.name || 'TITAN•PULSE'}
                   </span>
-                  <span className="text-[10px] font-semibold tracking-wider text-amber-400 uppercase leading-tight mt-0.5">
-                    Receptionist Desk
+                  <span className="text-[10px] font-semibold tracking-wider text-amber-400 uppercase leading-tight mt-0.5 truncate">
+                    {cmsData?.brand?.subname || 'Receptionist Desk'}
                   </span>
                 </div>
               )}
@@ -1360,9 +1368,9 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             <div className="flex justify-between items-start border-b border-white/10 pb-6">
               <div>
                 <span className="font-bebas text-3xl text-white tracking-wider">
-                  TITAN<span className="text-amber-400">•</span>PULSE
+                  {cmsData?.brand?.name || 'TITAN•PULSE'}
                 </span>
-                <p className="text-[10px] text-slate-400 font-mono">3D FITNESS SYSTEM • GSTIN: 36AAACT1234F1Z9</p>
+                <p className="text-[10px] text-slate-400 font-mono">{cmsData?.brand?.subname || '3D FITNESS SYSTEM'} • GSTIN: 36AAACT1234F1Z9</p>
                 <p className="text-[10px] text-slate-400">Cyber Arena Complex, High-Tech City</p>
               </div>
               <div className="text-right">

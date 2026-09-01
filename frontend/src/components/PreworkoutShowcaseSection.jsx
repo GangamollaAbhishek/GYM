@@ -173,7 +173,7 @@ export default function PreworkoutShowcaseSection({ onReserveSpot }) {
   }, []);
 
   return (
-    <section ref={sectionRef} className="supplement-showcase-section">
+    <section ref={sectionRef} id="preworkout-showcase" className="supplement-showcase-section">
       <div className="supplement-ambient-glow-1" />
       <div className="supplement-ambient-glow-2" />
 

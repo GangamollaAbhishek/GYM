@@ -1,10 +1,12 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 import { ShieldAlert, ArrowLeft, Home, UserCheck, LogOut, Lock } from 'lucide-react';
 
 export default function ForbiddenPage() {
   const { user, logout } = useAuth();
+  const { cmsData } = useLandingPageCMS();
   const navigate = useNavigate();
 
   const handleGoToPortal = () => {
@@ -37,16 +39,22 @@ export default function ForbiddenPage() {
 
       {/* Top Brand Bar */}
       <header className="absolute top-0 left-0 right-0 h-20 px-8 flex items-center justify-between z-20">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.4)]">
-            <Lock size={22} className="stroke-[2.5]" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bebas text-2xl text-white tracking-wider leading-none">
-              TITAN<span className="text-[#FF2E4C]">•</span>PULSE
+        <Link to="/" className="flex items-center gap-3 min-w-0">
+          {cmsData?.brand?.logo ? (
+            <div className="w-10 h-10 rounded-xl bg-[#121217] border border-white/15 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(229,9,20,0.4)] shrink-0">
+              <img src={cmsData.brand.logo} alt={cmsData?.brand?.name || 'Logo'} className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.4)] shrink-0">
+              <Lock size={22} className="stroke-[2.5]" />
+            </div>
+          )}
+          <div className="flex flex-col min-w-0">
+            <span className="font-bebas text-2xl text-white tracking-wider leading-none truncate">
+              {cmsData?.brand?.name || 'TITAN•PULSE'}
             </span>
-            <span className="text-[9px] uppercase tracking-[0.25em] text-[#8A94A0] font-mono leading-tight">
-              SECURITY PROTOCOL
+            <span className="text-[9px] uppercase tracking-[0.25em] text-[#8A94A0] font-mono leading-tight truncate">
+              {cmsData?.brand?.subname || 'SECURITY PROTOCOL'}
             </span>
           </div>
         </Link>
