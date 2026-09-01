@@ -648,8 +648,8 @@ app.delete('/api/users/:id', authenticateToken, authorizeRoles('admin'), async (
   }
 });
 
-// Cloudinary Image Upload API Endpoint (Protected: Authenticated users)
-app.post('/api/upload', authenticateToken, async (req, res) => {
+// Cloudinary Image Upload API Endpoint (Protected: Admin only)
+app.post('/api/upload', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     const { image, folder } = req.body;
     if (!image) {

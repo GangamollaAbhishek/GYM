@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Activity, LogOut, Dumbbell, Users, Calendar, Award, CheckCircle, Sparkles, Plus } from 'lucide-react';
 import api from '../lib/api';
+import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 
 export default function TrainerDashboard({ user, onLogout }) {
   const navigate = useNavigate();
+  const { cmsData } = useLandingPageCMS();
   const [toast, setToast] = useState(null);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,12 +50,18 @@ export default function TrainerDashboard({ user, onLogout }) {
       {/* Header */}
       <header className="h-20 px-8 bg-[#12161A] border-b border-white/10 flex items-center justify-between sticky top-0 z-20">
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-lg">
-            <Activity size={22} />
-          </div>
+          {cmsData?.brand?.logo ? (
+            <div className="w-10 h-10 rounded-xl bg-[#141419] border border-white/15 p-1 flex items-center justify-center shadow-lg">
+              <img src={cmsData.brand.logo} alt={cmsData?.brand?.name || 'Logo'} className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-lg">
+              <Activity size={22} />
+            </div>
+          )}
           <div className="flex flex-col">
             <span className="font-bebas text-2xl text-white tracking-wider leading-none">
-              TITAN<span className="text-[#FF2E4C]">•</span>PULSE
+              {cmsData?.brand?.name || 'TITAN•PULSE'}
             </span>
             <span className="text-[9px] uppercase tracking-[0.2em] text-purple-400 font-mono">
               MASTER COACH PORTAL

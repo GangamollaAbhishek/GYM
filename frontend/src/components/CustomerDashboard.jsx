@@ -57,6 +57,9 @@ import { useAuth } from '../context/AuthContext';
 import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 import api from '../lib/api';
 import WorkoutStreakGraph from './WorkoutStreakGraph';
+import ThermalReceiptPrinter from './ThermalReceiptPrinter';
+import ToastNotificationStack from './ToastNotificationStack';
+import AnimatedList from './AnimatedList';
 
 export default function CustomerDashboard({ onLogout }) {
   const { user, logout, checkAuth } = useAuth();
@@ -76,6 +79,20 @@ export default function CustomerDashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState(tabFromUrl);
   const [activeSubTab, setActiveSubTab] = useState(subFromUrl);
   const [toast, setToast] = useState(null);
+
+  // Ensure staff accounts (Admin, Receptionist, Trainer) are redirected to their dedicated portals
+  useEffect(() => {
+    if (user) {
+      const role = (user.role || '').toLowerCase().trim();
+      if (role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else if (role === 'receptionist') {
+        navigate('/receptionist', { replace: true });
+      } else if (role === 'trainer') {
+        navigate('/trainer', { replace: true });
+      }
+    }
+  }, [user, navigate]);
 
   // Modals state
   const [bookingModalTrainer, setBookingModalTrainer] = useState(null);
@@ -141,9 +158,27 @@ export default function CustomerDashboard({ onLogout }) {
     setSearchParams({ tab: activeTab, sub: subId });
   };
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
+  const [toastsList, setToastsList] = useState([]);
+  const showToast = (msg, type = 'info') => {
+    const id = Date.now() + Math.random();
+    const isSuccess = typeof msg === 'string' && (msg.includes('✅') || msg.includes('✓') || msg.includes('🎉'));
+    const isError = typeof msg === 'string' && msg.includes('⚠️');
+    const isGate = typeof msg === 'string' && (msg.includes('⚡') || msg.includes('Gate') || msg.includes('Turnstile'));
+    
+    const newToast = {
+      id,
+      message: msg,
+      type: isSuccess ? 'success' : isError ? 'error' : isGate ? 'gate' : type,
+      time: 'Just now'
+    };
+    setToastsList((prev) => [newToast, ...prev.slice(0, 4)]);
+    setTimeout(() => {
+      setToastsList((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
+  };
+
+  const dismissToast = (id) => {
+    setToastsList((prev) => prev.filter((t) => t.id !== id));
   };
 
   // ==========================================
@@ -380,8 +415,38 @@ export default function CustomerDashboard({ onLogout }) {
 
   // Orders Filter & State
   const [orderFilter, setOrderFilter] = useState('all');
+  const [paymentFilter, setPaymentFilter] = useState('all');
 
-  // Dynamic Membership Data from MongoDB / Local reactive state
+  // Sync Store & Supplement Orders from localStorage in Real-Time
+  const [storeOrders, setStoreOrders] = useState(() => {
+    try {
+      const saved = localStorage.getItem('titan_pulse_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    const syncOrders = () => {
+      try {
+        const saved = localStorage.getItem('titan_pulse_orders');
+        setStoreOrders(saved ? JSON.parse(saved) : []);
+      } catch (e) {
+        console.warn('Error reading store orders:', e);
+      }
+    };
+    syncOrders();
+    window.addEventListener('storage', syncOrders);
+    window.addEventListener('focus', syncOrders);
+    window.addEventListener('titan_order_placed', syncOrders);
+    return () => {
+      window.removeEventListener('storage', syncOrders);
+      window.removeEventListener('focus', syncOrders);
+      window.removeEventListener('titan_order_placed', syncOrders);
+    };
+  }, []);
+
   // Dynamic Membership Data from MongoDB / Local reactive state
   const [localMembershipPlan, setLocalMembershipPlan] = useState(() => user?.membershipPlan || 'No Active Plan');
   const [localMembershipStatus, setLocalMembershipStatus] = useState(() => user?.membershipStatus || 'No Membership');
@@ -447,27 +512,23 @@ export default function CustomerDashboard({ onLogout }) {
     const list = [];
 
     // 1. Saved Store / Supplement Cart Orders
-    try {
-      const savedStoreOrders = JSON.parse(localStorage.getItem('titan_pulse_orders') || '[]');
-      if (Array.isArray(savedStoreOrders)) {
-        savedStoreOrders.forEach(ord => {
-          const summaryItems = (ord.items || []).map(i => `${i.name} (x${i.quantity || 1})`).join(' • ');
-          list.push({
-            id: ord.id,
-            title: (ord.items && ord.items[0]?.name) ? `${ord.items[0].name}${ord.items.length > 1 ? ` + ${ord.items.length - 1} more items` : ''}` : 'Supplements & Gear Order',
-            category: 'Supplements',
-            date: ord.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-            amount: `₹${Number(ord.amount || 0).toLocaleString('en-IN')}`,
-            paymentStatus: ord.paymentMethod ? `Paid (${ord.paymentMethod})` : 'Paid (Online)',
-            orderStatus: ord.status || 'Ready for Front Desk Pickup',
-            badgeColor: 'emerald',
-            delivery: 'Express Gym Front Desk Turnstile Pickup',
-            items: summaryItems || 'Nutritional Supplements & Training Gear'
-          });
+    if (Array.isArray(storeOrders)) {
+      storeOrders.forEach(ord => {
+        const summaryItems = (ord.items || []).map(i => `${i.name} (x${i.quantity || 1})`).join(' • ');
+        list.push({
+          id: ord.id,
+          title: (ord.items && ord.items[0]?.name) ? `${ord.items[0].name}${ord.items.length > 1 ? ` + ${ord.items.length - 1} more items` : ''}` : 'Supplements & Gear Order',
+          category: 'Supplements',
+          date: ord.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          amount: `₹${Number(ord.amount || 0).toLocaleString('en-IN')}`,
+          paymentStatus: ord.paymentMethod ? `Paid (${ord.paymentMethod})` : 'Paid (Online)',
+          orderStatus: ord.status || 'Ready for Front Desk Pickup',
+          badgeColor: 'emerald',
+          delivery: 'Express Gym Front Desk Turnstile Pickup',
+          items: summaryItems || 'Nutritional Supplements & Training Gear',
+          rawOrder: ord
         });
-      }
-    } catch (e) {
-      console.warn('Error reading saved store orders:', e);
+      });
     }
 
     // 2. Active Membership Pass Order
@@ -493,7 +554,7 @@ export default function CustomerDashboard({ onLogout }) {
     }
 
     return list;
-  }, [hasActiveMembership, user, localStartDate, localMembershipPlan, amountPaid]);
+  }, [storeOrders, hasActiveMembership, user, localStartDate, localMembershipPlan, amountPaid]);
 
   const filteredOrders = orderFilter === 'all' 
     ? ordersList 
@@ -992,42 +1053,71 @@ export default function CustomerDashboard({ onLogout }) {
   }, []);
 
   // ==========================================
-  // 4. PAYMENTS STATE (REAL USER DATA)
+  // 4. PAYMENTS STATE (REAL USER DATA & SUPPLEMENTS)
   // ==========================================
   const allTransactions = useMemo(() => {
-    if (!hasActiveMembership) {
-      return [];
+    const list = [];
+
+    // 1. Supplement & Store Orders
+    if (Array.isArray(storeOrders)) {
+      storeOrders.forEach(ord => {
+        const summaryItems = (ord.items || []).map(i => `${i.name} (x${i.quantity || 1})`).join(' • ');
+        const amountNum = typeof ord.amount === 'number' ? ord.amount : parseFloat(String(ord.amount || '0').replace(/[^\d.]/g, '')) || 0;
+        list.push({
+          id: ord.id || `TXN-ORD-${Math.floor(100000 + Math.random() * 900000)}`,
+          date: ord.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          item: (ord.items && ord.items[0]?.name)
+            ? `${ord.items[0].name}${ord.items.length > 1 ? ` + ${ord.items.length - 1} more items` : ''}`
+            : 'Supplements & Gear Order',
+          category: 'Supplements',
+          method: ord.paymentMethod || 'Paid (Online)',
+          amount: `₹${amountNum.toLocaleString('en-IN')}`,
+          rawAmount: amountNum,
+          status: ord.status && ord.status.toLowerCase().includes('pending') ? 'Pending Token' : 'Success',
+          orderDetails: ord
+        });
+      });
     }
 
-    const matchedPlan = membershipPlans.find(
-      p => (localMembershipPlan && p.name && p.name.toLowerCase().trim() === localMembershipPlan.toLowerCase().trim()) ||
-           (localMembershipPlan && p.tierKey && localMembershipPlan.toLowerCase().includes(p.tierKey.toLowerCase())) ||
-           (localMembershipPlan && p.id && localMembershipPlan.toLowerCase().includes(p.id.toLowerCase()))
-    );
+    // 2. Active Membership Pass Transaction
+    if (hasActiveMembership || amountPaid || user?.amountPaid || localAmountPaid) {
+      const matchedPlan = membershipPlans.find(
+        p => (localMembershipPlan && p.name && p.name.toLowerCase().trim() === localMembershipPlan.toLowerCase().trim()) ||
+             (localMembershipPlan && p.tierKey && localMembershipPlan.toLowerCase().includes(p.tierKey.toLowerCase())) ||
+             (localMembershipPlan && p.id && localMembershipPlan.toLowerCase().includes(p.id.toLowerCase()))
+      );
 
-    const txDate = localStartDate || (user?.membershipStartDate ? new Date(user.membershipStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
-    const txId = user?._id || user?.id ? `TXN-${String(user._id || user.id).slice(-6).toUpperCase()}` : 'TXN-892144';
-    const planTitle = localMembershipPlan || user?.membershipPlan || matchedPlan?.name || 'Active Membership Pass';
-    const methodStr = localPaymentMethod || user?.paymentMethod || 'Card';
-    
-    // Resolve exact amount paid
-    const priceNum = localAmountPaid || user?.amountPaid || (matchedPlan ? (matchedPlan.rawPrice || parseInt(String(matchedPlan.price).replace(/[^\d]/g, ''), 10)) : 1000);
-    const amountStr = `₹${Number(priceNum).toLocaleString('en-IN')}`;
+      const txDate = localStartDate || (user?.membershipStartDate ? new Date(user.membershipStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }));
+      const txId = user?._id || user?.id ? `TXN-MEM-${String(user._id || user.id).slice(-6).toUpperCase()}` : 'TXN-MEM-892144';
+      const planTitle = localMembershipPlan || user?.membershipPlan || matchedPlan?.name || 'Active Membership Pass';
+      const methodStr = localPaymentMethod || user?.paymentMethod || 'Card';
+      
+      // Resolve exact amount paid
+      const priceNum = localAmountPaid || user?.amountPaid || (matchedPlan ? (matchedPlan.rawPrice || parseInt(String(matchedPlan.price).replace(/[^\d]/g, ''), 10)) : 2499);
+      const amountStr = `₹${Number(priceNum).toLocaleString('en-IN')}`;
 
-    return [
-      {
+      list.push({
         id: txId,
         date: txDate,
         item: planTitle,
+        category: 'Membership',
         method: methodStr,
         amount: amountStr,
-        status: localMembershipStatus === 'Active' ? 'Success' : localMembershipStatus || 'Success'
-      }
-    ];
-  }, [hasActiveMembership, user, localStartDate, localMembershipPlan, localMembershipStatus, localAmountPaid, localPaymentMethod, membershipPlans]);
+        rawAmount: Number(priceNum),
+        status: localMembershipStatus === 'Active' ? 'Success' : localMembershipStatus || 'Success',
+        planDetails: {
+          planTitle,
+          period: 'Annual / Standard Term',
+          id: txId
+        }
+      });
+    }
+
+    return list;
+  }, [storeOrders, hasActiveMembership, user, localStartDate, localMembershipPlan, localMembershipStatus, localAmountPaid, localPaymentMethod, membershipPlans, amountPaid]);
 
   const membershipPayments = useMemo(() => {
-    if (!hasActiveMembership) {
+    if (!hasActiveMembership && !amountPaid && !user?.amountPaid && !localAmountPaid) {
       return [];
     }
 
@@ -1042,7 +1132,7 @@ export default function CustomerDashboard({ onLogout }) {
     const planTitle = localMembershipPlan || user?.membershipPlan || matchedPlan?.name || 'Active Membership Pass';
     
     // Resolve exact amount paid
-    const priceNum = localAmountPaid || user?.amountPaid || (matchedPlan ? (matchedPlan.rawPrice || parseInt(String(matchedPlan.price).replace(/[^\d]/g, ''), 10)) : 1000);
+    const priceNum = localAmountPaid || user?.amountPaid || (matchedPlan ? (matchedPlan.rawPrice || parseInt(String(matchedPlan.price).replace(/[^\d]/g, ''), 10)) : 2499);
     const amountStr = `₹${Number(priceNum).toLocaleString('en-IN')}`;
 
     return [
@@ -1051,12 +1141,56 @@ export default function CustomerDashboard({ onLogout }) {
         plan: planTitle,
         date: invDate,
         amount: amountStr,
+        rawAmount: Number(priceNum),
         cycle: '1 Year Duration',
         status: 'Active (Paid)',
-        autoRenew: 'Standard'
+        autoRenew: 'Standard',
+        method: localPaymentMethod || user?.paymentMethod || 'Online Payment'
       }
     ];
-  }, [hasActiveMembership, user, localStartDate, localMembershipPlan, localAmountPaid, membershipPlans]);
+  }, [hasActiveMembership, user, localStartDate, localMembershipPlan, localAmountPaid, membershipPlans, amountPaid, localPaymentMethod]);
+
+  const supplementPayments = useMemo(() => {
+    if (!Array.isArray(storeOrders) || storeOrders.length === 0) {
+      return [];
+    }
+    return storeOrders.map(ord => {
+      const summaryItems = (ord.items || []).map(i => `${i.name} (x${i.quantity || 1})`).join(' • ');
+      const amountNum = typeof ord.amount === 'number' ? ord.amount : parseFloat(String(ord.amount || '0').replace(/[^\d.]/g, '')) || 0;
+      return {
+        id: ord.id,
+        itemsCount: (ord.items || []).reduce((acc, it) => acc + (it.quantity || 1), 0),
+        itemsSummary: summaryItems || 'Nutritional Supplements & Training Gear',
+        items: ord.items || [],
+        subtotal: ord.subtotal || amountNum,
+        discount: ord.discount || 0,
+        amount: `₹${amountNum.toLocaleString('en-IN')}`,
+        rawAmount: amountNum,
+        paymentMethod: ord.paymentMethod || 'Paid (Online)',
+        date: ord.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        status: ord.status || 'Paid & Confirmed',
+        customerName: ord.customerName || fullName,
+        rawOrder: ord
+      };
+    });
+  }, [storeOrders, fullName]);
+
+  const filteredTransactions = useMemo(() => {
+    if (paymentFilter === 'all') return allTransactions;
+    return allTransactions.filter(t => t.category.toLowerCase().includes(paymentFilter.toLowerCase()));
+  }, [allTransactions, paymentFilter]);
+
+  const totalPaymentsAmount = useMemo(() => {
+    return allTransactions.reduce((sum, tx) => sum + (tx.rawAmount || 0), 0);
+  }, [allTransactions]);
+
+  const totalSupplementAmount = useMemo(() => {
+    return supplementPayments.reduce((sum, sp) => sum + (sp.rawAmount || 0), 0);
+  }, [supplementPayments]);
+
+  const totalMembershipAmount = useMemo(() => {
+    return membershipPayments.reduce((sum, mp) => sum + (mp.rawAmount || 0), 0);
+  }, [membershipPayments]);
 
   // ==========================================
   // 5. WORKOUT & DIET PLAN STATE
@@ -1314,10 +1448,11 @@ export default function CustomerDashboard({ onLogout }) {
       id: 'payments',
       label: 'Payments',
       icon: CreditCard,
-      badge: null,
+      badge: allTransactions.length > 0 ? `${allTransactions.length}` : null,
       subsections: [
         { id: 'history', label: 'Payment History' },
         { id: 'membership', label: 'Membership Payments' },
+        { id: 'supplements', label: 'Supplements & Store Orders' },
       ]
     },
     {
@@ -1347,7 +1482,7 @@ export default function CustomerDashboard({ onLogout }) {
   const currentSection = mainNavSections.find(s => s.id === activeTab) || mainNavSections[0];
 
   return (
-    <div className="bg-[#0B0B0E] min-h-screen text-slate-200 flex font-['Plus_Jakarta_Sans',sans-serif] selection:bg-[#FF1E27] selection:text-white antialiased">
+    <div className="bg-[#0B0B0E] min-h-screen text-slate-200 flex font-['Plus_Jakarta_Sans',sans-serif] selection:bg-[#FF1E27] selection:text-white antialiased customer-portal-wrapper no-scrollbar">
       
       {/* ========================================================= */}
       {/* 1. FLIPKART STYLE LEFT SIDEBAR NAVIGATION                 */}
@@ -1361,17 +1496,27 @@ export default function CustomerDashboard({ onLogout }) {
           
           {/* Top Brand / Logo Header */}
           <div className="p-4 sm:p-5 flex items-center justify-between border-b border-white/[0.08]">
-            <Link to="/" className="flex items-center gap-3 group focus:outline-none">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF1E27] to-[#E50914] flex items-center justify-center text-white shadow-[0_0_15px_rgba(255,30,39,0.4)] group-hover:scale-105 transition-transform duration-300 shrink-0">
-                <Activity size={20} className="stroke-[2.5]" />
-              </div>
+            <Link to="/" className="flex items-center gap-3 group focus:outline-none min-w-0">
+              {cmsData?.brand?.logo ? (
+                <div className="w-10 h-10 rounded-xl bg-[#141419] border border-white/15 p-1 flex items-center justify-center shadow-[0_0_15px_rgba(255,30,39,0.3)] group-hover:scale-105 transition-transform shrink-0">
+                  <img
+                    src={cmsData.brand.logo}
+                    alt={cmsData?.brand?.name || 'Gym Logo'}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF1E27] to-[#E50914] flex items-center justify-center text-white shadow-[0_0_15px_rgba(255,30,39,0.4)] group-hover:scale-105 transition-transform duration-300 shrink-0">
+                  <Activity size={20} className="stroke-[2.5]" />
+                </div>
+              )}
               {sidebarOpen && (
                 <div className="flex flex-col min-w-0">
-                  <span className="font-['Outfit',sans-serif] text-lg font-bold text-white tracking-wide leading-none">
-                    TITAN•PULSE
+                  <span className="font-['Outfit',sans-serif] text-lg font-bold text-white tracking-wide leading-none truncate">
+                    {cmsData?.brand?.name || 'TITAN•PULSE'}
                   </span>
-                  <span className="text-[10px] tracking-wider text-slate-400 font-medium leading-tight mt-0.5">
-                    Athlete Portal
+                  <span className="text-[10px] tracking-wider text-slate-400 font-medium leading-tight mt-0.5 truncate">
+                    {cmsData?.brand?.subname || 'Athlete Portal'}
                   </span>
                 </div>
               )}
@@ -1512,7 +1657,7 @@ export default function CustomerDashboard({ onLogout }) {
       {/* ========================================================= */}
       {/* 2. MAIN CONTENT AREA                                      */}
       {/* ========================================================= */}
-      <main className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${sidebarOpen ? 'ml-72' : 'ml-20'}`}>
+      <main className={`flex-1 flex flex-col min-h-screen min-w-0 transition-all duration-300 ${sidebarOpen ? 'ml-72' : 'ml-20'}`}>
         
         {/* Sticky Top Header Bar */}
         <header className="sticky top-0 z-30 bg-[#101014]/90 backdrop-blur-xl border-b border-white/[0.08] px-6 sm:px-8 py-3.5 flex items-center justify-between">
@@ -1676,7 +1821,7 @@ export default function CustomerDashboard({ onLogout }) {
         {/* ========================================================= */}
         {/* INNER DYNAMIC WORKSPACE                                   */}
         {/* ========================================================= */}
-        <div className="p-6 sm:p-8 md:p-10 space-y-8 flex-1">
+        <div className="p-4 sm:p-6 md:p-8 space-y-8 flex-1 min-w-0 max-w-full">
 
           {/* ========================================================= */}
           {/* 1. PERSONAL INFORMATION SECTION                           */}
@@ -2158,7 +2303,11 @@ export default function CustomerDashboard({ onLogout }) {
                                     title: ord.title,
                                     amount: ord.amount,
                                     date: ord.date,
-                                    paymentMethod: ord.paymentStatus
+                                    paymentMethod: ord.paymentStatus,
+                                    customerName: fullName,
+                                    category: ord.category || 'Supplements',
+                                    items: ord.rawOrder?.items || [{ name: ord.title, price: ord.amount, quantity: 1 }],
+                                    orderDetails: ord.rawOrder || ord
                                   });
                                 }}
                                 className="px-3 py-1.5 rounded-lg bg-[#181822] hover:bg-[#FF1E27] text-slate-300 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5"
@@ -2537,17 +2686,21 @@ export default function CustomerDashboard({ onLogout }) {
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         {/* Timeframe Selector */}
                         <div className="flex p-1 rounded-xl bg-[#090C0E] border border-white/10">
-                          {[3, 6].map((m) => (
+                          {[
+                            { label: '3M', val: 3 },
+                            { label: '6M', val: 6 },
+                            { label: '12M (Full Year)', val: 12 }
+                          ].map((item) => (
                             <button
-                              key={m}
-                              onClick={() => setStreakGraphMonths(m)}
+                              key={item.val}
+                              onClick={() => setStreakGraphMonths(item.val)}
                               className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                                streakGraphMonths === m
+                                streakGraphMonths === item.val
                                   ? 'bg-[#FF1E27] text-white font-semibold shadow-sm'
                                   : 'text-slate-400 hover:text-white'
                               }`}
                             >
-                              {m}M
+                              {item.label}
                             </button>
                           ))}
                         </div>
@@ -2556,6 +2709,7 @@ export default function CustomerDashboard({ onLogout }) {
                         <div className="flex p-1 rounded-xl bg-[#090C0E] border border-white/10">
                           {[
                             { id: 'attendance', label: '🟢 Present / 🔴 Absent', color: 'bg-emerald-500' },
+                            { id: 'github', label: '🟩 GitHub Classic', color: 'bg-emerald-400' },
                             { id: 'titan', label: '🔥 Flame', color: 'bg-rose-600' },
                             { id: 'ocean', label: '⚡ Cyber', color: 'bg-blue-500' },
                             { id: 'violet', label: '🔮 Violet', color: 'bg-purple-500' }
@@ -3238,64 +3392,185 @@ export default function CustomerDashboard({ onLogout }) {
           {/* ========================================================= */}
           {activeTab === 'payments' && (
             <div className="space-y-8 animate-fadeIn">
+
+              {/* TOP FINANCIAL METRICS CARDS */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#181824] to-[#121217] border border-white/[0.08] relative overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider">Total Payments</span>
+                    <DollarSign size={16} className="text-emerald-400" />
+                  </div>
+                  <div className="text-lg sm:text-2xl font-black text-white font-mono tracking-tight">
+                    ₹{totalPaymentsAmount.toLocaleString('en-IN')}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 mt-1">
+                    <CheckCircle2 size={12} />
+                    <span>{allTransactions.length} Verified Transactions</span>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#181824] to-[#121217] border border-white/[0.08] relative overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider">Supplements & Gear</span>
+                    <ShoppingBag size={16} className="text-[#00F0FF]" />
+                  </div>
+                  <div className="text-lg sm:text-2xl font-black text-[#00F0FF] font-mono tracking-tight">
+                    ₹{totalSupplementAmount.toLocaleString('en-IN')}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-1">
+                    <span>{supplementPayments.length} Store Orders Placed</span>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#181824] to-[#121217] border border-white/[0.08] relative overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider">Membership Passes</span>
+                    <Crown size={16} className="text-[#FF1E27]" />
+                  </div>
+                  <div className="text-lg sm:text-2xl font-black text-[#FF1E27] font-mono tracking-tight">
+                    ₹{totalMembershipAmount.toLocaleString('en-IN')}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400 mt-1">
+                    <span>{hasActiveMembership ? 'Active Membership Active' : 'No Active Plan'}</span>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#181824] to-[#121217] border border-white/[0.08] relative overflow-hidden shadow-sm">
+                  <div className="flex items-center justify-between text-slate-400 mb-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider">Billing Status</span>
+                    <ShieldCheck size={16} className="text-purple-400" />
+                  </div>
+                  <div className="text-lg sm:text-2xl font-black text-purple-400 font-mono tracking-tight">
+                    100% SECURE
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-purple-300 mt-1">
+                    <Zap size={12} />
+                    <span>256-Bit SSL Verified</span>
+                  </div>
+                </div>
+              </div>
               
               {/* SUBSECTION 1: PAYMENT HISTORY */}
               {(activeSubTab === 'history' || !activeSubTab) && (
                 <div className="space-y-6">
-                  <div className="flex justify-between items-center pb-4 border-b border-white/[0.08]">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-white/[0.08]">
                     <div>
                       <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-['Outfit',sans-serif]">Payment Transactions History</h2>
-                      <p className="text-xs sm:text-sm text-slate-400 mt-1">Ledger of all membership payments, passes, and registered transactions.</p>
+                      <p className="text-xs sm:text-sm text-slate-400 mt-1">Unified ledger of all supplement purchases, merchandise, membership passes, and registered transactions.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold font-mono">
+                        {allTransactions.length} Total Payments
+                      </span>
                     </div>
                   </div>
 
-                  {allTransactions.length > 0 ? (
+                  {/* Filter Pills */}
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { id: 'all', label: `All Transactions (${allTransactions.length})` },
+                      { id: 'Supplements', label: `Supplements & Gear (${supplementPayments.length})` },
+                      { id: 'Membership', label: `Membership Passes (${membershipPayments.length})` }
+                    ].map((f) => (
+                      <button
+                        key={f.id}
+                        onClick={() => setPaymentFilter(f.id)}
+                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                          paymentFilter === f.id
+                            ? 'bg-[#FF1E27] text-white shadow-sm'
+                            : 'bg-[#131318] text-slate-400 hover:text-white border border-white/[0.06]'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {filteredTransactions.length > 0 ? (
                     <div className="rounded-2xl bg-[#121217] border border-white/[0.08] overflow-hidden shadow-sm">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
+                      <div className="overflow-x-auto w-full no-scrollbar">
+                        <table className="w-full text-left text-xs border-collapse">
                           <thead className="bg-[#181822] text-slate-400 text-xs font-semibold tracking-wider border-b border-white/[0.08]">
                             <tr>
-                              <th className="p-4 font-medium">Transaction ID</th>
-                              <th className="p-4 font-medium">Date</th>
-                              <th className="p-4 font-medium">Description / Item</th>
-                              <th className="p-4 font-medium">Payment Method</th>
-                              <th className="p-4 font-medium">Amount</th>
-                              <th className="p-4 font-medium">Status</th>
-                              <th className="p-4 text-right font-medium">Action</th>
+                              <th className="px-3.5 py-3.5 font-semibold whitespace-nowrap">Transaction ID</th>
+                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Date</th>
+                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Category</th>
+                              <th className="px-3.5 py-3.5 font-semibold min-w-[140px] max-w-[220px]">Description / Items</th>
+                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Payment Method</th>
+                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Amount</th>
+                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Status</th>
+                              <th className="px-3.5 py-3.5 text-right font-semibold whitespace-nowrap">Receipt</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/[0.04] text-slate-200">
-                            {allTransactions.map((tx) => (
-                              <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
-                                <td className="p-4 font-mono text-[#00F0FF] font-medium">{tx.id}</td>
-                                <td className="p-4 text-slate-400">{tx.date}</td>
-                                <td className="p-4 font-medium text-white">{tx.item}</td>
-                                <td className="p-4 text-slate-300">{tx.method}</td>
-                                <td className="p-4 font-semibold text-emerald-400 font-mono">{tx.amount}</td>
-                                <td className="p-4">
-                                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-medium">
-                                    ✓ {tx.status}
-                                  </span>
-                                </td>
-                                <td className="p-4 text-right">
-                                  <button
-                                    onClick={() => {
-                                      setReceiptModalData({
-                                        id: tx.id,
-                                        title: tx.item,
-                                        amount: tx.amount,
-                                        date: tx.date,
-                                        paymentMethod: tx.method
-                                      });
-                                    }}
-                                    className="p-2 rounded-lg bg-[#181822] hover:bg-[#FF1E27] text-slate-300 hover:text-white transition-colors cursor-pointer"
-                                    title="View Receipt"
-                                  >
-                                    <Download size={14} />
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
+                            {filteredTransactions.map((tx) => {
+                              const isSupp = tx.category.toLowerCase().includes('supp');
+                              const isPending = tx.status.toLowerCase().includes('pending');
+                              return (
+                                <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
+                                  <td className="px-3.5 py-3.5 font-mono font-medium whitespace-nowrap align-middle">
+                                    <span className={isSupp ? 'text-emerald-400 font-semibold' : 'text-[#00F0FF] font-semibold'}>
+                                      {tx.id}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-3.5 text-slate-400 whitespace-nowrap align-middle">{tx.date}</td>
+                                  <td className="px-3 py-3.5 whitespace-nowrap align-middle">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
+                                      isSupp
+                                        ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/60'
+                                        : 'bg-[#FF1E27]/15 text-[#FF1E27] border border-[#FF1E27]/30'
+                                    }`}>
+                                      {isSupp ? <ShoppingBag size={10} /> : <Crown size={10} />}
+                                      <span>{tx.category}</span>
+                                    </span>
+                                  </td>
+                                  <td className="px-3.5 py-3.5 font-medium text-white align-middle max-w-[220px]" title={tx.item}>
+                                    <span className="truncate block">{tx.item}</span>
+                                  </td>
+                                  <td className="px-3 py-3.5 text-slate-300 whitespace-nowrap align-middle">{tx.method}</td>
+                                  <td className="px-3 py-3.5 font-bold text-emerald-400 font-mono text-sm whitespace-nowrap align-middle">{tx.amount}</td>
+                                  <td className="px-3 py-3.5 whitespace-nowrap align-middle">
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap border ${
+                                      isPending
+                                        ? 'bg-amber-950/60 text-amber-300 border-amber-800/80 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
+                                        : 'bg-emerald-950/60 text-emerald-400 border-emerald-800/80 shadow-[0_0_10px_rgba(16,185,129,0.15)]'
+                                    }`}>
+                                      <span>✓</span>
+                                      <span>{tx.status}</span>
+                                    </span>
+                                  </td>
+                                  <td className="px-3.5 py-3.5 text-right whitespace-nowrap align-middle">
+                                    <button
+                                      onClick={() => {
+                                        setReceiptModalData({
+                                          id: tx.id,
+                                          title: tx.item,
+                                          amount: tx.amount,
+                                          date: tx.date,
+                                          paymentMethod: tx.method,
+                                          category: tx.category,
+                                          customerName: fullName,
+                                          orderDetails: tx.orderDetails || {
+                                            id: tx.id,
+                                            title: tx.item,
+                                            amount: tx.amount,
+                                            date: tx.date,
+                                            paymentMethod: tx.method,
+                                            category: tx.category,
+                                            customerName: fullName
+                                          }
+                                        });
+                                      }}
+                                      className="px-3 py-1.5 rounded-xl bg-[#181822] hover:bg-[#FF1E27] text-slate-300 hover:text-white transition-all cursor-pointer inline-flex items-center gap-1.5 font-medium text-xs border border-white/[0.06] whitespace-nowrap"
+                                      title="View Official Receipt & Invoice"
+                                    >
+                                      <Download size={13} />
+                                      <span>Invoice</span>
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
@@ -3308,15 +3583,23 @@ export default function CustomerDashboard({ onLogout }) {
                       <div className="space-y-1">
                         <h3 className="text-base sm:text-lg font-bold text-white font-['Outfit',sans-serif]">No Payment Transactions Found</h3>
                         <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                          No payment transactions have been recorded for this account yet. When you enroll in a membership pass, your verified ledger receipt will appear here.
+                          No payments match the selected category. Complete a supplement order or enroll in a membership pass to view transactions here.
                         </p>
                       </div>
-                      <button
-                        onClick={() => handleTabChange('membership', 'buy')}
-                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-semibold text-xs sm:text-sm shadow-sm hover:brightness-110 cursor-pointer transition-all inline-flex items-center gap-2"
-                      >
-                        <Crown size={15} /> Browse Membership Tiers
-                      </button>
+                      <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                        <Link
+                          to="/my-cart"
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all inline-flex items-center gap-2"
+                        >
+                          <ShoppingBag size={14} /> Shop Supplements
+                        </Link>
+                        <button
+                          onClick={() => handleTabChange('membership', 'buy')}
+                          className="px-4 py-2 rounded-xl bg-[#FF1E27] hover:bg-[#E50914] text-white font-semibold text-xs shadow-sm hover:brightness-110 cursor-pointer transition-all inline-flex items-center gap-2"
+                        >
+                          <Crown size={14} /> Browse Memberships
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -3345,7 +3628,7 @@ export default function CustomerDashboard({ onLogout }) {
                               </span>
                             </div>
                             <h4 className="text-base font-semibold text-white font-['Outfit',sans-serif]">{mp.plan}</h4>
-                            <p className="text-xs text-slate-400">Billing Date: {mp.date} • Cycle: {mp.cycle}</p>
+                            <p className="text-xs text-slate-400">Billing Date: {mp.date} • Cycle: {mp.cycle} • Method: {mp.method}</p>
                             <span className="text-xs text-cyan-400 block">Status: {mp.autoRenew}</span>
                           </div>
 
@@ -3358,7 +3641,10 @@ export default function CustomerDashboard({ onLogout }) {
                                   title: mp.plan,
                                   amount: mp.amount,
                                   date: mp.date,
-                                  paymentMethod: user?.paymentMethod || 'Online Payment'
+                                  paymentMethod: mp.method || user?.paymentMethod || 'Online Payment',
+                                  customerName: fullName,
+                                  category: 'Membership',
+                                  orderDetails: mp
                                 });
                               }}
                               className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-[#FF1E27] text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-2"
@@ -3375,7 +3661,7 @@ export default function CustomerDashboard({ onLogout }) {
                         <FileText size={28} />
                       </div>
                       <div className="space-y-1">
-                        <h3 className="text-base sm:text-lg font-bold text-white font-['Outfit',sans-serif]">No Invoices Available</h3>
+                        <h3 className="text-base sm:text-lg font-bold text-white font-['Outfit',sans-serif]">No Membership Invoices Available</h3>
                         <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
                           Official GST tax invoices are generated automatically upon membership enrollment or renewal.
                         </p>
@@ -3386,6 +3672,104 @@ export default function CustomerDashboard({ onLogout }) {
                       >
                         <Crown size={15} /> Choose Membership Tier
                       </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SUBSECTION 3: SUPPLEMENTS & STORE PAYMENTS */}
+              {activeSubTab === 'supplements' && (
+                <div className="space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-white/[0.08]">
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-['Outfit',sans-serif]">Supplements & Store Orders</h2>
+                      <p className="text-xs sm:text-sm text-slate-400 mt-1">Official purchase receipts for nutritional supplements, protein isolate, pre-workout, and fitness accessories.</p>
+                    </div>
+                    <Link
+                      to="/my-cart"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all inline-flex items-center gap-2"
+                    >
+                      <Plus size={14} /> Buy More Supplements
+                    </Link>
+                  </div>
+
+                  {supplementPayments.length > 0 ? (
+                    <div className="space-y-4">
+                      {supplementPayments.map((sp) => (
+                        <div
+                          key={sp.id}
+                          className="p-5 sm:p-6 rounded-2xl bg-[#121217] border border-white/[0.08] hover:border-white/[0.14] transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-sm"
+                        >
+                          <div className="flex items-start gap-4">
+                            <div className="w-11 h-11 rounded-xl bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 flex items-center justify-center font-bold shrink-0">
+                              <ShoppingBag size={20} />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono font-semibold text-xs text-emerald-400">{sp.id}</span>
+                                <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 text-[10px] font-semibold border border-emerald-500/20">
+                                  {sp.status}
+                                </span>
+                                <span className="text-xs text-slate-400">• Paid on {sp.date}</span>
+                              </div>
+
+                              <h4 className="text-sm sm:text-base font-semibold text-white font-['Outfit',sans-serif]">
+                                {sp.itemsSummary}
+                              </h4>
+                              
+                              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                                <span>Method: <strong className="text-slate-200">{sp.paymentMethod}</strong></span>
+                                {sp.discount > 0 && (
+                                  <span className="text-emerald-400">Promo Discount: -₹{sp.discount}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-3 shrink-0 pt-3 md:pt-0 border-t md:border-t-0 border-white/[0.06]">
+                            <div className="text-right">
+                              <span className="text-lg font-bold text-white font-mono">{sp.amount}</span>
+                              <span className="text-[11px] text-emerald-400 block font-medium">18% GST Included</span>
+                            </div>
+
+                            <button
+                              onClick={() => {
+                                setReceiptModalData({
+                                  id: sp.id,
+                                  title: sp.itemsSummary,
+                                  amount: sp.amount,
+                                  date: sp.date,
+                                  paymentMethod: sp.paymentMethod,
+                                  category: 'Supplements',
+                                  orderDetails: sp.rawOrder || sp
+                                });
+                              }}
+                              className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-[#FF1E27] text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-2"
+                            >
+                              <Download size={13} /> View Invoice & Receipt
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-8 sm:p-10 rounded-2xl bg-[#121217] border border-white/[0.08] shadow-sm text-center space-y-4 max-w-xl mx-auto">
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-950/40 border border-emerald-800/40 text-emerald-400 flex items-center justify-center mx-auto">
+                        <ShoppingBag size={28} />
+                      </div>
+                      <div className="space-y-1">
+                        <h3 className="text-base sm:text-lg font-bold text-white font-['Outfit',sans-serif]">No Supplement Purchases Yet</h3>
+                        <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                          Your orders for pre-workouts, hydrolyzed whey isolate, creatine, and gym accessories will appear here once purchased.
+                        </p>
+                      </div>
+                      <Link
+                        to="/my-cart"
+                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs sm:text-sm shadow-sm hover:brightness-110 cursor-pointer transition-all inline-flex items-center gap-2"
+                      >
+                        <ShoppingBag size={15} /> Browse Supplements & Store
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -4163,63 +4547,13 @@ export default function CustomerDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* RECEIPT / INVOICE VIEW MODAL */}
+      {/* 3D THERMAL RECEIPT & OFFICIAL TAX INVOICE PRINTER MODAL */}
       {receiptModalData && (
-        <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#121217] rounded-3xl border border-white/20 p-6 shadow-2xl animate-fadeIn space-y-4">
-            <button
-              onClick={() => setReceiptModalData(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
-            >
-              <X size={20} />
-            </button>
-
-            <div className="text-center pb-3 border-b border-white/10 space-y-1">
-              <span className="font-['Outfit',sans-serif] font-bold text-xl text-white tracking-tight">TITAN•PULSE 3D FITNESS</span>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wider">OFFICIAL TAX INVOICE & RECEIPT</p>
-            </div>
-
-            <div className="space-y-2 text-xs sm:text-sm">
-              <div className="flex justify-between text-slate-300">
-                <span>Receipt Number:</span>
-                <span className="text-white font-mono font-medium">{receiptModalData.id}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Transaction Date:</span>
-                <span className="text-white">{receiptModalData.date}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Billed To:</span>
-                <span className="text-white font-medium">{fullName}</span>
-              </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Payment Mode:</span>
-                <span className="text-emerald-400 font-medium">{receiptModalData.paymentMethod}</span>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-[#0D0D12] border border-white/[0.06] mt-3 space-y-2">
-                <div className="flex justify-between font-semibold text-white">
-                  <span>{receiptModalData.title}</span>
-                  <span className="font-mono text-emerald-400">{receiptModalData.amount}</span>
-                </div>
-                <div className="flex justify-between text-xs text-slate-400">
-                  <span>GST (18% Included):</span>
-                  <span>Calculated</span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                showToast(`✓ PDF Invoice downloaded: ${receiptModalData.id}.pdf`);
-                setReceiptModalData(null);
-              }}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-semibold text-xs sm:text-sm shadow-md hover:brightness-110 cursor-pointer flex items-center justify-center gap-2"
-            >
-              <Download size={14} /> Download Official PDF
-            </button>
-          </div>
-        </div>
+        <ThermalReceiptPrinter
+          orderDetails={receiptModalData}
+          onClose={() => setReceiptModalData(null)}
+          onViewOrders={() => handleTabChange('payments', 'history')}
+        />
       )}
 
       {/* UNIVERSAL GYM PAYMENT GATEWAY MODAL (CARD, CASH, UPI/ONLINE, NETBANKING) */}
@@ -4556,13 +4890,8 @@ export default function CustomerDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* Floating Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-[260] px-5 py-3.5 rounded-2xl bg-[#121217] border border-[#FF1E27] text-white text-xs sm:text-sm font-medium shadow-[0_0_25px_rgba(255,30,39,0.3)] animate-bounce flex items-center gap-2">
-          <Sparkles size={16} className="text-[#FF1E27]" />
-          <span>{toast}</span>
-        </div>
-      )}
+      {/* Floating AnimatedList Toast Notifications */}
+      <ToastNotificationStack notifications={toastsList} onDismiss={dismissToast} position="top-right" />
 
     </div>
   );

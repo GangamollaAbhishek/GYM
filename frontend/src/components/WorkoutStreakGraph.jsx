@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cn } from "../lib/utils";
 
-const VARIANTS = {
-  attendance: ["#ef4444", "#10b981", "#16a34a", "#22c55e", "#00e676"],
-  titan: ["#ef4444", "#059669", "#10b981", "#22c55e", "#4ade80"],
-  emerald: ["#ef4444", "#047857", "#059669", "#10b981", "#22c55e"],
-  ocean: ["#ef4444", "#0d9488", "#14b8a6", "#2dd4bf", "#5eead4"],
-  violet: ["#ef4444", "#6d28d9", "#7c3aed", "#8b5cf6", "#a78bfa"],
+export const VARIANTS = {
+  attendance: ["#ef4444", "#064e3b", "#047857", "#10b981", "#34d399"],
   github: ["#ef4444", "#0e4429", "#006d32", "#26a641", "#39d353"],
+  titan: ["#ef4444", "#4a0404", "#7f1d1d", "#dc2626", "#ff1e27"],
+  emerald: ["#ef4444", "#047857", "#059669", "#10b981", "#22c55e"],
+  ocean: ["#ef4444", "#0c4a6e", "#0284c7", "#38bdf8", "#7dd3fc"],
+  violet: ["#ef4444", "#4c1d95", "#7c3aed", "#a855f7", "#c084fc"],
 };
 
 function dateFromISO(value) {
@@ -33,11 +33,15 @@ function fallbackLevel(count, maxCount) {
 }
 
 /** Builds Sunday-first calendar columns and fills missing dates with level zero. */
-export function buildContributionWeeks(contributions) {
-  const valid = (contributions || [])
+export function buildContributionWeeks(contributions, yearFilter = null) {
+  let valid = (contributions || [])
     .map((item) => ({ ...item, parsedDate: dateFromISO(item.date) }))
     .filter((item) => item.parsedDate !== null && Number.isFinite(item.count))
     .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (yearFilter) {
+    valid = valid.filter((item) => item.parsedDate.getUTCFullYear() === Number(yearFilter));
+  }
 
   if (valid.length === 0) return [];
 
@@ -61,7 +65,14 @@ export function buildContributionWeeks(contributions) {
           : explicitLevel
         : fallbackLevel(count, maxCount);
 
-    cells.push({ date: key, count, level, duration: contribution?.duration, workout: contribution?.workout });
+    cells.push({
+      date: key,
+      count,
+      level,
+      duration: contribution?.duration,
+      workout: contribution?.workout,
+      parsedDate: date
+    });
   }
 
   return Array.from({ length: Math.ceil(cells.length / 7) }, (_, index) =>
@@ -69,7 +80,14 @@ export function buildContributionWeeks(contributions) {
   );
 }
 
-function selectRecentContributions(contributions, months) {
+function selectRecentContributions(contributions, months, year = null) {
+  if (year) {
+    return (contributions || []).filter((item) => {
+      const d = dateFromISO(item.date);
+      return d && d.getUTCFullYear() === Number(year);
+    });
+  }
+
   const parsed = (contributions || [])
     .map((contribution) => ({
       contribution,
@@ -89,136 +107,90 @@ function selectRecentContributions(contributions, months) {
 }
 
 function formatContributionLabel(contribution) {
-  const date = new Intl.DateTimeFormat("en", {
+  const parsed = dateFromISO(contribution.date) ?? new Date();
+  const date = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric"
-  }).format(dateFromISO(contribution.date) ?? new Date());
+  }).format(parsed);
 
-  if (contribution.count === 0) {
-    return `🔴 Not Checked-In (Absent / Rest) · ${date}`;
-  }
-  const durationText = contribution.duration ? ` · ${contribution.duration}` : "";
-  const zoneText = contribution.workout ? ` · ${contribution.workout}` : "";
-  return `🟢 Checked-In (Present${durationText}${zoneText}) · ${date}`;
-}
-
-function getCellDelay(animation, weekIndex, dayIndex, speed) {
-  if (animation === "none") return 0;
-
-  const step =
-    animation === "wave"
-      ? weekIndex * 0.026 + dayIndex * 0.016
-      : animation === "scan"
-      ? weekIndex * 0.03
-      : (weekIndex + dayIndex * 2) * 0.018;
-  return step / Math.max(speed, 0.1);
-}
-
-function getAmbientCellMotion(
-  effect,
-  intensity,
-  weekIndex,
-  dayIndex,
-  entranceDelay,
-  reducedMotion
-) {
-  if (reducedMotion || effect === "none") {
-    return {
-      animate: { opacity: 1, scale: 1 },
-      transition: {
-        opacity: { duration: 0.14, delay: entranceDelay },
-        scale: { type: "spring", stiffness: 900, damping: 32 },
-      },
-    };
+  if (contribution.count === 0 || contribution.level === 0) {
+    return `🔴 Rest / Absent Day · ${date}`;
   }
 
-  const strength = Math.min(1, Math.max(0, intensity));
-  const seed = ((weekIndex * 17 + dayIndex * 31) % 11) / 10;
-  const isTide = effect === "tide";
-  const isDrift = effect === "drift";
-  const duration = isTide ? 3.2 : isDrift ? 3.8 + seed : 2 + seed * 1.4;
-  const delay =
-    entranceDelay + (isTide ? (weekIndex + dayIndex * 1.8) * 0.055 : seed * 0.85);
-  const lowOpacity = 1 - (isTide ? 0.24 : isDrift ? 0.16 : 0.34) * strength;
-  const smallScale = 1 - (isTide ? 0.07 : isDrift ? 0.04 : 0.08) * strength;
-
-  return {
-    animate: {
-      opacity: isDrift
-        ? [1, lowOpacity, 1 - 0.06 * strength, 1]
-        : [1, lowOpacity, 1],
-      scale: isDrift
-        ? [1, smallScale, 1 + 0.025 * strength, 1]
-        : [1, smallScale, 1],
-    },
-    transition: {
-      opacity: {
-        duration,
-        delay,
-        ease: "easeInOut",
-        repeat: Infinity,
-      },
-      scale: { duration, delay, ease: "easeInOut", repeat: Infinity },
-    },
-  };
+  const durationStr = contribution.duration ? ` · ⏱️ ${contribution.duration}` : "";
+  const workoutStr = contribution.workout ? ` (${contribution.workout})` : "";
+  return `🟢 Present · ${date}${durationStr}${workoutStr}`;
 }
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAYS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
 export default function WorkoutStreakGraph({
   months = 6,
-  variant = "titan",
+  year = null,
+  variant = "github",
   animation = "wave",
   animationSpeed = 1,
-  cellSize = 16,
-  cellGap = 4,
-  cellRadius = 4,
+  cellSize = 14,
+  cellGap = 3.5,
+  cellRadius = 3.5,
   autoFit = false,
   showLegend = true,
-  showAccount = false,
+  showTooltips = true,
   ambientEffect = "twinkle",
-  ambientIntensity = 0.65,
+  ambientIntensity = 0.5,
   data = [],
   title = "Workout Streak Matrix",
-  subtitle = "Interactive gym floor check-in density & volume heatmap",
+  subtitle = "Interactive contribution activity heatmap",
   className,
 }) {
   const rootRef = useRef(null);
   const reducedMotion = useReducedMotion();
-  const [availableWidth, setAvailableWidth] = useState(0);
   const [hoveredContribution, setHoveredContribution] = useState(null);
 
-  const colors = VARIANTS[variant] || VARIANTS.titan;
-  const resolvedCellRadius = Math.max(0, Math.min(cellRadius, Math.max(0, cellSize) / 2));
-  const autoFitColumns = Math.max(
-    1,
-    Math.floor((availableWidth + Math.max(0, cellGap)) / Math.max(1, cellSize + cellGap))
-  );
+  const colors = VARIANTS[variant] || VARIANTS.github;
+  const resolvedCellRadius = Math.max(0, Math.min(cellRadius, cellSize / 2));
 
-  useLayoutEffect(() => {
-    if (!autoFit || !rootRef.current) return;
-
-    const root = rootRef.current;
-    const updateWidth = () => setAvailableWidth(root.clientWidth);
-    updateWidth();
-
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(root);
-    return () => observer.disconnect();
-  }, [autoFit]);
+  const filteredData = useMemo(() => {
+    return selectRecentContributions(data, months, year);
+  }, [data, months, year]);
 
   const weeks = useMemo(() => {
-    return buildContributionWeeks(selectRecentContributions(data, months));
-  }, [data, months]);
+    return buildContributionWeeks(filteredData, year);
+  }, [filteredData, year]);
 
-  const animationKey = `workout-${months}-${variant}-${animation}-${cellSize}-${cellGap}-${autoFit}`;
+  // Compute Month Header Markers
+  const monthLabels = useMemo(() => {
+    const labels = [];
+    let lastMonth = -1;
+
+    weeks.forEach((week, weekIndex) => {
+      const firstDay = week[0]?.parsedDate;
+      if (firstDay) {
+        const monthIndex = firstDay.getUTCMonth();
+        if (monthIndex !== lastMonth) {
+          labels.push({
+            monthName: MONTH_NAMES[monthIndex],
+            weekIndex
+          });
+          lastMonth = monthIndex;
+        }
+      }
+    });
+
+    return labels;
+  }, [weeks]);
 
   const showTooltip = useCallback(
     (element, contribution, weekIndex, dayIndex, pointer) => {
+      if (!showTooltips) return;
       const cellRect = element.getBoundingClientRect();
       const placement = cellRect.top > 56 ? "above" : "below";
       const left = Math.min(
-        Math.max(cellRect.left + cellRect.width / 2, 120),
-        window.innerWidth - 120
+        Math.max(cellRect.left + cellRect.width / 2, 130),
+        window.innerWidth - 130
       );
       setHoveredContribution({
         contribution,
@@ -231,59 +203,33 @@ export default function WorkoutStreakGraph({
         dayIndex,
       });
     },
-    []
+    [showTooltips]
   );
 
   const renderContribution = (contribution, columnIndex, rowIndex) => {
     const label = formatContributionLabel(contribution);
     const entranceDelay = reducedMotion
       ? 0
-      : getCellDelay(animation, columnIndex, rowIndex, animationSpeed);
-    const ambientMotion = getAmbientCellMotion(
-      ambientEffect,
-      ambientIntensity,
-      columnIndex,
-      rowIndex,
-      entranceDelay,
-      reducedMotion
-    );
-    const distance = hoveredContribution
-      ? Math.hypot(
-          columnIndex - hoveredContribution.weekIndex,
-          rowIndex - hoveredContribution.dayIndex
-        )
-      : Infinity;
-    const waveStrength = Math.max(0, 1 - distance / 3);
-    const filter = `brightness(${1 + waveStrength * 0.45}) saturate(${1 + waveStrength * 0.2})`;
+      : (columnIndex * 0.02 + rowIndex * 0.01) * animationSpeed;
 
     return (
       <motion.button
-        key={`${animationKey}-${contribution.date}`}
+        key={`cell-${contribution.date}-${columnIndex}-${rowIndex}`}
         type="button"
         role="gridcell"
         aria-label={label}
-        className="relative outline-none transition-transform focus-visible:ring-2 focus-visible:ring-[#FF1E27] cursor-pointer"
+        className="relative outline-none transition-transform focus-visible:ring-2 focus-visible:ring-[#FF1E27] cursor-pointer group"
         style={{
           width: cellSize,
           height: cellSize,
           borderRadius: resolvedCellRadius,
         }}
-        initial={
-          reducedMotion || animation === "none"
-            ? false
-            : { opacity: 0, scale: 0.35, y: 4 }
-        }
-        animate={{ opacity: 1, scale: 1, y: 0, filter }}
+        initial={reducedMotion || animation === "none" ? false : { opacity: 0, scale: 0.4 }}
+        animate={{ opacity: 1, scale: 1 }}
+        whileHover={{ scale: 1.25, zIndex: 20 }}
         transition={{
-          opacity: { duration: 0.14, delay: entranceDelay },
-          y: {
-            type: "spring",
-            stiffness: 520,
-            damping: 28,
-            delay: entranceDelay,
-          },
-          scale: { type: "spring", stiffness: 900, damping: 32 },
-          filter: { duration: 0.08, ease: "easeOut" },
+          opacity: { duration: 0.15, delay: entranceDelay },
+          scale: { type: "spring", stiffness: 600, damping: 25 },
         }}
         onMouseEnter={(event) =>
           showTooltip(
@@ -299,15 +245,15 @@ export default function WorkoutStreakGraph({
         }
         onBlur={() => setHoveredContribution(null)}
       >
-        <motion.span
+        <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 shadow-sm border border-white/5"
+          className="pointer-events-none absolute inset-0 transition-colors shadow-inner"
           style={{
-            backgroundColor: colors[contribution.level],
+            backgroundColor: contribution.level === 0 ? "#ef4444" : (colors[contribution.level] || colors[0]),
             borderRadius: resolvedCellRadius,
+            border: contribution.level === 0 ? "1px solid rgba(239, 68, 68, 0.45)" : "1px solid rgba(255,255,255,0.12)",
+            boxShadow: contribution.level === 0 ? "0 0 5px rgba(239, 68, 68, 0.25)" : "none"
           }}
-          animate={ambientMotion.animate}
-          transition={ambientMotion.transition}
         />
       </motion.button>
     );
@@ -316,46 +262,57 @@ export default function WorkoutStreakGraph({
   return (
     <div
       ref={rootRef}
-      className={cn("w-full space-y-4", className)}
+      className={cn("w-full space-y-4 font-sans select-none", className)}
     >
       {weeks.length > 0 && (
-        <div
-          className={cn(
-            "py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden overflow-x-auto",
-            autoFit ? "w-full overflow-hidden" : ""
-          )}
-        >
-          <div
-            className={cn(
-              "relative pb-2",
-              autoFit ? "grid w-full" : "flex min-w-max"
-            )}
-            style={
-              autoFit
-                ? {
-                    gridTemplateColumns: `repeat(${autoFitColumns}, ${cellSize}px)`,
-                    gap: cellGap,
-                    justifyContent: "space-between",
-                  }
-                : { gap: cellGap }
-            }
-            role="grid"
-            aria-label="Workout streak activity graph"
-            onMouseLeave={() => setHoveredContribution(null)}
-          >
-            {autoFit
-              ? weeks
-                  .flat()
-                  .map((contribution, index) =>
-                    renderContribution(
-                      contribution,
-                      index % autoFitColumns,
-                      Math.floor(index / autoFitColumns)
-                    )
-                  )
-              : weeks.map((week, weekIndex) => (
+        <div className="py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden overflow-x-auto">
+          <div className="flex flex-col min-w-max pb-2">
+            
+            {/* 1. Month Header Row */}
+            <div className="flex pl-8 mb-1.5 text-[11px] font-mono text-slate-400">
+              {monthLabels.map((m, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    position: "relative",
+                    left: `${m.weekIndex * (cellSize + cellGap)}px`,
+                    width: 0,
+                    whiteSpace: "nowrap"
+                  }}
+                  className="font-semibold"
+                >
+                  {m.monthName}
+                </div>
+              ))}
+            </div>
+
+            {/* 2. Grid Container with Weekday Labels */}
+            <div className="flex items-start gap-2">
+              
+              {/* Day of Week Labels */}
+              <div className="flex flex-col gap-[3.5px] pr-1 text-[9.5px] font-mono text-slate-500 font-bold select-none pt-0.5">
+                {WEEKDAYS.map((day, idx) => (
+                  <span
+                    key={idx}
+                    style={{ height: cellSize, lineHeight: `${cellSize}px` }}
+                    className="h-[14px] flex items-center"
+                  >
+                    {day}
+                  </span>
+                ))}
+              </div>
+
+              {/* Weekly Columns */}
+              <div
+                className="flex"
+                style={{ gap: cellGap }}
+                role="grid"
+                aria-label="Workout streak activity matrix"
+                onMouseLeave={() => setHoveredContribution(null)}
+              >
+                {weeks.map((week, weekIndex) => (
                   <div
-                    key={`${animationKey}-${weekIndex}`}
+                    key={`week-${weekIndex}`}
                     className="grid grid-rows-7"
                     style={{ gap: cellGap }}
                     role="row"
@@ -365,22 +322,23 @@ export default function WorkoutStreakGraph({
                     )}
                   </div>
                 ))}
+              </div>
 
+            </div>
+
+            {/* Floating Tooltip */}
             <AnimatePresence>
-              {hoveredContribution && (
+              {hoveredContribution && showTooltips && (
                 <motion.div
                   role="tooltip"
-                  className="pointer-events-none fixed z-[999] whitespace-nowrap rounded-2xl bg-[#090C0E] px-3.5 py-2 text-xs font-semibold text-white shadow-2xl border border-white/20 ring-1 ring-white/10 backdrop-blur-xl"
+                  className="pointer-events-none fixed z-[999] whitespace-nowrap rounded-2xl bg-[#090C0E] px-3.5 py-2.5 text-xs font-semibold text-white shadow-2xl border border-white/20 ring-1 ring-white/10 backdrop-blur-xl"
                   initial={{
                     opacity: 0,
                     scale: 0.92,
                     left: hoveredContribution.originLeft,
                     top: hoveredContribution.originTop,
                     x: "-50%",
-                    y:
-                      hoveredContribution.placement === "above"
-                        ? "-100%"
-                        : "0%",
+                    y: hoveredContribution.placement === "above" ? "-100%" : "0%",
                   }}
                   animate={{
                     opacity: 1,
@@ -388,10 +346,7 @@ export default function WorkoutStreakGraph({
                     left: hoveredContribution.left,
                     top: hoveredContribution.top,
                     x: "-50%",
-                    y:
-                      hoveredContribution.placement === "above"
-                        ? "-100%"
-                        : "0%",
+                    y: hoveredContribution.placement === "above" ? "-100%" : "0%",
                   }}
                   exit={{ opacity: 0, scale: 0.92 }}
                   transition={{
@@ -406,8 +361,8 @@ export default function WorkoutStreakGraph({
                     <span
                       className="w-2.5 h-2.5 rounded-full"
                       style={{
-                        backgroundColor: colors[hoveredContribution.contribution.level],
-                        boxShadow: `0 0 8px ${colors[hoveredContribution.contribution.level]}`
+                        backgroundColor: hoveredContribution.contribution.level === 0 ? "#ef4444" : colors[hoveredContribution.contribution.level],
+                        boxShadow: `0 0 8px ${hoveredContribution.contribution.level === 0 ? "#ef4444" : colors[hoveredContribution.contribution.level]}`
                       }}
                     />
                     <span>{formatContributionLabel(hoveredContribution.contribution)}</span>
@@ -415,48 +370,54 @@ export default function WorkoutStreakGraph({
                 </motion.div>
               )}
             </AnimatePresence>
+
           </div>
         </div>
       )}
 
+      {/* Legend Bar */}
       {showLegend && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-white/[0.06] text-xs text-slate-400">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-5">
+            {/* Absent Legend Indicator (Red) */}
             <div className="flex items-center gap-2">
               <span
                 style={{
-                  width: 14,
-                  height: 14,
+                  width: 13,
+                  height: 13,
                   backgroundColor: '#ef4444',
-                  borderRadius: 3.5,
-                  boxShadow: '0 0 6px rgba(239, 68, 68, 0.4)'
+                  borderRadius: 3,
+                  border: '1px solid rgba(239, 68, 68, 0.6)',
+                  boxShadow: '0 0 6px rgba(239, 68, 68, 0.45)'
                 }}
               />
-              <span className="text-rose-300 font-medium">🔴 Not Checked-In (Absent / Rest)</span>
+              <span className="text-rose-400 font-bold text-xs">🔴 Absent (Not Checked-In)</span>
             </div>
 
+            {/* Present Activity Volume Scale */}
             <div className="flex items-center gap-2">
+              <span className="text-slate-400 text-xs">Low</span>
               <div className="flex gap-1 items-center">
                 {colors.slice(1).map((color, idx) => (
                   <span
                     key={color}
                     style={{
-                      width: 14,
-                      height: 14,
+                      width: 13,
+                      height: 13,
                       backgroundColor: color,
-                      borderRadius: 3.5,
-                      boxShadow: '0 0 6px rgba(34, 197, 94, 0.3)'
+                      borderRadius: 3,
+                      border: '1px solid rgba(255,255,255,0.1)'
                     }}
                     title={`Session Intensity Level ${idx + 1}`}
                   />
                 ))}
               </div>
-              <span className="text-emerald-300 font-medium">🟢 Checked-In (Gym Present)</span>
+              <span className="text-emerald-400 font-bold text-xs">🟢 Present (High Volume)</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3 text-[11px] font-mono text-slate-400">
-            <span>● 13.56 MHz RFID Sensor Sync</span>
+            <span>✓ Verified Attendance Stream</span>
           </div>
         </div>
       )}

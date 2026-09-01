@@ -7,6 +7,8 @@ import CreepyButton from './CreepyButton';
 import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 
 
+import FadeThrough from './FadeThrough';
+
 export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
   const { cmsData } = useLandingPageCMS();
   const heroData = cmsData?.hero || {};
@@ -53,6 +55,13 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
 
   // Ultra-Smooth Bezier Curve for High-End Cinematic Motion
   const smoothEase = [0.16, 1, 0.3, 1];
+
+  const heroPhrases = [
+    heroData.description || 'Transform your body. Sharpen your mind. Join a community that never quits.',
+    'Biometric 3D Telemetry & Real-Time Performance Analytics.',
+    'Master IFBB Pro Guidance & Olympic Strength Protocols.',
+    '24/7 Smart RFID Turnstiles & Precision Recovery Lounges.'
+  ];
 
   return (
     <section 
@@ -110,15 +119,19 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
               />
             </motion.div>
 
-            {/* B. DESCRIPTION PARAGRAPH (SLIDES FROM LEFT AT 2.2s) */}
-            <motion.p
+            {/* B. DESCRIPTION PARAGRAPH (SLIDES FROM LEFT AT 2.2s WITH FADETHROUGH) */}
+            <motion.div
               initial={{ opacity: 0, x: -220 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 1.1, delay: 2.2, ease: smoothEase }}
-              className="text-base sm:text-lg md:text-xl text-[#A0A0A0] max-w-xl font-normal leading-relaxed border-l-2 border-[#E50914]/60 pl-4 sm:pl-5"
+              className="text-base sm:text-lg md:text-xl text-[#A0A0A0] max-w-xl font-normal leading-relaxed border-l-2 border-[#E50914]/60 pl-4 sm:pl-5 min-h-[3.2em] flex items-center"
             >
-              {heroData.description || 'Transform your body. Sharpen your mind. Join a community that never quits.'}
-            </motion.p>
+              <FadeThrough
+                phrases={heroPhrases}
+                interval={3600}
+                className="text-slate-300"
+              />
+            </motion.div>
 
             {/* C. JOIN NOW CREEPY BUTTON (SLIDES FROM LEFT AT 2.4s) */}
             <motion.div

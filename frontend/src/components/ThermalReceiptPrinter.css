@@ -1,46 +1,331 @@
 /* ==========================================================================
-   Titan Pulse 3D Thermal Receipt Printer Animation - Luxury Edition
+   REAL-TYPE 3D LUXURY TICKET & RECEIPT PRINTER - TITAN PULSE EDITION
+   Perfect Viewport Centering + Balanced Upper & Bottom Spacing + Side Dock
    ========================================================================== */
 
-/* Authentic Thermal Paper Tokens */
 :root {
-  --receipt-paper-bg: #fafaf8;
-  --receipt-paper-ink: #1a1a1a;
-  --receipt-paper-subtle: #555555;
-  --receipt-shadow-slot: inset 0 6px 12px rgba(10, 5, 2, 0.95), inset 0 -1px 2px rgba(255, 255, 255, 0.15);
+  /* Typography */
+  --font-ui: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+
+  /* Theme: Dark Luxury by default */
+  --receipt-bg-primary: #0a0c12;
+  --receipt-bg-gradient: radial-gradient(circle at 50% 20%, #171924 0%, #0d0f17 65%, #06070a 100%);
+  --receipt-ambient-glow: radial-gradient(circle at 50% 35%, rgba(255, 30, 39, 0.15) 0%, transparent 65%);
+  
+  --text-dark: #ffffff;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+
+  /* Paper Tokens */
+  --paper-bg: #ffffff;
+  --paper-ink: #0f172a;
+  --paper-pill-bg: #f8fafc;
+  --paper-dashed: #e2e8f0;
+  --shadow-slot: inset 0 6px 14px rgba(15, 10, 2, 0.96), inset 0 -1px 2px rgba(255, 255, 255, 0.15);
+
+  /* Realistic Paper 3D Shadow */
+  --shadow-paper: 
+    0 30px 80px rgba(0, 0, 0, 0.65),
+    0 10px 30px rgba(0, 0, 0, 0.45);
+
+  /* Side Floating Dock Bar */
+  --dock-bg: rgba(20, 24, 34, 0.94);
+  --dock-border: rgba(255, 255, 255, 0.14);
+  --dock-shadow: 0 16px 45px rgba(0, 0, 0, 0.6);
+
+  /* Action Buttons */
+  --btn-primary-bg: linear-gradient(180deg, #ff1e27 0%, #e50914 100%);
+  --btn-primary-border: #ff1e27;
+  --btn-primary-text: #ffffff;
+  --btn-primary-shadow: 0 6px 20px rgba(255, 30, 39, 0.4);
 }
 
 .thermal-receipt-modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 200;
-  background: rgba(5, 5, 8, 0.88);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(5, 5, 8, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 1.5rem;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
-.thermal-receipt-container {
+/* Confetti Canvas */
+.receipt-confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 250;
+}
+
+/* Ambient Glow Layer */
+.receipt-ambient-glow {
+  position: absolute;
+  inset: 0;
+  background-image: var(--receipt-ambient-glow);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Main Viewport Container */
+.receipt-app-viewport {
   width: 100%;
-  max-width: 480px;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
+  padding: 0 1.5rem 2.5rem;
   position: relative;
-  animation: fadeInModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes fadeInModal {
-  from { opacity: 0; transform: scale(0.96) translateY(10px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  z-index: 1;
 }
 
 /* ==========================================================================
-   Single Unified 3D Metallic Dispenser Machine
+   SIDE FLOATING STRAIGHT-LINE DOCK (UNBLOCKS CENTER FOR REELS & VIEWING)
+   ========================================================================== */
+.controls-dock {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 280;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fadeInDock 0.4s ease-out both;
+}
+
+@keyframes fadeInDock {
+  from { opacity: 0; transform: translateY(-50%) scale(0.9); }
+  to { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+
+.controls-dock.dock-right {
+  right: 28px;
+  left: auto;
+}
+
+.controls-dock.dock-left {
+  left: 28px;
+  right: auto;
+}
+
+.video-mode .controls-dock {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) scale(0.85);
+}
+
+.video-mode-exit-hint {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.92);
+  color: #ffffff;
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-size: 12px;
+  backdrop-filter: blur(12px);
+  z-index: 290;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+.video-mode-exit-hint strong {
+  color: #ff1e27;
+}
+
+.dock-pill-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px;
+  background: var(--dock-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--dock-border);
+  border-radius: 26px;
+  box-shadow: var(--dock-shadow);
+  transition: all 0.3s ease;
+}
+
+.dock-divider {
+  width: 24px;
+  height: 1px;
+  background-color: var(--dock-border);
+  margin: 2px 0;
+}
+
+/* Primary Print Button inside Side Dock */
+.primary-print-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 44px;
+  height: 48px;
+  border-radius: 18px;
+  border: 1px solid var(--btn-primary-border);
+  background: var(--btn-primary-bg);
+  box-shadow: var(--btn-primary-shadow);
+  font-family: var(--font-ui);
+  color: var(--btn-primary-text);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.primary-print-btn .btn-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.primary-print-btn:hover {
+  transform: scale(1.06);
+  box-shadow: 0 8px 24px rgba(255, 30, 39, 0.5);
+}
+
+.primary-print-btn:active {
+  transform: scale(0.96);
+}
+
+.primary-print-btn.printing .btn-print-icon {
+  animation: spinIcon 0.9s linear infinite;
+}
+
+@keyframes spinIcon {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Secondary Tear Button inside Side Dock */
+.secondary-tear-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 44px;
+  height: 48px;
+  border-radius: 18px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  font-family: var(--font-ui);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.22s ease;
+}
+
+.secondary-tear-btn .btn-label {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.secondary-tear-btn:hover {
+  background: #ff1e27;
+  border-color: #ff1e27;
+  transform: scale(1.06);
+}
+
+/* Mode Buttons in Straight Vertical Column */
+.mode-column-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.mode-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 44px;
+  padding: 5px 0;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-icon-btn .mode-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  transition: all 0.2s ease;
+}
+
+.mode-icon-btn .mode-text {
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.mode-icon-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mode-icon-btn.active {
+  background: #ff1e27;
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(255, 30, 39, 0.4);
+  border-color: #ff1e27;
+}
+
+.mode-icon-btn.active .mode-dot {
+  background: #ffffff;
+}
+
+/* Standard Tool Buttons inside Side Dock */
+.icon-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--dock-border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.22s ease;
+}
+
+.icon-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  transform: scale(1.08);
+}
+
+.icon-tool-btn:active {
+  transform: scale(0.94);
+}
+
+.close-modal-tool-btn {
+  color: #f43f5e;
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.close-modal-tool-btn:hover {
+  background: #f43f5e;
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   3D METALLIC DISPENSER MACHINE (CENTERED)
    ========================================================================== */
 .printer-stage {
   display: flex;
@@ -48,10 +333,14 @@
   align-items: center;
   justify-content: flex-start;
   width: 100%;
+  max-width: 500px;
+  min-height: 560px;
   position: relative;
+  z-index: 10;
+  margin-top: clamp(24px, calc(50vh - 280px), 110px);
+  margin-bottom: 2rem;
 }
 
-/* Unified Metallic Crimson/Gold Machine Unit */
 .machine-unit {
   width: 380px;
   position: relative;
@@ -59,47 +348,57 @@
   flex-direction: column;
   align-items: center;
   z-index: 30;
+  perspective: 1000px;
 }
 
 /* Top 3D Metallic Hood */
 .machine-hood-top {
   width: 380px;
-  height: 44px;
-  border-radius: 16px 16px 4px 4px;
+  height: 48px;
+  border-radius: 18px 18px 4px 4px;
   background: linear-gradient(180deg, 
-    #2a2a38 0%, 
-    #1e1e28 20%, 
+    #2c2d38 0%, 
+    #1c1d26 20%, 
     #e50914 45%, 
     #ff1e27 75%, 
-    #8b0000 100%
+    #990000 100%
   );
   box-shadow: 
     0 -2px 6px rgba(255, 30, 39, 0.4),
     0 10px 24px rgba(229, 9, 20, 0.35),
-    inset 0 2px 2px rgba(255, 255, 255, 0.5),
+    inset 0 2px 2px rgba(255, 255, 255, 0.6),
     inset 0 -2px 4px rgba(0, 0, 0, 0.6);
   position: relative;
   overflow: hidden;
   z-index: 25;
 }
 
+.hood-bevel-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent 5%, rgba(255, 255, 255, 0.9) 50%, transparent 95%);
+}
+
 .hood-highlight {
   position: absolute;
-  top: 3px;
+  top: 4px;
   left: 5%;
   width: 90%;
   height: 5px;
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.9) 50%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.95) 50%, transparent 100%);
   border-radius: 999px;
   filter: blur(1px);
 }
 
-.hood-branding {
+.hood-title {
   position: absolute;
-  top: 14px;
+  top: 15px;
   width: 100%;
   text-align: center;
-  font-family: 'Outfit', sans-serif;
+  font-family: var(--font-heading);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.25em;
@@ -108,399 +407,609 @@
   text-transform: uppercase;
 }
 
-/* Dark Slit Opening in middle where paper emerges */
-.machine-slot-slit {
-  width: 340px;
-  height: 12px;
-  margin-top: -6px;
-  background: #08080c;
-  border-radius: 2px;
-  box-shadow: var(--receipt-shadow-slot);
-  position: relative;
-  z-index: 5;
+/* LED Indicator */
+.hood-status-led {
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.8);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Flash line during cutter blade slice action */
+.hood-status-led.printing {
+  background: #f59e0b;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.95);
+  animation: ledPulse 0.45s ease-in-out infinite alternate;
+}
+
+@keyframes ledPulse {
+  from { opacity: 0.5; transform: translateY(-50%) scale(0.85); }
+  to { opacity: 1; transform: translateY(-50%) scale(1.25); }
+}
+
+/* Dark Slit Mouth where paper rolls out */
+.machine-slot-slit {
+  width: 336px;
+  height: 14px;
+  margin-top: -6px;
+  background: #080604;
+  border-radius: 2px;
+  box-shadow: var(--shadow-slot);
+  position: relative;
+  z-index: 5;
+  overflow: hidden;
+}
+
+.slit-shadow-depth {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
+}
+
+.slit-feed-glow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 10%, rgba(255, 30, 39, 0.8) 50%, transparent 90%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.slit-feed-glow.active {
+  opacity: 1;
+  animation: slitPulse 0.75s ease-in-out infinite alternate;
+}
+
+@keyframes slitPulse {
+  from { opacity: 0.4; }
+  to { opacity: 1; }
+}
+
+/* Cutter Blade Flash & Laser Line Effect */
 .cutter-blade-flash {
   position: absolute;
-  top: 40px;
+  top: 41px;
   left: 50%;
   transform: translateX(-50%);
-  width: 340px;
-  height: 3px;
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, #ffffff 50%, rgba(255,255,255,0) 100%);
-  box-shadow: 0 0 14px #ffffff, 0 0 20px #ff1e27;
+  width: 336px;
+  height: 4px;
   z-index: 35;
   opacity: 0;
   pointer-events: none;
 }
 
-.cutter-blade-flash.active {
-  animation: cutterBladeFlash 0.35s ease-out forwards;
+.blade-beam {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, #ffffff 40%, #ffffff 60%, transparent 100%);
+  box-shadow: 0 0 14px #ffffff, 0 0 25px rgba(255, 30, 39, 0.85);
+  border-radius: 2px;
 }
 
-@keyframes cutterBladeFlash {
-  0% { opacity: 0; transform: translateX(-50%) scaleX(0.1); }
-  50% { opacity: 1; transform: translateX(-50%) scaleX(1); }
+.cutter-blade-flash.active {
+  animation: cutterBladeSlice 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes cutterBladeSlice {
+  0% { opacity: 0; transform: translateX(-50%) scaleX(0.05); }
+  45% { opacity: 1; transform: translateX(-50%) scaleX(1.02); }
   100% { opacity: 0; transform: translateX(-50%) scaleX(1); }
 }
 
-/* Bottom Machine Lip Base attached directly under slit */
+/* Bottom Metallic Machine Lip Base */
 .machine-hood-bottom {
   width: 380px;
-  height: 14px;
+  height: 15px;
   margin-top: -4px;
-  border-radius: 0 0 14px 14px;
-  background: linear-gradient(180deg, #3d0004 0%, #a80a12 40%, #200204 100%);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  border-radius: 0 0 16px 16px;
+  background: linear-gradient(180deg, #660000 0%, #a81016 40%, #ffffff 100%);
   position: relative;
   z-index: 10;
+  overflow: hidden;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
 }
 
 .hood-shadow {
   width: 100%;
   height: 100%;
-  background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0) 100%);
 }
 
-/* Paper Viewport — Emerges directly from dark slit line */
+.hood-lip-highlight {
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  width: 80%;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.7) 50%, transparent 100%);
+}
+
+/* ==========================================================================
+   PAPER VIEWPORT & TICKET RECEIPT CARD
+   ========================================================================== */
 .paper-viewport {
   position: absolute;
-  top: 39px;
+  top: 40px;
   left: 50%;
   transform: translateX(-50%);
-  width: 360px;
-  clip-path: inset(0px -50px -1400px -50px);
+  width: 340px;
+  clip-path: inset(0px -60px -2000px -60px);
   z-index: 8;
   padding-bottom: 20px;
   pointer-events: none;
   perspective: 1200px;
   perspective-origin: 50% 0%;
-  filter: drop-shadow(0 20px 38px rgba(0, 0, 0, 0.45)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
 }
 
-/* ==========================================================================
-   Receipt Paper Component — Authentic Thermal Paper Look
-   ========================================================================== */
-.receipt-paper-wrapper {
-  width: 320px;
+.ticket-card {
+  width: 312px;
   margin: 0 auto;
-  background-color: var(--receipt-paper-bg);
+  background-color: var(--paper-bg);
   position: relative;
   transform-origin: top center;
   transform-style: preserve-3d;
-  transition: transform 2.2s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform, opacity;
-  user-select: none;
+  box-shadow: var(--shadow-paper);
   pointer-events: auto;
-  /* Authentic POS Thermal Cutter Serrated Teeth Clip-Path at Bottom */
-  clip-path: polygon(
-    0% 0%, 100% 0%,
-    100% calc(100% - 10px),
-    98.33% 100%, 96.67% calc(100% - 10px),
-    95.00% 100%, 93.33% calc(100% - 10px),
-    91.67% 100%, 90.00% calc(100% - 10px),
-    88.33% 100%, 86.67% calc(100% - 10px),
-    85.00% 100%, 83.33% calc(100% - 10px),
-    81.67% 100%, 80.00% calc(100% - 10px),
-    78.33% 100%, 76.67% calc(100% - 10px),
-    75.00% 100%, 73.33% calc(100% - 10px),
-    71.67% 100%, 70.00% calc(100% - 10px),
-    68.33% 100%, 66.67% calc(100% - 10px),
-    65.00% 100%, 63.33% calc(100% - 10px),
-    61.67% 100%, 60.00% calc(100% - 10px),
-    58.33% 100%, 56.67% calc(100% - 10px),
-    55.00% 100%, 53.33% calc(100% - 10px),
-    51.67% 100%, 50.00% calc(100% - 10px),
-    48.33% 100%, 46.67% calc(100% - 10px),
-    45.00% 100%, 43.33% calc(100% - 10px),
-    41.67% 100%, 40.00% calc(100% - 10px),
-    38.33% 100%, 36.67% calc(100% - 10px),
-    35.00% 100%, 33.33% calc(100% - 10px),
-    31.67% 100%, 30.00% calc(100% - 10px),
-    28.33% 100%, 26.67% calc(100% - 10px),
-    25.00% 100%, 23.33% calc(100% - 10px),
-    21.67% 100%, 20.00% calc(100% - 10px),
-    18.33% 100%, 16.67% calc(100% - 10px),
-    15.00% 100%, 13.33% calc(100% - 10px),
-    11.67% 100%, 10.00% calc(100% - 10px),
-    8.33% 100%, 6.67% calc(100% - 10px),
-    5.00% 100%, 3.33% calc(100% - 10px),
-    1.67% 100%, 0% calc(100% - 10px)
-  );
+  user-select: none;
+  cursor: pointer;
+  border-radius: 0 0 24px 24px;
+  transition: box-shadow 0.3s ease;
 }
 
-/* 3D Paper Light Reflection Sheen Overlay */
-.receipt-paper-wrapper::after {
+.ticket-card:hover {
+  box-shadow: 
+    0 32px 75px rgba(0, 0, 0, 0.7),
+    0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+/* Paper Sheen Light Reflection */
+.ticket-card::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.45) 0%,
-    rgba(255, 255, 255, 0.15) 35%,
-    rgba(0, 0, 0, 0.02) 75%,
-    rgba(0, 0, 0, 0.05) 100%
-  );
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 35%);
   pointer-events: none;
-  z-index: 3;
+  z-index: 5;
+  border-radius: inherit;
 }
 
-/* Retracted State */
-.receipt-paper-wrapper.retracted {
-  transform: translateY(-93%) rotateX(-16deg) translateZ(-25px);
+/* ── Animation States ── */
+.ticket-card.retracted {
+  transform: translateY(-96%) rotateX(-16deg) translateZ(-22px);
+  opacity: 0;
 }
 
-/* Printed State */
-.receipt-paper-wrapper.printed {
+.ticket-card.printed {
   transform: translateY(0%) rotateX(0deg) translateZ(0px);
+  opacity: 1;
 }
 
-/* Smooth Fluid Easing 3D Print Animation */
-.receipt-paper-wrapper.printing-smooth {
-  animation: printSmooth3D 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* Mechanical Stepper 3D Animation */
+.ticket-card.printing-classic {
+  animation: ticketStep3D 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes printSmooth3D {
+@keyframes ticketStep3D {
   0% {
-    transform: translateY(-93%) rotateX(-18deg) translateZ(-30px) scale(0.97);
-    opacity: 0.4;
+    transform: translateY(-96%) rotateX(-16deg) translateZ(-22px);
+    opacity: 0.6;
   }
-  20% {
-    transform: translateY(-70%) rotateX(-12deg) translateZ(20px) scale(0.985);
+  15% {
+    transform: translateY(-76%) rotateX(-12deg) translateZ(14px);
     opacity: 0.85;
   }
-  45% {
-    transform: translateY(-40%) rotateX(-6deg) translateZ(26px) scale(0.995);
+  35% {
+    transform: translateY(-54%) rotateX(-8deg) translateZ(22px);
+    opacity: 0.95;
+  }
+  60% {
+    transform: translateY(-28%) rotateX(-5deg) translateZ(16px);
     opacity: 1;
   }
-  75% {
-    transform: translateY(-12%) rotateX(-2deg) translateZ(10px) scale(1);
+  82% {
+    transform: translateY(-6%) rotateX(-2deg) translateZ(8px);
   }
-  90% {
-    transform: translateY(1%) rotateX(0.8deg) translateZ(2px) scale(1);
+  95% {
+    transform: translateY(1.5%) rotateX(1deg) translateZ(2px);
   }
   100% {
-    transform: translateY(0%) rotateX(0deg) translateZ(0px) scale(1);
+    transform: translateY(0%) rotateX(0deg) translateZ(0px);
     opacity: 1;
   }
 }
 
-/* Hand-Tear Tear-Away Animation */
-.receipt-paper-wrapper.tearing {
-  animation: paperTearAway 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  pointer-events: none;
-  transform-origin: top right;
+/* Smooth Fluid Easing 3D Animation */
+.ticket-card.printing-smooth {
+  animation: ticketSmooth3D 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes paperTearAway {
+@keyframes ticketSmooth3D {
+  0% {
+    transform: translateY(-96%) rotateX(-18deg) translateZ(-25px);
+    opacity: 0.5;
+  }
+  20% {
+    transform: translateY(-68%) rotateX(-11deg) translateZ(18px);
+    opacity: 0.9;
+  }
+  48% {
+    transform: translateY(-36%) rotateX(-5deg) translateZ(24px);
+    opacity: 1;
+  }
+  76% {
+    transform: translateY(-10%) rotateX(-2deg) translateZ(10px);
+  }
+  90% {
+    transform: translateY(1.4%) rotateX(0.8deg) translateZ(2px);
+  }
+  100% {
+    transform: translateY(0%) rotateX(0deg) translateZ(0px);
+    opacity: 1;
+  }
+}
+
+/* Tear-Away Sideways Rip Animation */
+.ticket-card.tearing {
+  animation: ticketTearOff 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  transform-origin: top right;
+  pointer-events: none;
+}
+
+@keyframes ticketTearOff {
   0% {
     transform: translateY(0) translateX(0) rotate(0deg);
     opacity: 1;
   }
   20% {
-    transform: translateY(6px) translateX(18px) rotate(-3deg);
+    transform: translateY(8px) translateX(20px) rotate(-4deg);
     opacity: 1;
   }
-  50% {
-    transform: translateY(14px) translateX(55px) rotate(-8deg) scale(0.98);
-    opacity: 0.8;
+  55% {
+    transform: translateY(20px) translateX(80px) rotate(-10deg) scale(0.97);
+    opacity: 0.75;
   }
   100% {
-    transform: translateY(22px) translateX(110px) rotate(-14deg) scale(0.94);
+    transform: translateY(35px) translateX(160px) rotate(-18deg) scale(0.9);
     opacity: 0;
   }
 }
 
-/* Authentic Thermal Receipt Body Styling */
-.receipt-content {
-  padding: 1.25rem 1.2rem 1.6rem 1.2rem;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  color: var(--receipt-paper-ink);
-  letter-spacing: 0em;
+/* Ticket Content Container */
+.ticket-content {
+  padding: 22px 20px 18px;
   position: relative;
   z-index: 2;
+  color: var(--paper-ink);
 }
 
-.receipt-header {
+/* ── 1. Header: Vector Badges ── */
+.ticket-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 0.9rem;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 14px;
 }
 
-.brand-company-name {
-  font-size: 0.88rem;
+.status-badge-wrap {
+  margin-bottom: 10px;
+}
+
+.status-badge {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.ticket-card:hover .status-badge {
+  transform: scale(1.08) rotate(3deg);
+}
+
+.status-badge.badge-membership {
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border: 2px solid #fecdd3;
+  color: #e11d48;
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.25);
+}
+
+.status-badge.badge-supplements {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 2px solid #a7f3d0;
+  color: #059669;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.25);
+}
+
+.ticket-title {
+  font-family: var(--font-heading);
+  font-size: 20px;
   font-weight: 800;
-  letter-spacing: 0.05em;
-  color: #d1121b;
-  font-family: 'Outfit', sans-serif;
+  color: #0f172a;
+  letter-spacing: -0.4px;
+  line-height: 1.2;
+  margin-bottom: 4px;
 }
 
-.payment-title {
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: #666666;
-  line-height: 1.3;
-}
-
-.receipt-amount-section {
-  margin-bottom: 0.8rem;
-}
-
-.receipt-amount {
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #111111;
-  line-height: 1.1;
-  margin-bottom: 0.2rem;
-}
-
-.receipt-meta {
-  font-size: 0.6rem;
+.ticket-sub {
+  font-size: 11.5px;
   font-weight: 500;
-  color: #777777;
-  letter-spacing: 0.04em;
+  color: #64748b;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* ── 2. Perforation Divider with Semicircular Notches ── */
+.ticket-perforation {
+  display: flex;
+  align-items: center;
+  position: relative;
+  margin: 0 -20px;
+  padding: 6px 0;
+}
+
+.notch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0a0c12;
+  flex-shrink: 0;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.notch-left {
+  margin-left: -10px;
+}
+
+.notch-right {
+  margin-right: -10px;
+}
+
+.dash-line {
+  flex: 1;
+  height: 0;
+  border-bottom: 1.5px dashed var(--paper-dashed);
+  margin: 0 4px;
+}
+
+/* ── 3. Ticket Data Details ── */
+.ticket-details {
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.detail-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail-col.align-right {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.detail-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
   text-transform: uppercase;
 }
 
-.receipt-divider {
-  width: 100%;
-  height: 0;
-  border-bottom: 1px dashed #cccccc;
-  margin: 0.75rem 0;
+.detail-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.2px;
 }
 
-.receipt-item-row {
+.badge-text {
+  display: inline-block;
+  padding: 2px 7px;
+  background: #ecfdf5;
+  color: #059669;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.2px;
+}
+
+.amount-val {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.4px;
+}
+
+/* Itemized Products Box */
+.ticket-items-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ticket-item-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.72rem;
-  font-weight: 500;
-  margin-bottom: 0.4rem;
+  font-size: 11px;
+  font-family: var(--font-mono);
 }
 
-.receipt-item-row .item-name {
-  color: #222222;
-  max-width: 200px;
+.ticket-item-row .item-name {
+  color: #334155;
+  font-weight: 500;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.receipt-item-row .item-price {
+.ticket-item-row .item-price {
   font-weight: 700;
-  color: #111111;
+  color: #0f172a;
 }
 
-.receipt-totals-section {
+/* Payment Method Card Pill */
+.payment-card-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--paper-pill-bg);
+  border-radius: 12px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.payment-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.72rem;
+  gap: 1px;
 }
 
-.total-row {
-  display: flex;
-  justify-content: space-between;
-  color: #666666;
-}
-
-.receipt-grand-total {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid #cccccc;
-  font-weight: 800;
-  font-size: 0.85rem;
-  color: #111111;
-}
-
-.receipt-footer {
-  text-align: center;
-  margin-top: 0.75rem;
-  padding-top: 0.4rem;
-}
-
-.footer-msg {
-  font-size: 0.65rem;
+.cardholder-name {
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #444444;
-  margin-bottom: 0.5rem;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+}
+
+.card-dots {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* ── 4. Barcode & QR Code Section ── */
+.ticket-code-section {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.barcode-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
 
 .barcode-graphic {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.15rem;
-  opacity: 0.8;
-}
-
-.barcode-lines {
-  width: 70%;
-  height: 24px;
+  width: 82%;
+  height: 36px;
   background: repeating-linear-gradient(
     90deg,
-    #222 0px,
-    #222 1.5px,
-    transparent 1.5px,
-    transparent 3px,
-    #222 3px,
-    #222 4px,
-    transparent 4px,
-    transparent 5.5px,
-    #222 5.5px,
-    #222 8px,
-    transparent 8px,
-    transparent 9.5px
+    #0f172a 0px,
+    #0f172a 1.8px,
+    transparent 1.8px,
+    transparent 3.6px,
+    #0f172a 3.6px,
+    #0f172a 5.8px,
+    transparent 5.8px,
+    transparent 8.2px,
+    #0f172a 8.2px,
+    #0f172a 9.6px,
+    transparent 9.6px,
+    transparent 11.8px,
+    #0f172a 11.8px,
+    #0f172a 14.5px,
+    transparent 14.5px,
+    transparent 16.8px,
+    #0f172a 16.8px,
+    #0f172a 17.6px,
+    transparent 17.6px,
+    transparent 20.2px,
+    #0f172a 20.2px,
+    #0f172a 23.0px,
+    transparent 23.0px,
+    transparent 24.8px
   );
+  opacity: 0.88;
 }
 
-.barcode-num {
-  font-size: 0.5rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  color: #666666;
-}
-
-.serrated-edge {
-  width: 100%;
-  height: 12px;
-}
-
-/* Dynamic Stage Info & Buttons Below Machine */
-.receipt-stage-info {
-  margin-top: 3.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  z-index: 40;
-  transition: margin-top 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  width: 100%;
-}
-
-.printer-stage.has-printed .receipt-stage-info {
-  margin-top: 26.5rem;
-}
-
-.receipt-status-heading {
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: -0.01em;
-  margin-bottom: 0.2rem;
-  font-family: 'Outfit', sans-serif;
-}
-
-.receipt-status-subtext {
-  font-size: 0.78rem;
+.barcode-numbers {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   color: #94a3b8;
-  margin-bottom: 1.2rem;
-  font-family: 'Outfit', sans-serif;
+}
+
+.hidden {
+  display: none !important;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (max-width: 640px) {
+  .controls-dock.dock-right,
+  .controls-dock.dock-left {
+    position: fixed;
+    top: auto;
+    bottom: 16px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .dock-pill-bar {
+    flex-direction: row;
+    padding: 6px 12px;
+    border-radius: 999px;
+  }
+
+  .dock-divider {
+    width: 1px;
+    height: 20px;
+    margin: 0 2px;
+  }
+
+  .machine-unit,
+  .machine-hood-top,
+  .machine-hood-bottom {
+    width: 320px;
+  }
+  .machine-slot-slit,
+  .cutter-blade-flash {
+    width: 280px;
+  }
+  .paper-viewport {
+    width: 290px;
+  }
+  .ticket-card {
+    width: 275px;
+  }
 }

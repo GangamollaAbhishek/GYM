@@ -209,6 +209,8 @@ export default function MyCartPage() {
     try {
       const existingOrders = JSON.parse(localStorage.getItem('titan_pulse_orders') || '[]');
       localStorage.setItem('titan_pulse_orders', JSON.stringify([orderDetails, ...existingOrders]));
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('titan_order_placed', { detail: orderDetails }));
     } catch (err) {
       console.warn('Error saving order:', err);
     }

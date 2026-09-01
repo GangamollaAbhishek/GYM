@@ -75,7 +75,7 @@ export function TrainerCardDeck({
     const rotations = useMemo(() => [4, -3, -8, 6], []);
 
     return (
-        <section className="py-24 bg-[#0B0B0B] border-t border-white/10 relative overflow-hidden">
+        <section id="trainers-deck" className="py-24 bg-[#0B0B0B] border-t border-white/10 relative overflow-hidden">
             {/* Ambient Background Glow */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[400px] bg-[radial-gradient(ellipse_at_center,_rgba(229,9,20,0.2)_0%,_transparent_70%)] blur-[100px] pointer-events-none" />
 

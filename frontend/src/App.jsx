@@ -10,6 +10,8 @@ import SpotlightNavbar from './components/SpotlightNavbar';
 import Hero from './components/hero';
 import TransitionScribble from './components/TransitionScribble';
 import HorizontalWords from './components/HorizontalWords';
+import FadeThroughShowcase from './components/FadeThroughShowcase';
+import LineByLineShowcase from './components/LineByLineShowcase';
 import ExpandingFrameSection from './components/ExpandingFrameSection';
 import PreworkoutShowcaseSection from './components/PreworkoutShowcaseSection';
 import CylinderSection from './components/CylinderSection';
@@ -35,6 +37,7 @@ import ForbiddenPage from './components/ForbiddenPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop';
 import MyCartPage from './components/MyCartPage';
+import ToastNotificationStack from './components/ToastNotificationStack';
 
 import { X, Shield, Sparkles } from 'lucide-react';
 import { LandingPageCMSProvider } from './context/LandingPageCMSContext';
@@ -44,11 +47,32 @@ import { CartProvider } from './context/CartContext';
 gsap.registerPlugin(ScrollTrigger);
 
 function MainAppContent() {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    return !sessionStorage.getItem('has_preloaded');
+  });
   const [lenisInstance, setLenisInstance] = useState(null);
   const [passModalOpen, setPassModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState('');
-  const [toastMessage, setToastMessage] = useState(null);
+  const [toasts, setToasts] = useState([]);
+
+  const triggerToast = (msg, type = 'info') => {
+    const id = Date.now() + Math.random();
+    const isSuccess = typeof msg === 'string' && (msg.includes('Welcome') || msg.includes('success') || msg.includes('Confirmed') || msg.includes('✓'));
+    const newToast = {
+      id,
+      message: msg,
+      type: isSuccess ? 'success' : type,
+      time: 'Just now'
+    };
+    setToasts((prev) => [newToast, ...prev.slice(0, 4)]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
+  };
+
+  const dismissToast = (id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
 
   // Auth Modal States
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -64,59 +88,9 @@ function MainAppContent() {
     }
   }, [location.pathname]);
 
-  useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothTouch: true,
-    });
-
-    setLenisInstance(lenis);
-
-    lenis.on('scroll', ScrollTrigger.update);
-
-    gsap.ticker.add((time) => {
-      lenis.raf(time * 1000);
-    });
-
-    gsap.ticker.lagSmoothing(0);
-
-    return () => {
-      lenis.destroy();
-      gsap.ticker.remove((time) => {
-        lenis.raf(time * 1000);
-      });
-    };
-  }, []);
-
-  // Multi-layer Parallax Scroll for Landing Page
-  useEffect(() => {
-    function parallax() {
-      const layers = document.querySelectorAll('.layer');
-      const y = window.scrollY;
-      for (let i = 1; i < layers.length; i++) {
-        if (layers[layers.length - i]) {
-          layers[layers.length - i].style.transform = `translateY(${(i * 0.1) * y}px)`;
-        }
-      }
-    }
-
-    window.addEventListener('scroll', parallax, false);
-    return () => {
-      window.removeEventListener('scroll', parallax, false);
-    };
-  }, []);
-
-  const triggerToast = (msg) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 4000);
-  };
-
   const handleScrollToTop = () => {
-    if (lenisInstance) {
-      lenisInstance.scrollTo(0);
+    if (window.__lenis) {
+      window.__lenis.scrollTo(0);
     } else {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -195,11 +169,14 @@ function MainAppContent() {
 
   const navItems = [
     { label: "Home", href: "#" },
-    { label: "Programs", href: "#programs-section" },
-    { label: "Zones", href: "#popular-destinations" },
-    { label: "Equipment", href: "#smart-equipment" },
-    { label: "Transformations", href: "#testimonials-section" },
-    { label: "Locations", href: "#locations-section" },
+    { label: "Programs", href: "#explore-escape" },
+    { label: "Supplements", href: "#preworkout-showcase" },
+    { label: "3D Arena", href: "#cylinder-arena" },
+    { label: "Trainers", href: "#trainers-deck" },
+    { label: "Memberships", href: "#services-showcase" },
+    { label: "Zones", href: "#supplements-menu" },
+    { label: "Transformations", href: "#transformations" },
+    { label: "Locations", href: "#locations" },
   ];
 
   return (
@@ -209,7 +186,14 @@ function MainAppContent() {
       <ScrollToTop />
 
       {/* 0. Curtain LightLines Preloader (Runs once on startup) */}
-      {loading && <Preloader onComplete={() => setLoading(false)} />}
+      {loading && (
+        <Preloader
+          onComplete={() => {
+            sessionStorage.setItem('has_preloaded', 'true');
+            setLoading(false);
+          }}
+        />
+      )}
 
       {/* Main App Layout */}
       {!loading && (
@@ -245,6 +229,12 @@ function MainAppContent() {
                 {/* Kinetic Horizontal Pinning Words Section */}
                 <HorizontalWords />
 
+                {/* SmoothUI FadeThrough Performance Manifesto Section */}
+                <FadeThroughShowcase onExploreClick={() => {
+                  const el = document.getElementById('explore-escape');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }} />
+
                 {/* Section 3: "Explore Programs" Bento Grid */}
                 <ExploreEscape onReserveSpot={handleReserveSpot} />
 
@@ -262,6 +252,9 @@ function MainAppContent() {
                   onClaimPass={handleReserveSpot}
                   onBookPT={handleBookCoach}
                 />
+
+                {/* Apple-style SmoothUI Line-by-Line Architectural Reveal */}
+                <LineByLineShowcase />
 
                 {/* Signature Workout Zones Sticky Horizontal Scroll */}
                 <PopularDestinations onReserveSpot={handleReserveSpot} />
@@ -378,13 +371,8 @@ function MainAppContent() {
         </Routes>
       )}
 
-      {/* Floating Toast Notification System */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-[160] px-5 py-3.5 rounded-2xl bg-[#12161A] border border-[#FF2E4C] text-white text-xs font-mono shadow-[0_0_25px_rgba(255,46,76,0.4)] animate-bounce flex items-center gap-2">
-          <Sparkles size={16} className="text-[#FF2E4C]" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
+      {/* Floating AnimatedList Toast Notification System */}
+      <ToastNotificationStack notifications={toasts} onDismiss={dismissToast} position="top-right" />
 
       {/* Instant Backdrop Auth Modal Overlay (Sign In & Sign Up) */}
       <AuthModal 
