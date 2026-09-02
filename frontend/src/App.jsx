@@ -26,6 +26,7 @@ import PopularSpots from './components/popular-spots';
 import ConstellationTestimonials from './components/constellation-testimonials';
 import TravelNetwork from './components/travel-network';
 import TrainerCardDeck from './components/TrainerCardDeck';
+import DepthParallaxShowcase from './components/DepthParallaxShowcase';
 import Footer from './components/footer';
 import AuthPage from './components/AuthPage';
 import AuthModal from './components/AuthModal';
@@ -255,6 +256,9 @@ function MainAppContent() {
 
                 {/* Apple-style SmoothUI Line-by-Line Architectural Reveal */}
                 <LineByLineShowcase />
+
+                {/* SmoothUI 3D Depth Parallax Words Showcase */}
+                <DepthParallaxShowcase />
 
                 {/* Signature Workout Zones Sticky Horizontal Scroll */}
                 <PopularDestinations onReserveSpot={handleReserveSpot} />

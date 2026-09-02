@@ -59,6 +59,7 @@ import {
 } from 'lucide-react';
 import GooeySearch from './GooeySearch';
 import AddUserModal from './AddUserModal';
+import ThermalReceiptPrinter from './ThermalReceiptPrinter';
 import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 import api from '../lib/api';
 
@@ -142,7 +143,9 @@ export default function AdminDashboard({ user, onLogout }) {
               phone: u.phone && u.phone !== 'N/A' ? u.phone : 'N/A',
               plan: hasPlan ? u.membershipPlan : 'No Active Plan',
               expiry: hasPlan && u.membershipExpiry ? u.membershipExpiry : '--',
-              status: hasPlan ? (u.membershipStatus || 'Active') : 'No Membership'
+              status: hasPlan ? (u.membershipStatus || 'Active') : 'No Membership',
+              assignedTrainer: u.assignedTrainer || null,
+              assignedTrainerName: u.assignedTrainerName || null
             };
           });
         setCustomersList(liveCustomers);
@@ -157,7 +160,7 @@ export default function AdminDashboard({ user, onLogout }) {
             email: u.email,
             phone: u.phone && u.phone !== 'N/A' ? u.phone : 'N/A',
             spec: u.spec || 'Master Coach & Conditioning',
-            clients: 0,
+            clients: liveCustomers.filter(c => (c.assignedTrainer === u.id || c.assignedTrainerName === u.name) && c.plan !== 'No Active Plan').length,
             shift: u.shift || '06:00 AM - 02:00 PM',
             room: u.assignedRoom || 'Main Strength & Conditioning Arena',
             days: u.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
@@ -190,9 +193,64 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
+  // Fetch real payment and billing records from MongoDB
+  const [paymentsList, setPaymentsList] = useState([]);
+  const [paymentFilter, setPaymentFilter] = useState('all');
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [receiptModalData, setReceiptModalData] = useState(null);
+
+  const fetchPayments = async () => {
+    try {
+      const res = await api.get('/api/payments');
+      if (res.data?.status === 'success' && Array.isArray(res.data.data)) {
+        setPaymentsList(res.data.data);
+      }
+    } catch (err) {
+      console.warn('Error fetching payments:', err);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
-  }, []);
+    fetchPayments();
+  }, [activeTab]);
+
+  // Live synchronization of assigned active athletes for selected coach
+  useEffect(() => {
+    if (!selectedCoach) return;
+
+    const coachId = String(selectedCoach.userId || selectedCoach.id || '');
+    const coachName = (selectedCoach.name || '').toLowerCase().trim();
+
+    const realAssigned = customersList.filter(c => {
+      // Must have a valid membership
+      if (!c.plan || c.plan === 'No Active Plan' || c.status === 'No Membership') return false;
+
+      const custTrainerId = String(c.assignedTrainer || '');
+      const custTrainerName = (c.assignedTrainerName || '').toLowerCase().trim();
+
+      return (
+        (custTrainerId && (custTrainerId === coachId || custTrainerId === String(selectedCoach.id) || custTrainerId === String(selectedCoach.userId))) ||
+        (custTrainerName && (custTrainerName === coachName || coachName.includes(custTrainerName) || custTrainerName.includes(coachName)))
+      );
+    }).map((c, idx) => ({
+      id: c.id || `ACT-${101 + idx}`,
+      userId: c.userId,
+      name: c.name,
+      email: c.email,
+      phone: c.phone || 'N/A',
+      program: c.plan,
+      goal: 'Athletic Hypertrophy & Conditioning',
+      slot: `${selectedCoach.shift ? selectedCoach.shift.split('(')[0].trim() : '07:00 AM - 08:00 AM'} (Mon-Sat)`,
+      status: 'Active',
+      progress: '35%'
+    }));
+
+    setCoachClients(prev => ({
+      ...prev,
+      active: realAssigned
+    }));
+  }, [selectedCoach, customersList]);
 
   const { cmsData, updateFullCMS, updateSection, resetToDefaults } = useLandingPageCMS();
 
@@ -404,7 +462,6 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
-  const [paymentsList, setPaymentsList] = useState([]);
   const [attendanceLogs, setAttendanceLogs] = useState([]);
 
   const [notificationsList, setNotificationsList] = useState([
@@ -3192,6 +3249,29 @@ export default function AdminDashboard({ user, onLogout }) {
                             breakTime: '11:00 AM - 11:30 AM',
                             room: t.room || 'Main Strength & Conditioning Arena'
                           });
+
+                          // Load real active membership athletes assigned to this coach
+                          const realAssigned = customersList.filter(c => 
+                            (c.assignedTrainer === t.userId || c.assignedTrainer === t.id || c.assignedTrainerName?.toLowerCase() === t.name.toLowerCase()) &&
+                            c.plan && c.plan !== 'No Active Plan' && c.status !== 'No Membership'
+                          ).map(c => ({
+                            id: c.id,
+                            userId: c.userId,
+                            name: c.name,
+                            email: c.email,
+                            phone: c.phone,
+                            program: c.plan,
+                            goal: 'Athletic Hypertrophy & Conditioning',
+                            slot: `${t.shift ? t.shift.split('(')[0] : '07:00 AM - 08:00 AM'} (Mon-Sat)`,
+                            status: 'Active',
+                            progress: '25%'
+                          }));
+
+                          setCoachClients({
+                            active: realAssigned,
+                            past: []
+                          });
+
                           setActiveTab('coach-schedule');
                         }}
                         className="w-full py-2.5 rounded-xl bg-[#090C0E] border border-white/10 hover:border-[#FF2E4C] text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
@@ -3539,32 +3619,30 @@ export default function AdminDashboard({ user, onLogout }) {
                             <span className="text-[10px] text-purple-400 font-mono">06:00 - 14:00</span>
                           </div>
                           <div className="space-y-2">
-                            <div className="p-2.5 rounded-xl bg-[#141419] border border-emerald-500/30 flex justify-between items-center">
-                              <div>
-                                <span className="text-xs font-bold text-white block">07:00 AM - 08:00 AM</span>
-                                <span className="text-[10px] text-emerald-400">Rahul Sharma (Hypertrophy)</span>
+                            {coachClients.active.length > 0 ? (
+                              coachClients.active.map((client, cIdx) => (
+                                <div key={cIdx} className="p-2.5 rounded-xl bg-[#141419] border border-emerald-500/30 flex justify-between items-center">
+                                  <div>
+                                    <span className="text-xs font-bold text-white block">{client.slot.split('(')[0] || '07:00 AM - 08:00 AM'}</span>
+                                    <span className="text-[10px] text-emerald-400">{client.name} ({client.program})</span>
+                                  </div>
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 text-[9px] font-mono">Booked</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="p-2.5 rounded-xl bg-[#141419] border border-white/5 flex justify-between items-center">
+                                <div>
+                                  <span className="text-xs text-slate-400 block">Available Slot</span>
+                                  <span className="text-[10px] text-slate-500">Open for Active Members</span>
+                                </div>
+                                <button
+                                  onClick={() => setShowAssignClientModal(true)}
+                                  className="px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#FF2E4C] text-white text-[9px] font-mono transition-colors cursor-pointer"
+                                >
+                                  + Book
+                                </button>
                               </div>
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 text-[9px] font-mono">Booked</span>
-                            </div>
-                            <div className="p-2.5 rounded-xl bg-[#141419] border border-purple-500/30 flex justify-between items-center">
-                              <div>
-                                <span className="text-xs font-bold text-white block">09:00 AM - 10:00 AM</span>
-                                <span className="text-[10px] text-purple-400">Nani G. (3D Telemetry)</span>
-                              </div>
-                              <span className="px-2 py-0.5 rounded-full bg-purple-950 text-purple-400 text-[9px] font-mono">Booked</span>
-                            </div>
-                            <div className="p-2.5 rounded-xl bg-[#141419] border border-white/5 flex justify-between items-center">
-                              <div>
-                                <span className="text-xs text-slate-400 block">11:00 AM - 12:00 PM</span>
-                                <span className="text-[10px] text-slate-500">Open Slot</span>
-                              </div>
-                              <button
-                                onClick={() => setShowAssignClientModal(true)}
-                                className="px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#FF2E4C] text-white text-[9px] font-mono transition-colors"
-                              >
-                                + Book
-                              </button>
-                            </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -3588,31 +3666,58 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
 
                     <form
-                      onSubmit={(e) => {
+                      onSubmit={async (e) => {
                         e.preventDefault();
                         if (!newClientAssign.name) {
-                          showToast('Please specify an athlete name');
+                          showToast('Please select a member with active gym membership');
+                          return;
+                        }
+
+                        const targetCustomer = customersList.find(c => c.name === newClientAssign.name);
+                        if (!targetCustomer || !targetCustomer.plan || targetCustomer.plan === 'No Active Plan' || targetCustomer.status === 'No Membership') {
+                          showToast('⚠️ Cannot allocate trainer: Only customers with active gym membership can be assigned a coach.');
                           return;
                         }
 
                         const newEntry = {
                           id: `ACT-${Math.floor(100 + Math.random() * 900)}`,
-                          name: newClientAssign.name,
-                          email: newClientAssign.email || `${newClientAssign.name.toLowerCase().replace(/\s+/g, '')}@example.com`,
-                          phone: newClientAssign.phone || '+91 99887 66554',
-                          program: newClientAssign.program,
+                          userId: targetCustomer.userId,
+                          name: targetCustomer.name,
+                          email: targetCustomer.email,
+                          phone: targetCustomer.phone || '+91 99887 66554',
+                          program: targetCustomer.plan || newClientAssign.program,
                           goal: newClientAssign.goal,
                           slot: `${newClientAssign.slot} (${newClientAssign.days})`,
                           status: 'Active',
-                          progress: '10%'
+                          progress: '15%'
                         };
+
+                        // Persist to MongoDB Atlas
+                        try {
+                          const targetUserId = targetCustomer.userId || targetCustomer.id;
+                          if (targetUserId) {
+                            await api.put(`/api/users/${targetUserId}`, {
+                              assignedTrainer: selectedCoach?.userId || selectedCoach?.id,
+                              assignedTrainerName: selectedCoach?.name
+                            });
+                          }
+                        } catch (err) {
+                          console.warn('Assign trainer to user err:', err);
+                        }
+
+                        // Update local customers state
+                        setCustomersList(prev => prev.map(c => (c.userId === targetCustomer.userId || c.name === targetCustomer.name) ? {
+                          ...c,
+                          assignedTrainer: selectedCoach?.userId || selectedCoach?.id,
+                          assignedTrainerName: selectedCoach?.name
+                        } : c));
 
                         setCoachClients(prev => ({
                           ...prev,
-                          active: [newEntry, ...prev.active]
+                          active: [newEntry, ...prev.active.filter(c => c.name !== newEntry.name)]
                         }));
 
-                        showToast(`✓ Assigned ${newClientAssign.name} to ${selectedCoach?.name || 'Coach'}!`);
+                        showToast(`✓ Successfully allocated Coach ${selectedCoach?.name || 'Coach'} to ${targetCustomer.name} (${targetCustomer.plan})!`);
                         setShowAssignClientModal(false);
                         setNewClientAssign({
                           name: '',
@@ -3627,7 +3732,10 @@ export default function AdminDashboard({ user, onLogout }) {
                       className="space-y-4"
                     >
                       <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-300">Select Customer / Athlete</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-semibold text-slate-300">Select Active Member</label>
+                          <span className="text-[10px] text-emerald-400 font-mono font-semibold">Active Membership Required</span>
+                        </div>
                         <select
                           value={newClientAssign.name}
                           onChange={(e) => {
@@ -3636,17 +3744,23 @@ export default function AdminDashboard({ user, onLogout }) {
                               ...newClientAssign,
                               name: e.target.value,
                               email: found ? found.email : '',
-                              phone: found ? found.phone : ''
+                              phone: found ? found.phone : '',
+                              program: found?.plan || newClientAssign.program
                             });
                           }}
                           className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
                           required
                         >
-                          <option value="">-- Choose Registered Customer --</option>
-                          {customersList.map(c => (
-                            <option key={c.id} value={c.name}>{c.name} ({c.email})</option>
-                          ))}
+                          <option value="">-- Choose Member with Purchased Membership --</option>
+                          {customersList
+                            .filter(c => c.plan && c.plan !== 'No Active Plan' && c.status !== 'No Membership' && c.status !== 'Inactive' && c.status !== 'Expired')
+                            .map(c => (
+                              <option key={c.id || c.userId} value={c.name}>
+                                {c.name} • {c.plan} ({c.email})
+                              </option>
+                            ))}
                         </select>
+                        <p className="text-[11px] text-slate-400">Only customers who have purchased a membership tier appear in this allocation list.</p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
@@ -4458,47 +4572,233 @@ export default function AdminDashboard({ user, onLogout }) {
           {/* TAB 7: PAYMENT AND BILLING */}
           {activeTab === 'payment-billing' && (
             <div className="space-y-6 animate-fadeIn">
+              {/* Header & Export */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-white tracking-tight">Payment & Billing Logs</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Track membership transactions, digital invoices, and revenue methods.</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Live MongoDB revenue ledger, digital tax invoices, and payment gateway logs.</p>
                 </div>
-                <button onClick={() => showToast('Generated monthly billing statement!')} className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all">
-                  <Download size={15} /> Export Invoices
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      fetchPayments();
+                      showToast('🔄 Synchronized latest payment records from MongoDB!');
+                    }} 
+                    className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <RefreshCw size={13} /> Refresh Logs
+                  </button>
+                  <button 
+                    onClick={() => showToast('Generated monthly billing statement!')} 
+                    className="px-4 py-2 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all"
+                  >
+                    <Download size={14} /> Export Invoices
+                  </button>
+                </div>
               </div>
 
+              {/* Revenue Metric Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-5 rounded-3xl bg-[#12161A] border border-white/10 shadow-md space-y-2">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-xs font-medium">Total Revenue</span>
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                      <DollarSign size={16} />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-white font-mono">
+                    ₹{paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0).toLocaleString('en-IN')}
+                  </div>
+                  <span className="text-[11px] text-emerald-400 flex items-center gap-1">
+                    <TrendingUp size={12} /> Live synchronized payments
+                  </span>
+                </div>
+
+                <div className="p-5 rounded-3xl bg-[#12161A] border border-white/10 shadow-md space-y-2">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-xs font-medium">Completed Transactions</span>
+                    <div className="w-8 h-8 rounded-xl bg-[#FF2E4C]/15 text-[#FF2E4C] flex items-center justify-center">
+                      <CreditCard size={16} />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-white font-mono">
+                    {paymentsList.length}
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    {paymentsList.filter(p => p.status === 'Paid').length} Successful Invoices
+                  </span>
+                </div>
+
+                <div className="p-5 rounded-3xl bg-[#12161A] border border-white/10 shadow-md space-y-2">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-xs font-medium">Active Subscriptions</span>
+                    <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
+                      <ShieldCheck size={16} />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-white font-mono">
+                    {customersList.filter(c => c.plan && c.plan !== 'No Active Plan' && c.status !== 'No Membership').length}
+                  </div>
+                  <span className="text-[11px] text-purple-400">
+                    Biometric passes active
+                  </span>
+                </div>
+
+                <div className="p-5 rounded-3xl bg-[#12161A] border border-white/10 shadow-md space-y-2">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-xs font-medium">Average Order Value</span>
+                    <div className="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-400 flex items-center justify-center">
+                      <Activity size={16} />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-white font-mono">
+                    ₹{paymentsList.length > 0 ? Math.round(paymentsList.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) / paymentsList.length).toLocaleString('en-IN') : '0'}
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    Per athlete transaction
+                  </span>
+                </div>
+              </div>
+
+              {/* Filters & Search Toolbar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-2xl bg-[#12161A] border border-white/10">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                  {['all', 'card', 'upi', 'cash', 'netbanking'].map((filterKey) => (
+                    <button
+                      key={filterKey}
+                      onClick={() => setPaymentFilter(filterKey)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all cursor-pointer ${
+                        paymentFilter === filterKey
+                          ? 'bg-[#FF2E4C] text-white shadow-sm'
+                          : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {filterKey === 'all' ? 'All Channels' : filterKey}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative flex-1 max-w-xs">
+                  <Search size={14} className="absolute left-3.5 top-3 text-slate-400" />
+                  <input
+                    type="text"
+                    value={paymentSearch}
+                    onChange={(e) => setPaymentSearch(e.target.value)}
+                    placeholder="Search invoice, athlete, plan..."
+                    className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-[#090C0E] border border-white/10 text-white text-xs outline-none focus:border-[#FF2E4C] transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Payments Table */}
               <div className="rounded-3xl bg-[#12161A] border border-white/10 overflow-hidden shadow-xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
                       <tr>
                         <th className="p-4">Invoice ID</th>
-                        <th className="p-4">Customer</th>
+                        <th className="p-4">Customer & Contact</th>
+                        <th className="p-4">Membership Plan / Item</th>
                         <th className="p-4">Amount</th>
                         <th className="p-4">Payment Method</th>
                         <th className="p-4">Date</th>
                         <th className="p-4">Status</th>
+                        <th className="p-4 text-right">Official Receipt</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-slate-200">
-                      {paymentsList.map((pay) => (
-                        <tr key={pay.id} className="hover:bg-white/5 transition-colors">
-                          <td className="p-4 font-mono text-[#FF2E4C] text-[11px]">{pay.id}</td>
-                          <td className="p-4 font-semibold text-white">{pay.customer}</td>
-                          <td className="p-4 font-bold text-white">₹{pay.amount.toLocaleString()}</td>
-                          <td className="p-4 text-slate-400">{pay.method}</td>
-                          <td className="p-4 text-slate-400">{pay.date}</td>
-                          <td className="p-4">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${pay.status === 'Paid' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' : 'bg-amber-950/60 text-amber-400 border border-amber-800'
+                      {paymentsList
+                        .filter(pay => {
+                          if (paymentFilter !== 'all' && !(pay.method || '').toLowerCase().includes(paymentFilter.toLowerCase())) {
+                            return false;
+                          }
+                          if (paymentSearch.trim()) {
+                            const query = paymentSearch.toLowerCase();
+                            const matchId = (pay.id || pay.invoiceId || '').toLowerCase().includes(query);
+                            const matchCust = (pay.customer || '').toLowerCase().includes(query);
+                            const matchPlan = (pay.plan || '').toLowerCase().includes(query);
+                            if (!matchId && !matchCust && !matchPlan) return false;
+                          }
+                          return true;
+                        })
+                        .map((pay) => (
+                          <tr key={pay.id || pay.invoiceId} className="hover:bg-white/5 transition-colors">
+                            <td className="p-4 font-mono font-semibold text-[#FF2E4C] text-[11px] whitespace-nowrap">
+                              {pay.id || pay.invoiceId}
+                            </td>
+                            <td className="p-4">
+                              <div className="font-semibold text-white">{pay.customer}</div>
+                              <div className="text-[11px] text-slate-400">{pay.customerEmail}</div>
+                            </td>
+                            <td className="p-4">
+                              <span className="px-2.5 py-0.5 rounded-md bg-white/5 text-slate-200 border border-white/10 font-medium">
+                                {pay.plan || 'Standard Membership'}
+                              </span>
+                            </td>
+                            <td className="p-4 font-bold text-white font-mono text-sm whitespace-nowrap">
+                              ₹{Number(pay.amount || 0).toLocaleString('en-IN')}
+                            </td>
+                            <td className="p-4 text-slate-300">
+                              <span className="flex items-center gap-1.5">
+                                <CreditCard size={12} className="text-[#FF2E4C]" />
+                                {pay.method || 'Online'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-slate-400 whitespace-nowrap">{pay.date}</td>
+                            <td className="p-4">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium ${
+                                (pay.status || '').toLowerCase() === 'paid' 
+                                  ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800' 
+                                  : 'bg-amber-950/60 text-amber-400 border border-amber-800'
                               }`}>
-                              {pay.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                                ✓ {pay.status || 'Paid'}
+                              </span>
+                            </td>
+                            <td className="p-4 text-right">
+                              <button
+                                onClick={() => {
+                                  setReceiptModalData({
+                                    orderId: pay.id || pay.invoiceId,
+                                    id: pay.id || pay.invoiceId,
+                                    date: pay.date,
+                                    time: '11:00 AM',
+                                    customerName: pay.customer,
+                                    customerEmail: pay.customerEmail,
+                                    customerPhone: pay.customerPhone || '+91 99887 66554',
+                                    paymentMethod: pay.method || 'Online',
+                                    paymentStatus: 'PAID & VERIFIED',
+                                    subtotal: pay.amount,
+                                    tax: 0,
+                                    amount: `₹${Number(pay.amount).toLocaleString('en-IN')}`,
+                                    total: `₹${Number(pay.amount).toLocaleString('en-IN')}`,
+                                    items: [
+                                      {
+                                        name: pay.plan || 'Membership Access Pass',
+                                        qty: 1,
+                                        price: `₹${Number(pay.amount).toLocaleString('en-IN')}`,
+                                        total: `₹${Number(pay.amount).toLocaleString('en-IN')}`
+                                      }
+                                    ],
+                                    membershipTier: pay.plan,
+                                    turnstileStatus: 'Biometric Turnstile Active',
+                                    gymBranch: 'Titan Pulse HQ - High Performance Arena',
+                                    cashier: 'System Billing Manager'
+                                  });
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-[#FF2E4C] text-slate-300 hover:text-white text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5"
+                              >
+                                <Download size={12} /> View Invoice
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
+                  {paymentsList.length === 0 && (
+                    <div className="p-8 text-center text-slate-400 text-xs">
+                      No payment transactions recorded yet.
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -4987,6 +5287,15 @@ export default function AdminDashboard({ user, onLogout }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 3D THERMAL RECEIPT & OFFICIAL TAX INVOICE MODAL */}
+      {receiptModalData && (
+        <ThermalReceiptPrinter
+          orderDetails={receiptModalData}
+          onClose={() => setReceiptModalData(null)}
+          onViewOrders={() => setActiveTab('payment-billing')}
+        />
       )}
 
       {/* Floating Toast Notification */}

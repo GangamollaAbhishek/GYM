@@ -4,7 +4,7 @@ import path from 'path';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const targetUrl = env.VITE_API_URL || 'http://localhost:5000';
+  const targetUrl = env.VITE_API_URL || 'http://localhost:5050';
 
   return {
     plugins: [react()],

@@ -51,15 +51,25 @@ import {
   DollarSign,
   Smartphone,
   History,
-  UserCheck
+  UserCheck,
+  Utensils,
+  NotebookPen,
+  LineChart,
+  TrendingUp,
+  Target,
+  Scale,
+  HeartPulse
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLandingPageCMS } from '../context/LandingPageCMSContext';
 import api from '../lib/api';
 import WorkoutStreakGraph from './WorkoutStreakGraph';
 import ThermalReceiptPrinter from './ThermalReceiptPrinter';
+import CompleteOrderButton from './CompleteOrderButton';
 import ToastNotificationStack from './ToastNotificationStack';
 import AnimatedList from './AnimatedList';
+import confetti from 'canvas-confetti';
+import { DEFAULT_WORKOUT_SPLITS } from './TrainerDashboard';
 
 export default function CustomerDashboard({ onLogout }) {
   const { user, logout, checkAuth } = useAuth();
@@ -95,7 +105,6 @@ export default function CustomerDashboard({ onLogout }) {
   }, [user, navigate]);
 
   // Modals state
-  const [bookingModalTrainer, setBookingModalTrainer] = useState(null);
   const [chatModalTrainer, setChatModalTrainer] = useState(null);
   const [ticketModalOpen, setTicketModalOpen] = useState(false);
   const [receiptModalData, setReceiptModalData] = useState(null);
@@ -251,7 +260,176 @@ export default function CustomerDashboard({ onLogout }) {
     }
   }, [user]);
 
-  // Cloudinary Direct Image Upload Handler
+  // ==========================================
+  // COACHING PROTOCOL & TELEMETRY STATE
+  // ==========================================
+  const [coachingSubTab, setCoachingSubTab] = useState('workout-plan'); // 'workout-plan' | 'diet-plan' | 'trainer-notes' | 'progress' | 'chat'
+  const [coachingData, setCoachingData] = useState({
+    workoutPlan: user?.workoutPlan || {
+      split: 'Push-Pull-Legs (Hypertrophy)',
+      frequency: '5 Days / Week',
+      intensity: 'High Intensity RPE 8-9',
+      cardioProtocol: '20 Mins Incline Treadmill Post-Lift',
+      customNotes: 'Focus on explosive concentric cadence and 3s eccentric squats.',
+      updatedAt: 'Recently updated by Coach'
+    },
+    dietPlan: user?.dietPlan || {
+      dailyCalories: '2,800 kcal',
+      protein: '180g (2.2g/kg)',
+      carbs: '320g',
+      fats: '65g',
+      waterIntake: '4.0 Liters Daily',
+      mealProtocol: '4 Meals + 1 Pre-Workout Meal + 1 Post-Workout Whey Shake',
+      supplements: ['Hydrolyzed Whey Isolate', 'Creatine Creapure 5g', 'BCAA Electrolytes', 'Multivitamin + Omega 3'],
+      updatedAt: 'Recently updated by Coach'
+    },
+    trainerNotes: user?.trainerNotes && user.trainerNotes.length > 0 ? user.trainerNotes : [
+      {
+        note: 'Great form progression on compound squats. Recommend moving working sets up by 5kg next week.',
+        date: '28 Aug 2026',
+        author: user?.assignedTrainerName || 'Master Coach'
+      }
+    ],
+    progress: user?.progress || {
+      currentWeight: user?.weight || '76 kg',
+      targetWeight: '80 kg Lean Mass',
+      bodyFat: user?.bodyFat || '14.2%',
+      benchPressPR: '110 kg',
+      squatPR: '150 kg',
+      deadliftPR: '190 kg',
+      weeklyAttendanceScore: '96%',
+      lastAuditDate: '30 Aug 2026'
+    },
+    chatMessages: user?.chatMessages || []
+  });
+
+  const [customerChatInput, setCustomerChatInput] = useState('');
+  const [customerChatMessages, setCustomerChatMessages] = useState(user?.chatMessages || []);
+
+  // Fetch live coaching telemetry directly from MongoDB database
+  const fetchLiveCoachingData = async () => {
+    const targetId = user?._id || user?.id;
+    if (!targetId) return;
+    try {
+      const res = await api.get(`/api/users/${targetId}`);
+      if (res.data?.status === 'success' && res.data?.data) {
+        const u = res.data.data;
+        setCoachingData({
+          workoutPlan: u.workoutPlan || {
+            split: 'Push-Pull-Legs (Hypertrophy)',
+            frequency: '5 Days / Week',
+            intensity: 'High Intensity RPE 8-9',
+            cardioProtocol: '20 Mins Incline Treadmill Post-Lift',
+            customNotes: 'Focus on explosive concentric cadence and 3s eccentric squats.',
+            updatedAt: 'Recently updated by Coach'
+          },
+          dietPlan: u.dietPlan || {
+            dailyCalories: '2,800 kcal',
+            protein: '180g (2.2g/kg)',
+            carbs: '320g',
+            fats: '65g',
+            waterIntake: '4.0 Liters Daily',
+            mealProtocol: '4 Meals + 1 Pre-Workout Meal + 1 Post-Workout Whey Shake',
+            supplements: ['Hydrolyzed Whey Isolate', 'Creatine Creapure 5g', 'BCAA Electrolytes', 'Multivitamin + Omega 3'],
+            updatedAt: 'Recently updated by Coach'
+          },
+          trainerNotes: u.trainerNotes && u.trainerNotes.length > 0 ? u.trainerNotes : [
+            {
+              note: 'Great form progression on compound squats. Recommend moving working sets up by 5kg next week.',
+              date: '28 Aug 2026',
+              author: u.assignedTrainerName || 'Master Coach'
+            }
+          ],
+          progress: u.progress || {
+            currentWeight: u.weight || '76 kg',
+            targetWeight: '80 kg Lean Mass',
+            bodyFat: u.bodyFat || '14.2%',
+            benchPressPR: '110 kg',
+            squatPR: '150 kg',
+            deadliftPR: '190 kg',
+            weeklyAttendanceScore: '96%',
+            lastAuditDate: '30 Aug 2026'
+          },
+          chatMessages: u.chatMessages || []
+        });
+        if (u.chatMessages) {
+          setCustomerChatMessages(u.chatMessages);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch latest coaching telemetry:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveCoachingData();
+  }, [user]);
+
+  // Handle athlete sending chat to coach
+  const handleCustomerSendChat = async (e) => {
+    e.preventDefault();
+    if (!customerChatInput.trim()) return;
+    const msgText = customerChatInput.trim();
+    const newMsg = {
+      sender: 'athlete',
+      senderName: fullName || user?.name || 'Athlete Member',
+      text: msgText,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setCustomerChatMessages(prev => [...prev, newMsg]);
+    setCustomerChatInput('');
+
+    const targetId = user?._id || user?.id;
+    if (targetId) {
+      try {
+        await api.post(`/api/users/${targetId}/chat-message`, {
+          text: msgText,
+          sender: 'athlete',
+          senderName: fullName || user?.name || 'Athlete Member'
+        });
+      } catch (err) {
+        console.warn('Chat message saved to local session state');
+      }
+    }
+  };
+
+  // Cloudinary Direct Image Upload Handler with High-Speed Compression
+  const compressImage = (file) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        img.src = e.target.result;
+      };
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = reject;
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleAvatarFileChange = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -261,57 +439,47 @@ export default function CustomerDashboard({ onLogout }) {
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      showToast('⚠️ File size exceeds 10MB limit.');
-      return;
-    }
-
     setUploadingAvatar(true);
-    showToast('☁️ Uploading photo directly to Cloudinary CDN...');
+    showToast('☁️ Optimizing and uploading photo to Cloudinary CDN...');
 
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onloadend = async () => {
-        const base64Data = reader.result;
-        try {
-          const res = await api.post('/api/upload', {
-            image: base64Data,
-            folder: 'titan_avatars'
-          });
+      const compressedBase64 = await compressImage(file);
+      setProfilePic(compressedBase64);
 
-          if (res.data?.status === 'success' && res.data?.url) {
-            const cloudinaryUrl = res.data.url;
-            setProfilePic(cloudinaryUrl);
+      let finalUrl = compressedBase64;
+      try {
+        const res = await api.post('/api/upload', {
+          image: compressedBase64,
+          folder: 'titan_avatars'
+        }, { timeout: 60000 });
 
-            // Persist avatar directly in MongoDB Atlas
-            const targetId = user?.id || user?._id;
-            if (targetId) {
-              await api.put(`/api/users/${targetId}`, { avatar: cloudinaryUrl });
-            }
-
-            // Sync with local storage
-            try {
-              const storedUser = JSON.parse(localStorage.getItem('titan_user') || '{}');
-              localStorage.setItem('titan_user', JSON.stringify({ ...storedUser, avatar: cloudinaryUrl }));
-            } catch (err) {
-              console.warn(err);
-            }
-
-            showToast('✅ Profile photo uploaded directly to Cloudinary CDN & saved in MongoDB!');
-          } else {
-            showToast(res.data?.message || 'Failed to upload photo to Cloudinary.');
-          }
-        } catch (err) {
-          console.error('Cloudinary upload error:', err);
-          showToast(err.response?.data?.message || 'Failed to upload photo to Cloudinary CDN.');
-        } finally {
-          setUploadingAvatar(false);
+        if (res.data?.status === 'success' && res.data?.url) {
+          finalUrl = res.data.url;
+          setProfilePic(finalUrl);
         }
-      };
+      } catch (err) {
+        console.warn('Cloudinary upload warning, using direct secure storage:', err);
+      }
+
+      // Persist avatar directly in MongoDB Atlas
+      const targetId = user?.id || user?._id;
+      if (targetId) {
+        await api.put(`/api/users/${targetId}`, { avatar: finalUrl });
+      }
+
+      // Sync with local storage
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('titan_user') || '{}');
+        localStorage.setItem('titan_user', JSON.stringify({ ...storedUser, avatar: finalUrl }));
+      } catch (err) {
+        console.warn(err);
+      }
+
+      showToast('✅ Profile photo updated & synchronized with Trainer Dashboard!');
     } catch (err) {
-      console.error('File read error:', err);
-      showToast('Error reading image file.');
+      console.error('File process error:', err);
+      showToast('Error processing profile image.');
+    } finally {
       setUploadingAvatar(false);
     }
   };
@@ -842,6 +1010,47 @@ export default function CustomerDashboard({ onLogout }) {
         await checkAuth();
       }
 
+      // 1. Confetti Celebration
+      try {
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 }
+        });
+      } catch (e) {}
+
+      // 2. Formulate 3D Thermal Receipt & Tax Invoice Data
+      const invoiceData = {
+        orderId: `INV-MEM-${Math.floor(100000 + Math.random() * 900000)}`,
+        id: `INV-MEM-${Math.floor(100000 + Math.random() * 900000)}`,
+        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        customerName: user?.name || fullName || 'Athlete Member',
+        customerPhone: user?.phone || phone || '+91 99887 66554',
+        customerEmail: user?.email || email || 'athlete@titanpulse.com',
+        paymentMethod: paymentMode,
+        paymentStatus: 'PAID & VERIFIED',
+        subtotal: priceNum,
+        tax: 0,
+        amount: `₹${Number(priceNum).toLocaleString('en-IN')}`,
+        total: `₹${Number(priceNum).toLocaleString('en-IN')}`,
+        items: [
+          {
+            name: `${planName} Pass (1 Year Access)`,
+            qty: 1,
+            price: `₹${Number(priceNum).toLocaleString('en-IN')}`,
+            total: `₹${Number(priceNum).toLocaleString('en-IN')}`
+          }
+        ],
+        membershipTier: planName,
+        membershipExpiry: expiryDateStr,
+        turnstileStatus: 'Biometric Turnstile Active',
+        gymBranch: 'Titan Pulse HQ - High Performance Arena',
+        cashier: 'System Automated Gateway'
+      };
+
+      // Instantly open 3D Thermal Receipt Printer modal
+      setReceiptModalData(invoiceData);
       setPaymentModalData(null);
       setPayProcessing(false);
       showToast(`🎉 Payment Confirmed via ${paymentMode}! ${planName} is now Active until ${expiryDateStr}.`);
@@ -922,7 +1131,20 @@ export default function CustomerDashboard({ onLogout }) {
     fetchTrainers();
   }, []);
 
+  const hasMembership = useMemo(() => {
+    return !!(user?.membershipPlan && 
+      user.membershipPlan !== 'No Active Plan' && 
+      user.membershipPlan !== 'None' && 
+      user?.membershipStatus !== 'No Membership' && 
+      user?.membershipStatus !== 'Inactive');
+  }, [user]);
+
   const myAssignedTrainer = useMemo(() => {
+    // If the customer does NOT have an active membership, they have no assigned trainer
+    if (!hasMembership) {
+      return null;
+    }
+
     if (!realTrainers || realTrainers.length === 0) {
       if (user?.assignedTrainerName) {
         return {
@@ -933,7 +1155,7 @@ export default function CustomerDashboard({ onLogout }) {
           experience: '6+ Years Experience',
           room: 'Main Strength & Conditioning Arena',
           rating: '5.0',
-          pricePerSession: '₹1,499',
+          coachingStatus: 'Included with Membership',
           bio: 'Assigned personal master coach dedicated to your athletic progression.',
           image: 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?auto=format&fit=crop&w=400&q=80'
         };
@@ -957,15 +1179,15 @@ export default function CustomerDashboard({ onLogout }) {
         experience: '6+ Years Experience',
         room: 'Main Strength & Conditioning Arena',
         rating: '5.0',
-        pricePerSession: '₹1,499',
+        coachingStatus: 'Included with Membership',
         bio: 'Assigned personal master coach dedicated to your athletic progression.',
         image: 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?auto=format&fit=crop&w=400&q=80'
       };
     }
 
     // Default to the first genuine trainer if available, or null
-    return realTrainers.length > 0 ? realTrainers[0] : null;
-  }, [realTrainers, user]);
+    return null;
+  }, [realTrainers, user, hasMembership]);
 
   const handleAssignTrainer = async (trainer) => {
     try {
@@ -974,14 +1196,17 @@ export default function CustomerDashboard({ onLogout }) {
         showToast('Please sign in to assign a coach');
         return;
       }
+      if (!hasMembership) {
+        showToast('⚠️ Please purchase a gym membership plan first to get an assigned coach.');
+        return;
+      }
       const res = await api.put(`/api/users/${targetId}/assign-trainer`, {
         trainerId: trainer.id,
         trainerName: trainer.name
       });
       if (res.data?.status === 'success') {
         showToast(`🎉 ${trainer.name} is now your Assigned Master Coach!`);
-        if (checkAuth) await checkAuth();
-        setActiveSubTab('assigned');
+        window.location.reload();
       }
     } catch (err) {
       console.error(err);
@@ -1212,73 +1437,16 @@ export default function CustomerDashboard({ onLogout }) {
     }));
   };
 
-  const workoutSplits = {
-    day1: {
-      title: 'Day 1: Chest & Triceps Hypertrophy',
-      focus: 'Push Power, Pectoral Stretch & Upper Torso Peak',
-      trainer: 'Coach Jayanth',
-      notes: 'Focus on explosive 1s concentric contraction and controlled 3s negative on bench press.',
-      exercises: [
-        { id: 'ex-1', name: 'Barbell Flat Bench Press', sets: '4 Sets', reps: '8 - 10 Reps', target: '85 kg', rest: '90s' },
-        { id: 'ex-2', name: 'Incline Dumbbell Flyes', sets: '3 Sets', reps: '12 - 15 Reps', target: '26 kg each', rest: '60s' },
-        { id: 'ex-3', name: 'Cable Lower Chest Crossovers', sets: '4 Sets', reps: '15 Reps (Squeeze)', target: '20 kg/side', rest: '45s' },
-        { id: 'ex-4', name: 'Weighted Parallel Bar Dips', sets: '3 Sets', reps: '10 - 12 Reps', target: '+15 kg belt', rest: '60s' },
-        { id: 'ex-5', name: 'Overhead Tricep Rope Extension', sets: '4 Sets', reps: '12 - 15 Reps', target: '27.5 kg', rest: '45s' },
-      ]
-    },
-    day2: {
-      title: 'Day 2: Back & Biceps Density',
-      focus: 'Lat Width, Spinal Erectors Thickness & Arm Peak',
-      trainer: 'Coach Jayanth',
-      notes: 'Initiate all pulling movements by depressing and retracting scapula first.',
-      exercises: [
-        { id: 'ex-6', name: 'Conventional Deadlifts', sets: '4 Sets', reps: '5 - 6 Reps', target: '145 kg', rest: '120s' },
-        { id: 'ex-7', name: 'Wide-Grip Lat Pulldowns', sets: '4 Sets', reps: '10 - 12 Reps', target: '70 kg', rest: '60s' },
-        { id: 'ex-8', name: 'Barbell Pendlay Rows', sets: '4 Sets', reps: '8 - 10 Reps', target: '75 kg', rest: '75s' },
-        { id: 'ex-9', name: 'EZ-Bar Bicep Preacher Curls', sets: '3 Sets', reps: '12 Reps', target: '32.5 kg', rest: '45s' },
-        { id: 'ex-10', name: 'Hammer Dumbbell Curls', sets: '3 Sets', reps: '12 Reps/arm', target: '18 kg', rest: '45s' },
-      ]
-    },
-    day3: {
-      title: 'Day 3: Quads, Hamstrings & Core',
-      focus: 'Lower Kinetic Chain Force & Posterior Chain Power',
-      trainer: 'Coach Priya',
-      notes: 'Maintain neutral spine and drive through midfoot on all squatting variations.',
-      exercises: [
-        { id: 'ex-11', name: 'Barbell Back Squats', sets: '5 Sets', reps: '6 - 8 Reps', target: '115 kg', rest: '120s' },
-        { id: 'ex-12', name: '45° Heavy Sled Leg Press', sets: '4 Sets', reps: '12 Reps', target: '240 kg', rest: '90s' },
-        { id: 'ex-13', name: 'Romanian Deadlifts (RDL)', sets: '4 Sets', reps: '10 Reps', target: '90 kg', rest: '75s' },
-        { id: 'ex-14', name: 'Seated Leg Extensions', sets: '3 Sets', reps: '15 Reps (Drop set)', target: '60 kg', rest: '45s' },
-        { id: 'ex-15', name: 'Hanging Leg Raises to Bar', sets: '4 Sets', reps: '15 Reps', target: 'Bodyweight', rest: '45s' },
-      ]
-    },
-    day4: {
-      title: 'Day 4: Shoulders & Traps 3D Cap',
-      focus: 'Deltoid Silhouette, Lateral Head & Scapular Stability',
-      trainer: 'Coach Jayanth',
-      notes: 'Avoid swinging momentum on cable laterals; pause 1s at top contraction.',
-      exercises: [
-        { id: 'ex-16', name: 'Seated Overhead Dumbbell Press', sets: '4 Sets', reps: '8 - 10 Reps', target: '30 kg each', rest: '90s' },
-        { id: 'ex-17', name: 'Leaning Cable Lateral Raises', sets: '4 Sets', reps: '15 Reps/side', target: '12.5 kg', rest: '45s' },
-        { id: 'ex-18', name: 'Reverse Pec Deck Flyes (Rear Delt)', sets: '4 Sets', reps: '15 Reps', target: '50 kg', rest: '45s' },
-        { id: 'ex-19', name: 'Heavy Barbell Shrugs', sets: '4 Sets', reps: '12 Reps (2s Pause)', target: '110 kg', rest: '60s' },
-      ]
-    },
-    day5: {
-      title: 'Day 5: Functional Core & HIIT Telemetry',
-      focus: 'Lactate Threshold, Core Bracing & Cellular Recovery',
-      trainer: 'Coach Santosh',
-      notes: 'Maintain heart rate above 145 BPM during intervals; hydrate continuously.',
-      exercises: [
-        { id: 'ex-20', name: 'Assault AirBike Sprints', sets: '6 Sets', reps: '30s Max / 60s Rest', target: '85 RPM', rest: '60s' },
-        { id: 'ex-21', name: 'Kettlebell Russian Swings', sets: '4 Sets', reps: '20 Reps', target: '28 kg', rest: '45s' },
-        { id: 'ex-22', name: 'Ab Wheel Rollouts', sets: '4 Sets', reps: '12 - 15 Reps', target: 'Bodyweight', rest: '45s' },
-        { id: 'ex-23', name: 'Battle Rope Waves & Slams', sets: '4 Sets', reps: '45s continuous', target: 'Max Pace', rest: '45s' },
-      ]
+  const activeWorkoutSplits = useMemo(() => {
+    if (coachingData.workoutPlan?.dailySplits && typeof coachingData.workoutPlan.dailySplits === 'object' && Object.keys(coachingData.workoutPlan.dailySplits).length > 0) {
+      return coachingData.workoutPlan.dailySplits;
     }
-  };
+    const currentSplitName = coachingData.workoutPlan?.split || 'Push-Pull-Legs (Hypertrophy)';
+    return DEFAULT_WORKOUT_SPLITS[currentSplitName] || DEFAULT_WORKOUT_SPLITS['Push-Pull-Legs (Hypertrophy)'];
+  }, [coachingData.workoutPlan]);
 
-  const currentDayExercises = workoutSplits[workoutDay]?.exercises || [];
+  const safeWorkoutDay = activeWorkoutSplits[workoutDay] ? workoutDay : (Object.keys(activeWorkoutSplits)[0] || 'day1');
+  const currentDayExercises = activeWorkoutSplits[safeWorkoutDay]?.exercises || [];
   const completedCount = currentDayExercises.filter(ex => completedExercises[ex.id]).length;
   const progressPercent = Math.round((completedCount / (currentDayExercises.length || 1)) * 100);
 
@@ -1295,35 +1463,14 @@ export default function CustomerDashboard({ onLogout }) {
   const [gymRating, setGymRating] = useState(5);
   const [gymReview, setGymReview] = useState('');
 
-  const [supportTickets, setSupportTickets] = useState([
-    {
-      id: 'TCK-2026-8812',
-      subject: 'Locker #42 Biometric RFID NFC sync calibration',
-      category: 'Biometric Gate & Lockers',
-      priority: 'Medium',
-      date: '24 Aug 2026',
-      status: 'Resolved',
-      reply: 'Turnstile RFID sensor #A1 and locker #42 re-synchronized on Atlas server. You can tap without delay.'
-    },
-    {
-      id: 'TCK-2026-7734',
-      subject: 'Monthly 3D InBody Telemetry Scan Report PDF request',
-      category: 'Biometric Reports',
-      priority: 'Low',
-      date: '10 Aug 2026',
-      status: 'Resolved',
-      reply: 'Official PDF telemetry audit generated and emailed to your registered address.'
-    },
-    {
-      id: 'TCK-2026-6651',
-      subject: 'Guest Pass invitation for Saturday powerlifting session',
-      category: 'Membership Privileges',
-      priority: 'High',
-      date: '02 Aug 2026',
-      status: 'Resolved',
-      reply: 'Guest pass voucher #GP-992 approved. Reception desk will issue visitor RFID pass.'
+  const [supportTickets, setSupportTickets] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`titan_support_tickets_${user?.id || 'default'}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
     }
-  ]);
+  });
 
   const [newTicket, setNewTicket] = useState({
     subject: '',
@@ -1352,27 +1499,113 @@ export default function CustomerDashboard({ onLogout }) {
     }
   ];
 
-  const handleFeedbackSubmit = (e) => {
+  const handleFeedbackSubmit = async (e) => {
     e.preventDefault();
     if (!feedbackMessage) {
       showToast('Please type your feedback comments');
       return;
     }
-    showToast('✓ Thank you! Your feedback has been sent directly to Gym Management.');
-    setFeedbackMessage('');
-    setFeedbackRating(5);
+    const fbPayload = {
+      id: 'fb-' + Date.now(),
+      category: feedbackCategory,
+      rating: feedbackRating,
+      message: feedbackMessage,
+      comment: feedbackMessage,
+      trainerId: user?.assignedTrainer || null,
+      trainerName: user?.assignedTrainerName || 'Master Coach',
+      athleteName: user?.name || 'Gym Athlete',
+      customerName: user?.name || 'Gym Athlete',
+      customerEmail: user?.email,
+      customerAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      athleteAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      customerPlan: user?.plan || 'VIP Obsidian Member',
+      plan: user?.plan || 'VIP Obsidian Member',
+      date: new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+    try {
+      const savedGlobal = JSON.parse(localStorage.getItem('titan_global_feedbacks') || '[]');
+      localStorage.setItem('titan_global_feedbacks', JSON.stringify([fbPayload, ...savedGlobal]));
+      await api.post('/feedbacks', fbPayload);
+      showToast('✓ Thank you! Your feedback has been sent directly to your coach & management.');
+      setFeedbackMessage('');
+      setFeedbackRating(5);
+    } catch (err) {
+      console.error('Submit feedback error:', err);
+      showToast('✓ Feedback recorded successfully.');
+      setFeedbackMessage('');
+    }
   };
 
-  const handleTrainerReviewSubmit = (e) => {
+  const handleTrainerReviewSubmit = async (e) => {
     e.preventDefault();
-    showToast('✓ Thank you! Your rating for Coach Jayanth has been recorded.');
-    setTrainerReview('');
+    if (!trainerReview) {
+      showToast('Please enter your review for your coach');
+      return;
+    }
+    const fbPayload = {
+      id: 'fb-' + Date.now(),
+      category: 'Trainer Consultation',
+      rating: trainerRating,
+      message: trainerReview,
+      comment: trainerReview,
+      trainerId: user?.assignedTrainer || null,
+      trainerName: user?.assignedTrainerName || myAssignedTrainer?.name || 'Master Coach',
+      athleteName: user?.name || 'Gym Athlete',
+      customerName: user?.name || 'Gym Athlete',
+      customerEmail: user?.email,
+      customerAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      athleteAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      customerPlan: user?.plan || 'VIP Obsidian Member',
+      plan: user?.plan || 'VIP Obsidian Member',
+      date: new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+    try {
+      const savedGlobal = JSON.parse(localStorage.getItem('titan_global_feedbacks') || '[]');
+      localStorage.setItem('titan_global_feedbacks', JSON.stringify([fbPayload, ...savedGlobal]));
+      await api.post('/feedbacks', fbPayload);
+      showToast(`✓ Thank you! Your review for ${user?.assignedTrainerName || myAssignedTrainer?.name || 'Coach'} has been sent to their portal.`);
+      setTrainerReview('');
+    } catch (err) {
+      console.error('Submit trainer review error:', err);
+      showToast('✓ Trainer review recorded successfully.');
+      setTrainerReview('');
+    }
   };
 
-  const handleGymReviewSubmit = (e) => {
+  const handleGymReviewSubmit = async (e) => {
     e.preventDefault();
-    showToast('✓ Thank you! Your rating for Titan Pulse Gym has been recorded.');
-    setGymReview('');
+    if (!gymReview) {
+      showToast('Please enter your facility feedback message');
+      return;
+    }
+    const fbPayload = {
+      id: 'fb-' + Date.now(),
+      category: 'Facility & Equipment',
+      rating: gymRating,
+      message: gymReview,
+      comment: gymReview,
+      trainerId: user?.assignedTrainer || null,
+      trainerName: 'Titan Pulse Management',
+      athleteName: user?.name || 'Gym Athlete',
+      customerName: user?.name || 'Gym Athlete',
+      customerEmail: user?.email,
+      customerAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      athleteAvatar: user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+      customerPlan: user?.plan || 'VIP Obsidian Member',
+      plan: user?.plan || 'VIP Obsidian Member',
+      date: new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+    try {
+      const savedGlobal = JSON.parse(localStorage.getItem('titan_global_feedbacks') || '[]');
+      localStorage.setItem('titan_global_feedbacks', JSON.stringify([fbPayload, ...savedGlobal]));
+      await api.post('/feedbacks', fbPayload);
+      showToast('✓ Thank you! Your rating for Titan Pulse Gym has been recorded.');
+      setGymReview('');
+    } catch (err) {
+      console.error('Submit gym review error:', err);
+      showToast('✓ Facility review recorded successfully.');
+      setGymReview('');
+    }
   };
 
   const handleCreateTicketSubmit = (e) => {
@@ -1382,15 +1615,19 @@ export default function CustomerDashboard({ onLogout }) {
       return;
     }
     const createdTicket = {
-      id: `TCK-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: `TCK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       subject: newTicket.subject,
       category: newTicket.category,
       priority: newTicket.priority,
-      date: 'Today, 31 Aug 2026',
+      date: new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }),
       status: 'Open',
-      reply: 'Ticket logged with Front Desk. A response will be provided within 2 business hours.'
+      reply: 'Ticket logged with Front Desk. Our management team will review and respond promptly.'
     };
-    setSupportTickets([createdTicket, ...supportTickets]);
+    const updated = [createdTicket, ...supportTickets];
+    setSupportTickets(updated);
+    try {
+      localStorage.setItem(`titan_support_tickets_${user?.id || 'default'}`, JSON.stringify(updated));
+    } catch (e) {}
     setNewTicket({ subject: '', category: 'Facility & Equipment', priority: 'Medium', description: '' });
     setTicketModalOpen(false);
     showToast('✓ Support ticket submitted successfully! Ticket ID: ' + createdTicket.id);
@@ -1461,8 +1698,11 @@ export default function CustomerDashboard({ onLogout }) {
       icon: Dumbbell,
       badge: 'Active',
       subsections: [
-        { id: 'workout', label: 'Workout Plan' },
-        { id: 'diet', label: 'Diet Plan' },
+        { id: 'workout-plan', label: 'Workout Plan' },
+        { id: 'diet-plan', label: 'Diet Plan' },
+        { id: 'trainer-notes', label: 'Trainer Notes' },
+        { id: 'progress', label: 'Customer Progress Tracking' },
+        { id: 'chat', label: 'Chat with Trainer' }
       ]
     },
     {
@@ -1559,7 +1799,7 @@ export default function CustomerDashboard({ onLogout }) {
           )}
 
           {/* SIDEBAR NAVIGATION ITEMS (6 MAIN SECTIONS WITH SUBSECTIONS) */}
-          <nav className="flex-1 px-3 py-2 space-y-1.5 overflow-y-auto no-scrollbar">
+          <nav className="flex-1 px-3 py-2 space-y-1.5 overflow-y-auto overscroll-contain custom-scrollbar pb-8">
             {mainNavSections.map((sec) => {
               const Icon = sec.icon;
               const isMainActive = activeTab === sec.id;
@@ -1628,29 +1868,6 @@ export default function CustomerDashboard({ onLogout }) {
               );
             })}
           </nav>
-
-          {/* Bottom Footer Actions */}
-          <div className="p-3 border-t border-white/[0.08] space-y-1">
-            <button
-              onClick={() => navigate('/')}
-              className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/[0.04] transition-colors cursor-pointer"
-            >
-              <Activity size={16} />
-              {sidebarOpen && <span>Back to Main Gym</span>}
-            </button>
-            <button
-              onClick={() => {
-                if (onLogout) onLogout();
-                else logout();
-                navigate('/');
-              }}
-              className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-[#FF1E27] hover:bg-[#FF1E27]/10 transition-colors cursor-pointer"
-            >
-              <Lock size={16} />
-              {sidebarOpen && <span>Log Out</span>}
-            </button>
-          </div>
-
         </div>
       </aside>
 
@@ -2546,8 +2763,8 @@ export default function CustomerDashboard({ onLogout }) {
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
+                    <div className="overflow-x-auto w-full no-scrollbar">
+                      <table className="min-w-[860px] w-full text-left text-xs border-collapse">
                         <thead className="bg-[#14141E] text-slate-400 text-xs font-semibold tracking-wider border-b border-white/[0.06]">
                           <tr>
                             <th className="p-4 font-medium">Log ID</th>
@@ -3178,7 +3395,7 @@ export default function CustomerDashboard({ onLogout }) {
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-white/[0.08]">
                     <div>
                       <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-['Outfit',sans-serif]">My Assigned Master Coach</h2>
-                      <p className="text-xs sm:text-sm text-slate-400 mt-1">Dedicated personal trainer assigned to manage your workout progression, form audits, and 1-on-1 sessions.</p>
+                      <p className="text-xs sm:text-sm text-slate-400 mt-1">Dedicated personal trainer assigned to manage your workout progression, form audits, and training regimen.</p>
                     </div>
                     <button
                       onClick={() => setActiveSubTab('all')}
@@ -3227,8 +3444,8 @@ export default function CustomerDashboard({ onLogout }) {
                           <p className="font-semibold text-emerald-400">{membershipPlan && membershipPlan !== 'No Active Plan' ? `${membershipPlan} Routine` : 'Personalized Hypertrophy'}</p>
                         </div>
                         <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1">
-                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-semibold block">SESSION RATE:</span>
-                          <p className="font-semibold text-purple-400 font-mono">{myAssignedTrainer.pricePerSession || '₹1,499'} / session</p>
+                          <span className="text-slate-400 uppercase tracking-wider text-[10px] font-semibold block">COACHING STATUS:</span>
+                          <p className="font-semibold text-emerald-400">Included with Membership</p>
                         </div>
                       </div>
 
@@ -3247,10 +3464,10 @@ export default function CustomerDashboard({ onLogout }) {
                           <MessageSquare size={15} /> Chat with Assigned Coach
                         </button>
                         <button
-                          onClick={() => setBookingModalTrainer(myAssignedTrainer)}
+                          onClick={() => setActiveTab('workout-diet')}
                           className="flex-1 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white font-semibold text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center gap-2"
                         >
-                          <Calendar size={15} /> Schedule 1-on-1 Session
+                          <Dumbbell size={15} /> View Assigned Workout Plan
                         </button>
                         <button
                           onClick={() => setActiveSubTab('all')}
@@ -3327,8 +3544,10 @@ export default function CustomerDashboard({ onLogout }) {
 
                             <div className="space-y-3 pt-3 border-t border-white/[0.06]">
                               <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-400">Session Rate:</span>
-                                <span className="text-white font-bold font-mono">{t.pricePerSession || '₹1,499'} / session</span>
+                                <span className="text-slate-400">Coaching Status:</span>
+                                <span className={isAssignedToMe ? "text-emerald-400 font-bold" : "text-slate-300 font-medium"}>
+                                  {isAssignedToMe ? "✓ Active Assigned Coach" : "Available to Assign"}
+                                </span>
                               </div>
 
                               <div className="flex flex-col gap-2">
@@ -3341,21 +3560,15 @@ export default function CustomerDashboard({ onLogout }) {
                                   </button>
                                 ) : (
                                   <div className="w-full py-2 rounded-xl bg-emerald-950/40 border border-emerald-800 text-emerald-400 font-semibold text-xs text-center">
-                                    ✓ Your Active Coach
+                                    ✓ Your Active Coach (Included)
                                   </div>
                                 )}
                                 <div className="flex gap-2">
                                   <button
                                     onClick={() => setChatModalTrainer(t)}
-                                    className="flex-1 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white font-medium text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                                    className="w-full py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white font-medium text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
                                   >
-                                    <MessageSquare size={13} /> Chat
-                                  </button>
-                                  <button
-                                    onClick={() => setBookingModalTrainer(t)}
-                                    className="flex-1 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white font-medium text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                                  >
-                                    <Calendar size={13} /> Book Session
+                                    <MessageSquare size={13} /> Chat with Coach
                                   </button>
                                 </div>
                               </div>
@@ -3489,17 +3702,17 @@ export default function CustomerDashboard({ onLogout }) {
                   {filteredTransactions.length > 0 ? (
                     <div className="rounded-2xl bg-[#121217] border border-white/[0.08] overflow-hidden shadow-sm">
                       <div className="overflow-x-auto w-full no-scrollbar">
-                        <table className="w-full text-left text-xs border-collapse">
+                        <table className="min-w-[1020px] w-full text-left text-xs border-collapse">
                           <thead className="bg-[#181822] text-slate-400 text-xs font-semibold tracking-wider border-b border-white/[0.08]">
                             <tr>
-                              <th className="px-3.5 py-3.5 font-semibold whitespace-nowrap">Transaction ID</th>
-                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Date</th>
-                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Category</th>
-                              <th className="px-3.5 py-3.5 font-semibold min-w-[140px] max-w-[220px]">Description / Items</th>
-                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Payment Method</th>
-                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Amount</th>
-                              <th className="px-3 py-3.5 font-semibold whitespace-nowrap">Status</th>
-                              <th className="px-3.5 py-3.5 text-right font-semibold whitespace-nowrap">Receipt</th>
+                              <th className="px-4 py-3.5 font-semibold whitespace-nowrap min-w-[160px]">Transaction ID</th>
+                              <th className="px-4 py-3.5 font-semibold whitespace-nowrap min-w-[120px]">Date</th>
+                              <th className="px-4 py-3.5 font-semibold whitespace-nowrap min-w-[140px]">Category</th>
+                              <th className="px-4 py-3.5 font-semibold min-w-[260px]">Description / Items</th>
+                              <th className="px-4 py-3.5 font-semibold whitespace-nowrap min-w-[180px]">Payment Method</th>
+                              <th className="px-4 py-3.5 font-semibold whitespace-nowrap min-w-[110px]">Amount</th>
+                              <th className="px-4 py-3.5 font-semibold whitespace-nowrap min-w-[130px]">Status</th>
+                              <th className="px-4 py-3.5 text-right font-semibold whitespace-nowrap min-w-[110px]">Receipt</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/[0.04] text-slate-200">
@@ -3508,28 +3721,28 @@ export default function CustomerDashboard({ onLogout }) {
                               const isPending = tx.status.toLowerCase().includes('pending');
                               return (
                                 <tr key={tx.id} className="hover:bg-white/[0.02] transition-colors">
-                                  <td className="px-3.5 py-3.5 font-mono font-medium whitespace-nowrap align-middle">
+                                  <td className="px-4 py-3.5 font-mono font-medium whitespace-nowrap align-middle">
                                     <span className={isSupp ? 'text-emerald-400 font-semibold' : 'text-[#00F0FF] font-semibold'}>
                                       {tx.id}
                                     </span>
                                   </td>
-                                  <td className="px-3 py-3.5 text-slate-400 whitespace-nowrap align-middle">{tx.date}</td>
-                                  <td className="px-3 py-3.5 whitespace-nowrap align-middle">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
+                                  <td className="px-4 py-3.5 text-slate-400 whitespace-nowrap align-middle">{tx.date}</td>
+                                  <td className="px-4 py-3.5 whitespace-nowrap align-middle">
+                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
                                       isSupp
                                         ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/60'
                                         : 'bg-[#FF1E27]/15 text-[#FF1E27] border border-[#FF1E27]/30'
                                     }`}>
-                                      {isSupp ? <ShoppingBag size={10} /> : <Crown size={10} />}
+                                      {isSupp ? <ShoppingBag size={11} /> : <Crown size={11} />}
                                       <span>{tx.category}</span>
                                     </span>
                                   </td>
-                                  <td className="px-3.5 py-3.5 font-medium text-white align-middle max-w-[220px]" title={tx.item}>
+                                  <td className="px-4 py-3.5 font-medium text-white align-middle max-w-[280px]" title={tx.item}>
                                     <span className="truncate block">{tx.item}</span>
                                   </td>
-                                  <td className="px-3 py-3.5 text-slate-300 whitespace-nowrap align-middle">{tx.method}</td>
-                                  <td className="px-3 py-3.5 font-bold text-emerald-400 font-mono text-sm whitespace-nowrap align-middle">{tx.amount}</td>
-                                  <td className="px-3 py-3.5 whitespace-nowrap align-middle">
+                                  <td className="px-4 py-3.5 text-slate-300 whitespace-nowrap align-middle">{tx.method}</td>
+                                  <td className="px-4 py-3.5 font-bold text-emerald-400 font-mono text-sm whitespace-nowrap align-middle">{tx.amount}</td>
+                                  <td className="px-4 py-3.5 whitespace-nowrap align-middle">
                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium whitespace-nowrap border ${
                                       isPending
                                         ? 'bg-amber-950/60 text-amber-300 border-amber-800/80 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
@@ -3539,7 +3752,7 @@ export default function CustomerDashboard({ onLogout }) {
                                       <span>{tx.status}</span>
                                     </span>
                                   </td>
-                                  <td className="px-3.5 py-3.5 text-right whitespace-nowrap align-middle">
+                                  <td className="px-4 py-3.5 text-right whitespace-nowrap align-middle">
                                     <button
                                       onClick={() => {
                                         setReceiptModalData({
@@ -3561,7 +3774,7 @@ export default function CustomerDashboard({ onLogout }) {
                                           }
                                         });
                                       }}
-                                      className="px-3 py-1.5 rounded-xl bg-[#181822] hover:bg-[#FF1E27] text-slate-300 hover:text-white transition-all cursor-pointer inline-flex items-center gap-1.5 font-medium text-xs border border-white/[0.06] whitespace-nowrap"
+                                      className="px-3 py-1.5 rounded-xl bg-[#181822] hover:bg-[#FF1E27] text-slate-300 hover:text-white transition-all cursor-pointer inline-flex items-center gap-1.5 font-medium text-xs border border-white/[0.06] whitespace-nowrap shadow-sm"
                                       title="View Official Receipt & Invoice"
                                     >
                                       <Download size={13} />
@@ -3779,140 +3992,271 @@ export default function CustomerDashboard({ onLogout }) {
           )}
 
           {/* ========================================================= */}
-          {/* 5. WORKOUT & DIET PLAN SECTION                            */}
+          {/* 5. WORKOUT, DIET & COACHING HUB SECTION                   */}
           {/* ========================================================= */}
           {activeTab === 'workout-diet' && (
-            <div className="space-y-8 animate-fadeIn">
-              
+            <div className="space-y-6 animate-fadeIn">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-white/[0.08]">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-['Outfit',sans-serif]">Master Coach Protocol & Telemetry Hub</h2>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-1">Live workout splits, macro nutrition protocols, coach observation logs, PR telemetry, and 1-on-1 direct coaching stream.</p>
+                </div>
+                {user?.assignedTrainerName && (
+                  <span className="px-3.5 py-1.5 rounded-xl bg-[#FF1E27]/10 border border-[#FF1E27]/30 text-[#FF1E27] text-xs font-mono font-semibold flex items-center gap-1.5">
+                    <UserCheck size={14} className="text-[#FF1E27]" /> Assigned Coach: {user.assignedTrainerName}
+                  </span>
+                )}
+              </div>
+
+              {/* 5-TAB HORIZONTAL PILL NAVIGATION (CYBER RED THEME) */}
+              <div className="bg-[#12141C] border border-white/[0.08] p-1.5 rounded-2xl flex items-center gap-2 overflow-x-auto no-scrollbar shadow-md">
+                {[
+                  { id: 'workout-plan', label: 'Workout Plan', icon: Dumbbell },
+                  { id: 'diet-plan', label: 'Diet Plan', icon: Utensils },
+                  { id: 'trainer-notes', label: 'Trainer Notes', icon: NotebookPen },
+                  { id: 'progress', label: 'Customer Progress Tracking', icon: LineChart },
+                  { id: 'chat', label: 'Chat with Trainer', icon: MessageSquare }
+                ].map((sub) => {
+                  const Icon = sub.icon;
+                  const isSubActive = (coachingSubTab === sub.id) || (activeSubTab === sub.id) || (!coachingSubTab && sub.id === 'workout-plan');
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => {
+                        setCoachingSubTab(sub.id);
+                        setActiveSubTab(sub.id);
+                      }}
+                      className={`flex-1 min-w-[150px] py-3 px-4 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-2 ${
+                        isSubActive
+                          ? 'bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white shadow-lg font-bold'
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      <Icon size={15} className={isSubActive ? 'text-white' : 'text-slate-400'} />
+                      <span>{sub.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
               {/* SUBSECTION 1: WORKOUT PLAN */}
-              {(activeSubTab === 'workout' || !activeSubTab) && (
-                <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-white/[0.08]">
+              {(coachingSubTab === 'workout-plan' || activeSubTab === 'workout-plan' || (!coachingSubTab && !activeSubTab)) && (
+                <div className="p-6 sm:p-8 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl space-y-6 animate-fadeIn">
+                  <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
                     <div>
-                      <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-['Outfit',sans-serif]">Customized Workout Split</h2>
-                      <p className="text-xs sm:text-sm text-slate-400 mt-1">Biomechanical hypertrophy & strength progression prescribed by your assigned coach.</p>
+                      <h4 className="text-lg font-bold text-white font-['Outfit',sans-serif] flex items-center gap-2">
+                        <Dumbbell size={20} className="text-[#FF1E27]" /> Prescribed Workout Protocol
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Biomechanical hypertrophy & strength progression prescribed by your assigned coach.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1 rounded-full bg-[#FF1E27]/10 text-[#FF1E27] border border-[#FF1E27]/20 text-xs font-semibold">
-                        Weekly Progress: {progressPercent}% Done
-                      </span>
+                    <span className="text-[11px] text-slate-400 font-mono">Last update: {coachingData.workoutPlan?.updatedAt || 'Recently by Coach'}</span>
+                  </div>
+
+                  {/* Coach Workout Split Telemetry Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+                    <div className="p-4 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1">
+                      <span className="text-slate-400 uppercase tracking-wider text-[10px] font-semibold block">PRIMARY TRAINING SPLIT</span>
+                      <p className="font-bold text-white text-sm">{coachingData.workoutPlan?.split || 'Push-Pull-Legs (Hypertrophy)'}</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1">
+                      <span className="text-slate-400 uppercase tracking-wider text-[10px] font-semibold block">WEEKLY FREQUENCY</span>
+                      <p className="font-bold text-[#FF1E27] text-sm">{coachingData.workoutPlan?.frequency || '5 Days / Week'}</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1">
+                      <span className="text-slate-400 uppercase tracking-wider text-[10px] font-semibold block">INTENSITY TARGET</span>
+                      <p className="font-bold text-white text-sm">{coachingData.workoutPlan?.intensity || 'High Intensity RPE 8-9'}</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1">
+                      <span className="text-slate-400 uppercase tracking-wider text-[10px] font-semibold block">CARDIO & RECOVERY</span>
+                      <p className="font-bold text-emerald-400 text-sm">{coachingData.workoutPlan?.cardioProtocol || '20 Mins Incline Treadmill'}</p>
                     </div>
                   </div>
+
+                  {coachingData.workoutPlan?.customNotes && (
+                    <div className="p-4 rounded-2xl bg-[#090A0E] border border-[#FF1E27]/20 space-y-1 text-xs">
+                      <span className="text-[#FF1E27] font-bold uppercase tracking-wider text-[10px] flex items-center gap-1.5">
+                        <NotebookPen size={13} /> COACH TECHNICAL FORM CUES & EXECUTION NOTES
+                      </span>
+                      <p className="text-slate-200 leading-relaxed italic text-xs sm:text-sm">
+                        "{coachingData.workoutPlan.customNotes}"
+                      </p>
+                    </div>
+                  )}
 
                   {/* Day Tabs */}
-                  <div className="flex flex-wrap gap-2">
-                    {Object.keys(workoutSplits).map((dayKey, idx) => (
-                      <button
-                        key={dayKey}
-                        onClick={() => setWorkoutDay(dayKey)}
-                        className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                          workoutDay === dayKey
-                            ? 'bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white shadow-sm'
-                            : 'bg-[#121217] text-slate-400 border border-white/[0.06] hover:border-white/20'
-                        }`}
-                      >
-                        Day {idx + 1} Split
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Split Header & Exercises List */}
-                  <div className="p-6 sm:p-7 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-5 shadow-sm">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-4 border-b border-white/[0.06]">
-                      <div>
-                        <h3 className="text-base sm:text-lg font-semibold text-white font-['Outfit',sans-serif]">{workoutSplits[workoutDay].title}</h3>
-                        <p className="text-xs text-[#FF1E27] font-semibold mt-0.5">{workoutSplits[workoutDay].focus}</p>
-                        <p className="text-xs text-slate-400 mt-1 italic">Coach Note: "{workoutSplits[workoutDay].notes}"</p>
-                      </div>
-                      <span className="text-xs text-slate-400 font-medium">
-                        {workoutSplits[workoutDay].exercises.length} Exercises Scheduled
-                      </span>
+                  <div className="space-y-4 pt-2">
+                    <div className="flex flex-wrap gap-2">
+                      {Object.keys(activeWorkoutSplits).map((dayKey, idx) => (
+                        <button
+                          key={dayKey}
+                          onClick={() => setWorkoutDay(dayKey)}
+                          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                            safeWorkoutDay === dayKey
+                              ? 'bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white shadow-md'
+                              : 'bg-[#090A0E] text-slate-400 border border-white/[0.06] hover:border-white/20'
+                          }`}
+                        >
+                          Day {idx + 1} Split
+                        </button>
+                      ))}
                     </div>
 
-                    <div className="space-y-3">
-                      {workoutSplits[workoutDay].exercises.map((ex, idx) => {
-                        const isDone = completedExercises[ex.id];
-                        return (
-                          <div
-                            key={ex.id}
-                            onClick={() => toggleExercise(ex.id)}
-                            className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                              isDone 
-                                ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300' 
-                                : 'bg-[#0D0D12] border-white/[0.06] text-slate-200 hover:border-white/20'
-                            }`}
-                          >
-                            <div className="flex items-center gap-3.5">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${
-                                isDone ? 'bg-emerald-500 text-black' : 'bg-white/10 text-white'
-                              }`}>
-                                {idx + 1}
-                              </div>
-                              <div>
-                                <h4 className={`text-sm font-semibold ${isDone ? 'line-through text-slate-400' : 'text-white'}`}>
-                                  {ex.name}
-                                </h4>
-                                <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                                  <span>{ex.sets}</span> • <span>{ex.reps}</span> • <span className="text-[#FF1E27] font-semibold">{ex.target}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs text-slate-400 font-medium">Rest: {ex.rest}</span>
-                              <div className={`w-6 h-6 rounded-lg flex items-center justify-center border ${
-                                isDone ? 'bg-emerald-500 border-emerald-400 text-black' : 'border-white/20'
-                              }`}>
-                                {isDone && <Check size={14} />}
-                              </div>
-                            </div>
+                    {activeWorkoutSplits[safeWorkoutDay] && (
+                      <div className="p-5 sm:p-6 rounded-2xl bg-[#090A0E] border border-white/[0.08] space-y-4 shadow-sm">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-3 border-b border-white/[0.06]">
+                          <div>
+                            <h4 className="text-base font-semibold text-white font-['Outfit',sans-serif]">{activeWorkoutSplits[safeWorkoutDay].title}</h4>
+                            <p className="text-xs text-[#FF1E27] font-semibold mt-0.5">{activeWorkoutSplits[safeWorkoutDay].focus}</p>
+                            {activeWorkoutSplits[safeWorkoutDay].notes && (
+                              <p className="text-[11px] text-slate-400 italic mt-1">"{activeWorkoutSplits[safeWorkoutDay].notes}"</p>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
+                          <span className="text-xs text-slate-400 font-medium">
+                            {(activeWorkoutSplits[safeWorkoutDay].exercises || []).length} Exercises Prescribed
+                          </span>
+                        </div>
+
+                        <div className="space-y-2.5">
+                          {(!activeWorkoutSplits[safeWorkoutDay].exercises || activeWorkoutSplits[safeWorkoutDay].exercises.length === 0) ? (
+                            <div className="p-4 rounded-xl bg-[#12141C] text-center text-slate-500 text-xs">
+                              No exercises prescribed for this day yet.
+                            </div>
+                          ) : (
+                            activeWorkoutSplits[safeWorkoutDay].exercises.map((ex, idx) => {
+                              const isDone = completedExercises[ex.id || `ex-${idx}`];
+                              return (
+                                <div
+                                  key={ex.id || idx}
+                                  onClick={() => toggleExercise(ex.id || `ex-${idx}`)}
+                                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                                    isDone 
+                                      ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300' 
+                                      : 'bg-[#12141C] border-white/[0.06] text-slate-200 hover:border-white/20'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
+                                      isDone ? 'bg-emerald-500 text-black' : 'bg-white/10 text-white'
+                                    }`}>
+                                      {idx + 1}
+                                    </div>
+                                    <div>
+                                      <h5 className={`text-xs sm:text-sm font-semibold ${isDone ? 'line-through text-slate-400' : 'text-white'}`}>
+                                        {ex.name}
+                                      </h5>
+                                      <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-0.5">
+                                        <span>{ex.sets}</span> • <span>{ex.reps}</span> • <span className="text-[#FF1E27] font-semibold">{ex.target}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-xs text-slate-400 font-medium">Rest: {ex.rest}</span>
+                                    <div className={`w-5 h-5 rounded-lg flex items-center justify-center border ${
+                                      isDone ? 'bg-emerald-500 border-emerald-400 text-black' : 'border-white/20'
+                                    }`}>
+                                      {isDone && <Check size={12} />}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
               {/* SUBSECTION 2: DIET PLAN */}
-              {activeSubTab === 'diet' && (
-                <div className="space-y-6">
-                  <div className="pb-4 border-b border-white/[0.08]">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-['Outfit',sans-serif]">Macro Matrix & Daily Nutrition Plan</h2>
-                    <p className="text-xs sm:text-sm text-slate-400 mt-1">Precision calorie split, macro breakdown, and timed cellular recovery meals.</p>
+              {(coachingSubTab === 'diet-plan' || activeSubTab === 'diet-plan') && (
+                <div className="p-6 sm:p-8 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl space-y-6 animate-fadeIn">
+                  <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
+                    <div>
+                      <h4 className="text-lg font-bold text-white font-['Outfit',sans-serif] flex items-center gap-2">
+                        <Utensils size={20} className="text-emerald-400" /> Prescribed Macro & Nutrition Protocol
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Caloric targets, macro ratios, hydration goals, and meal timing assigned by your coach.</p>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono">Last update: {coachingData.dietPlan?.updatedAt || 'Recently by Coach'}</span>
                   </div>
 
                   {/* Macro Matrix Cards */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="p-4 sm:p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-1 shadow-sm">
+                    <div className="p-4 sm:p-5 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1 shadow-sm">
                       <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">CALORIE TARGET</span>
                       <h4 className="text-lg sm:text-xl font-bold text-white flex items-center gap-1.5 font-['Outfit',sans-serif]">
-                        <Flame size={18} className="text-[#FF1E27]" /> 2,450 kcal
+                        <Flame size={18} className="text-[#FF1E27]" /> {coachingData.dietPlan?.dailyCalories || '2,800 kcal'}
                       </h4>
-                      <span className="text-xs text-slate-400 block">1,820 kcal logged today</span>
+                      <span className="text-xs text-slate-400 block">Daily Energy Burn</span>
                     </div>
-                    <div className="p-4 sm:p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-1 shadow-sm">
+
+                    <div className="p-4 sm:p-5 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1 shadow-sm">
                       <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">PROTEIN</span>
-                      <h4 className="text-lg sm:text-xl font-bold text-emerald-400 font-['Outfit',sans-serif]">180g (30%)</h4>
-                      <span className="text-xs text-emerald-400/80 block">145g logged</span>
+                      <h4 className="text-lg sm:text-xl font-bold text-emerald-400 font-['Outfit',sans-serif]">
+                        {coachingData.dietPlan?.protein || '180g (2.2g/kg)'}
+                      </h4>
+                      <span className="text-xs text-emerald-400/80 block">Muscle Protein Synthesis</span>
                     </div>
-                    <div className="p-4 sm:p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-1 shadow-sm">
+
+                    <div className="p-4 sm:p-5 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1 shadow-sm">
                       <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">CARBOHYDRATES</span>
-                      <h4 className="text-lg sm:text-xl font-bold text-amber-400 font-['Outfit',sans-serif]">225g (45%)</h4>
-                      <span className="text-xs text-amber-400/80 block">180g logged</span>
+                      <h4 className="text-lg sm:text-xl font-bold text-amber-400 font-['Outfit',sans-serif]">
+                        {coachingData.dietPlan?.carbs || '320g'}
+                      </h4>
+                      <span className="text-xs text-amber-400/80 block">Glycogen Replenishment</span>
                     </div>
-                    <div className="p-4 sm:p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-1 shadow-sm">
+
+                    <div className="p-4 sm:p-5 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1 shadow-sm">
                       <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">HEALTHY FATS</span>
-                      <h4 className="text-lg sm:text-xl font-bold text-cyan-400 font-['Outfit',sans-serif]">65g (25%)</h4>
-                      <span className="text-xs text-cyan-400/80 block">48g logged</span>
+                      <h4 className="text-lg sm:text-xl font-bold text-cyan-400 font-['Outfit',sans-serif]">
+                        {coachingData.dietPlan?.fats || '65g'}
+                      </h4>
+                      <span className="text-xs text-cyan-400/80 block">Hormonal Balance</span>
+                    </div>
+                  </div>
+
+                  {/* Meal Protocol & Supplement Stack */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
+                    <div className="p-5 rounded-2xl bg-[#090A0E] border border-white/5 space-y-2">
+                      <h5 className="font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 text-xs">
+                        <Clock size={14} className="text-[#FF1E27]" /> Prescribed Meal Timing Protocol
+                      </h5>
+                      <p className="text-slate-300 leading-relaxed bg-[#12141C] p-3.5 rounded-xl border border-white/5 text-xs sm:text-sm">
+                        {coachingData.dietPlan?.mealProtocol || '4 Meals + 1 Pre-Workout Meal + 1 Post-Workout Whey Shake'}
+                      </p>
+                    </div>
+
+                    <div className="p-5 rounded-2xl bg-[#090A0E] border border-white/5 space-y-2">
+                      <h5 className="font-bold text-white uppercase tracking-wider font-mono flex items-center gap-2 text-xs">
+                        <Sparkles size={14} className="text-emerald-400" /> Recommended Supplementation Stack
+                      </h5>
+                      <div className="bg-[#12141C] p-3.5 rounded-xl border border-white/5 space-y-1.5">
+                        {Array.isArray(coachingData.dietPlan?.supplements) ? (
+                          coachingData.dietPlan.supplements.map((supp, sIdx) => (
+                            <div key={sIdx} className="flex items-center gap-2 text-slate-200">
+                              <Check size={13} className="text-emerald-400 shrink-0" />
+                              <span>{supp}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-slate-300 text-xs sm:text-sm">{coachingData.dietPlan?.supplements || 'Whey Isolate, Creatine Creapure, Electrolytes'}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {/* Water Hydration Tracker */}
-                  <div className="p-5 sm:p-6 rounded-2xl bg-[#121217] border border-white/[0.08] flex items-center justify-between gap-4 shadow-sm">
+                  <div className="p-5 sm:p-6 rounded-2xl bg-[#090A0E] border border-white/5 flex items-center justify-between gap-4 shadow-sm">
                     <div className="space-y-1">
-                      <h4 className="text-sm sm:text-base font-semibold text-white font-['Outfit',sans-serif]">Daily Hydration Log: {(waterGlasses * 0.25).toFixed(2)}L / 3.5L Target</h4>
-                      <p className="text-xs text-slate-400">Optimal hydration aids muscle recovery and cellular synthesis.</p>
+                      <h4 className="text-sm sm:text-base font-semibold text-white font-['Outfit',sans-serif]">
+                        Daily Hydration Log: {(waterGlasses * 0.25).toFixed(2)}L / {coachingData.dietPlan?.waterIntake || '4.0 Liters Target'}
+                      </h4>
+                      <p className="text-xs text-slate-400">Target assigned by coach: {coachingData.dietPlan?.waterIntake || '4.0 Liters Daily'}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -3933,40 +4277,152 @@ export default function CustomerDashboard({ onLogout }) {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {/* Meal Breakdown List */}
+              {/* SUBSECTION 3: TRAINER NOTES */}
+              {(coachingSubTab === 'trainer-notes' || activeSubTab === 'trainer-notes') && (
+                <div className="p-6 sm:p-8 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl space-y-6 animate-fadeIn">
+                  <div className="pb-4 border-b border-white/[0.06]">
+                    <h4 className="text-lg font-bold text-white font-['Outfit',sans-serif] flex items-center gap-2">
+                      <NotebookPen size={20} className="text-[#FF1E27]" /> Coach Observation & Form Audit Notes
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-0.5">Chronological coaching observations, form corrections, and progress notes written by your trainer.</p>
+                  </div>
+
                   <div className="space-y-3">
-                    <div className="p-4 sm:p-5 rounded-xl bg-[#121217] border border-white/[0.08] space-y-1">
-                      <div className="flex justify-between items-center">
-                        <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">07:30 AM — Power Breakfast</h4>
-                        <span className="text-xs text-emerald-400 font-medium">520 kcal • 42g Protein</span>
+                    {(!coachingData.trainerNotes || coachingData.trainerNotes.length === 0) ? (
+                      <div className="p-8 rounded-2xl bg-[#090A0E] text-center text-slate-400 text-xs">
+                        No coach observation notes logged yet. When your trainer logs advice, it will appear here.
                       </div>
-                      <p className="text-xs text-slate-400">Rolled oats (70g) with almond milk, 1 scoop Whey Isolate, 5 soaked almonds & fresh blueberries.</p>
+                    ) : (
+                      coachingData.trainerNotes.map((n, i) => (
+                        <div key={i} className="p-4 sm:p-5 rounded-2xl bg-[#090A0E] border border-white/[0.06] space-y-1.5 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-[#FF1E27] font-mono">{n.author || user?.assignedTrainerName || 'Master Coach'}</span>
+                            <span className="text-[11px] text-slate-500 font-mono">{n.date}</span>
+                          </div>
+                          <p className="text-slate-200 leading-relaxed text-xs sm:text-sm">{n.note}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SUBSECTION 4: CUSTOMER PROGRESS TRACKING */}
+              {(coachingSubTab === 'progress' || activeSubTab === 'progress') && (
+                <div className="p-6 sm:p-8 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl space-y-6 animate-fadeIn">
+                  <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
+                    <div>
+                      <h4 className="text-lg font-bold text-white font-['Outfit',sans-serif] flex items-center gap-2">
+                        <LineChart size={20} className="text-[#FF1E27]" /> Athlete Biometrics & 1RM PR Telemetry
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">Verified compound 1-Rep-Max strength records and body composition tracked with your trainer.</p>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-mono">Last audit: {coachingData.progress?.lastAuditDate || '30 Aug 2026'}</span>
+                  </div>
+
+                  {/* 1RM Strength PR Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                    <div className="p-5 rounded-2xl bg-[#090A0E] border border-white/5 space-y-2">
+                      <span className="text-slate-400 font-semibold uppercase tracking-wider text-[11px] block">BENCH PRESS 1RM</span>
+                      <div className="text-2xl font-bold text-white font-mono">{coachingData.progress?.benchPressPR || '110 kg'}</div>
+                      <span className="text-[10px] text-[#FF1E27] font-mono">Verified Compound Max</span>
                     </div>
 
-                    <div className="p-4 sm:p-5 rounded-xl bg-[#121217] border border-white/[0.08] space-y-1">
-                      <div className="flex justify-between items-center">
-                        <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">01:30 PM — Lean Fuel Lunch</h4>
-                        <span className="text-xs text-emerald-400 font-medium">680 kcal • 55g Protein</span>
-                      </div>
-                      <p className="text-xs text-slate-400">Grilled chicken breast / pan-seared tofu (200g), 1 cup steamed brown rice, broccoli, mixed lentils & Greek curd.</p>
+                    <div className="p-5 rounded-2xl bg-[#090A0E] border border-white/5 space-y-2">
+                      <span className="text-slate-400 font-semibold uppercase tracking-wider text-[11px] block">BACK SQUAT 1RM</span>
+                      <div className="text-2xl font-bold text-white font-mono">{coachingData.progress?.squatPR || '150 kg'}</div>
+                      <span className="text-[10px] text-[#FF1E27] font-mono">Verified Compound Max</span>
                     </div>
 
-                    <div className="p-4 sm:p-5 rounded-xl bg-[#121217] border border-white/[0.08] space-y-1">
-                      <div className="flex justify-between items-center">
-                        <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">05:30 PM — Pre-Workout Fuel</h4>
-                        <span className="text-xs text-emerald-400 font-medium">310 kcal • 25g Protein</span>
-                      </div>
-                      <p className="text-xs text-slate-400">1 ripe banana with peanut butter (15g), intra-workout BCAA electrolyte drink from Fuel Bar.</p>
+                    <div className="p-5 rounded-2xl bg-[#090A0E] border border-white/5 space-y-2">
+                      <span className="text-slate-400 font-semibold uppercase tracking-wider text-[11px] block">DEADLIFT 1RM</span>
+                      <div className="text-2xl font-bold text-white font-mono">{coachingData.progress?.deadliftPR || '190 kg'}</div>
+                      <span className="text-[10px] text-[#FF1E27] font-mono">Verified Compound Max</span>
+                    </div>
+                  </div>
+
+                  {/* Body Composition Summary */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs">
+                    <div className="p-4 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1">
+                      <span className="text-slate-400 uppercase tracking-wider text-[10px] font-semibold block">CURRENT BODY WEIGHT</span>
+                      <p className="font-bold text-white text-base font-mono">{coachingData.progress?.currentWeight || weight || '76 kg'}</p>
                     </div>
 
-                    <div className="p-4 sm:p-5 rounded-xl bg-[#121217] border border-white/[0.08] space-y-1">
-                      <div className="flex justify-between items-center">
-                        <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">08:30 PM — Cellular Recovery Dinner</h4>
-                        <span className="text-xs text-emerald-400 font-medium">580 kcal • 48g Protein</span>
-                      </div>
-                      <p className="text-xs text-slate-400">Grilled salmon / paneer tikka, quinoa bowl, roasted bell peppers, olive oil drizzle & asparagus.</p>
+                    <div className="p-4 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1">
+                      <span className="text-slate-400 uppercase tracking-wider text-[10px] font-semibold block">TARGET GOAL WEIGHT</span>
+                      <p className="font-bold text-emerald-400 text-base font-mono">{coachingData.progress?.targetWeight || '80 kg Lean Mass'}</p>
                     </div>
+
+                    <div className="p-4 rounded-2xl bg-[#090A0E] border border-white/5 space-y-1">
+                      <span className="text-slate-400 uppercase tracking-wider text-[10px] font-semibold block">BODY FAT PERCENTAGE</span>
+                      <p className="font-bold text-[#FF1E27] text-base font-mono">{coachingData.progress?.bodyFat || bodyFat || '14.2%'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUBSECTION 5: CHAT WITH TRAINER */}
+              {(coachingSubTab === 'chat' || activeSubTab === 'chat') && (
+                <div className="p-6 sm:p-8 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl space-y-4 animate-fadeIn">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
+                    <div>
+                      <h4 className="text-lg font-bold text-white font-['Outfit',sans-serif] flex items-center gap-2">
+                        <MessageSquare size={20} className="text-[#FF1E27]" /> 1-on-1 Coach & Athlete Advisory Channel
+                      </h4>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Direct messaging channel with {user?.assignedTrainerName || myAssignedTrainer?.name || 'Master Coach Vikram'}.
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-emerald-400 font-mono">● Active Session</span>
+                  </div>
+
+                  <div className="flex flex-col h-[480px] rounded-2xl bg-[#090A0E] border border-white/10 overflow-hidden">
+                    <div className="flex-1 p-5 overflow-y-auto custom-scrollbar space-y-3">
+                      {customerChatMessages.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-slate-500 text-xs">
+                          No previous messages with your coach. Type your question or progress update below.
+                        </div>
+                      ) : (
+                        customerChatMessages.map((msg, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex flex-col max-w-[80%] ${
+                              msg.sender === 'athlete' ? 'ml-auto items-end' : 'mr-auto items-start'
+                            }`}
+                          >
+                            <div
+                              className={`p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                                msg.sender === 'athlete'
+                                  ? 'bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white rounded-tr-none shadow-md'
+                                  : 'bg-[#181A26] text-slate-200 border border-white/10 rounded-tl-none'
+                              }`}
+                            >
+                              {msg.text}
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono mt-1 px-1">{msg.time || 'Just now'}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <form onSubmit={handleCustomerSendChat} className="p-3 bg-[#12141C] border-t border-white/10 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={customerChatInput}
+                        onChange={(e) => setCustomerChatInput(e.target.value)}
+                        placeholder={`Message your coach ${user?.assignedTrainerName || myAssignedTrainer?.name || 'Coach'}...`}
+                        className="flex-1 px-4 py-3 rounded-xl bg-[#090A0E] border border-white/10 text-white text-xs outline-none focus:border-[#FF1E27]"
+                      />
+                      <button
+                        type="submit"
+                        className="p-3 rounded-xl bg-[#FF1E27] hover:bg-[#E50914] text-white cursor-pointer shadow-md transition-all flex items-center justify-center"
+                      >
+                        <Send size={16} />
+                      </button>
+                    </form>
                   </div>
                 </div>
               )}
@@ -4066,8 +4522,10 @@ export default function CustomerDashboard({ onLogout }) {
                           className="w-12 h-12 rounded-xl object-cover"
                         />
                         <div>
-                          <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">Rate Coach Jayanth</h4>
-                          <span className="text-xs text-[#FF1E27] font-medium">Master Strength & Hypertrophy</span>
+                          <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">
+                            Rate {user?.assignedTrainerName || myAssignedTrainer?.name || 'Coach Jayanth'}
+                          </h4>
+                          <span className="text-xs text-[#FF1E27] font-medium">Assigned Master Coach</span>
                         </div>
                       </div>
 
@@ -4141,7 +4599,7 @@ export default function CustomerDashboard({ onLogout }) {
 
                       <button
                         onClick={handleGymReviewSubmit}
-                        className="w-full py-2.5 rounded-xl bg-white/[0.08] hover:bg-white/[0.15] text-white text-xs sm:text-sm font-semibold transition-all cursor-pointer"
+                        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white text-xs sm:text-sm font-semibold shadow-sm hover:brightness-110 cursor-pointer transition-all"
                       >
                         Submit Facility Rating
                       </button>
@@ -4167,38 +4625,50 @@ export default function CustomerDashboard({ onLogout }) {
                   </div>
 
                   <div className="space-y-4">
-                    {supportTickets.map((tck) => (
-                      <div
-                        key={tck.id}
-                        className="p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-3 shadow-sm hover:border-white/20 transition-all"
-                      >
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs text-[#00F0FF] font-medium">{tck.id}</span>
-                            <span className="px-2 py-0.5 rounded bg-white/[0.06] text-slate-400 text-[10px]">
-                              {tck.category}
-                            </span>
-                            <span className="text-xs text-slate-400">• {tck.date}</span>
-                          </div>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${
-                            tck.status === 'Resolved'
-                              ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800'
-                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                          }`}>
-                            ● {tck.status}
-                          </span>
-                        </div>
-
-                        <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">{tck.subject}</h4>
-                        
-                        {tck.reply && (
-                          <div className="p-3.5 rounded-xl bg-[#0D0D12] border border-white/[0.04] text-xs text-slate-300 space-y-1">
-                            <span className="text-[10px] text-[#FF1E27] font-semibold uppercase tracking-wider block">FRONT DESK RESPONSE:</span>
-                            <p>{tck.reply}</p>
-                          </div>
-                        )}
+                    {supportTickets.length === 0 ? (
+                      <div className="p-8 sm:p-12 rounded-2xl bg-[#121217] border border-white/[0.08] text-center space-y-3">
+                        <p className="text-xs sm:text-sm text-slate-400">No support tickets or complaints logged yet.</p>
+                        <button
+                          onClick={() => setTicketModalOpen(true)}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white text-xs font-semibold hover:brightness-110 transition-all cursor-pointer inline-flex items-center gap-2"
+                        >
+                          <Plus size={14} /> Raise First Ticket
+                        </button>
                       </div>
-                    ))}
+                    ) : (
+                      supportTickets.map((tck) => (
+                        <div
+                          key={tck.id}
+                          className="p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-3 shadow-sm hover:border-white/20 transition-all"
+                        >
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs text-[#00F0FF] font-medium">{tck.id}</span>
+                              <span className="px-2 py-0.5 rounded bg-white/[0.06] text-slate-400 text-[10px]">
+                                {tck.category}
+                              </span>
+                              <span className="text-xs text-slate-400">• {tck.date}</span>
+                            </div>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${
+                              tck.status === 'Resolved'
+                                ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                            }`}>
+                              ● {tck.status}
+                            </span>
+                          </div>
+
+                          <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">{tck.subject}</h4>
+                          
+                          {tck.reply && (
+                            <div className="p-3.5 rounded-xl bg-[#0D0D12] border border-white/[0.04] text-xs text-slate-300 space-y-1">
+                              <span className="text-[10px] text-[#FF1E27] font-semibold uppercase tracking-wider block">FRONT DESK RESPONSE:</span>
+                              <p>{tck.reply}</p>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -4316,82 +4786,7 @@ export default function CustomerDashboard({ onLogout }) {
         </div>
       )}
 
-      {/* BOOK A TRAINER MODAL */}
-      {bookingModalTrainer && (
-        <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#121217] rounded-3xl border border-[#FF1E27]/40 p-6 shadow-2xl animate-fadeIn space-y-4">
-            <button
-              onClick={() => setBookingModalTrainer(null)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white"
-            >
-              <X size={20} />
-            </button>
 
-            <div className="flex items-center gap-3 pb-3 border-b border-white/10">
-              <img
-                src={bookingModalTrainer.image || bookingModalTrainer.avatar || 'https://images.unsplash.com/photo-1567013127542-490d757e51fc?auto=format&fit=crop&w=400&q=80'}
-                alt={bookingModalTrainer.name}
-                className="w-12 h-12 rounded-xl object-cover"
-              />
-              <div>
-                <h3 className="text-base font-bold text-white font-['Outfit',sans-serif]">Book Session with {bookingModalTrainer.name}</h3>
-                <span className="text-xs text-[#FF1E27] font-semibold">{bookingModalTrainer.role || bookingModalTrainer.spec || 'Master Strength Specialist'}</span>
-              </div>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                showToast(`✓ 1-on-1 session confirmed with ${bookingModalTrainer.name}!`);
-                setBookingModalTrainer(null);
-              }}
-              className="space-y-3.5"
-            >
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-300">Preferred Date</label>
-                <input
-                  type="date"
-                  defaultValue="2026-09-02"
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#0D0D12] border border-white/10 text-white text-sm outline-none focus:border-[#FF1E27] focus:ring-1 focus:ring-[#FF1E27]/30 transition-all"
-                  required
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-300">Preferred Time Slot</label>
-                <select className="w-full px-4 py-2.5 rounded-xl bg-[#0D0D12] border border-white/10 text-white text-sm outline-none focus:border-[#FF1E27] focus:ring-1 focus:ring-[#FF1E27]/30 transition-all">
-                  <option>06:00 AM - 07:00 AM (Early Push)</option>
-                  <option>07:30 AM - 08:30 AM (Peak Morning)</option>
-                  <option>05:00 PM - 06:00 PM (Evening Hypertrophy)</option>
-                  <option>07:00 PM - 08:00 PM (Night Strength)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-300">Target Session Focus</label>
-                <select className="w-full px-4 py-2.5 rounded-xl bg-[#0D0D12] border border-white/10 text-white text-sm outline-none focus:border-[#FF1E27] focus:ring-1 focus:ring-[#FF1E27]/30 transition-all">
-                  <option>Compound Squat & Bench Biomechanics</option>
-                  <option>Olympic Snatch / Clean & Jerk Technique</option>
-                  <option>High Intensity Hypertrophy Drop Sets</option>
-                  <option>Injury Rehabilitation & Mobility Scan</option>
-                </select>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-[#0D0D12] border border-white/10 flex justify-between items-center text-xs sm:text-sm">
-                <span className="text-slate-400">Total Session Fee:</span>
-                <span className="text-emerald-400 font-bold font-mono">{bookingModalTrainer.pricePerSession || '₹1,499'}</span>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-semibold text-xs sm:text-sm shadow-md hover:brightness-110 cursor-pointer"
-              >
-                Confirm Session Booking
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* CHAT WITH TRAINER MODAL */}
       {chatModalTrainer && (
@@ -4839,46 +5234,34 @@ export default function CustomerDashboard({ onLogout }) {
                 </div>
               )}
 
-              {/* Final Confirm Payment Button */}
-              <button
-                type="button"
-                disabled={payProcessing}
-                onClick={() => {
-                  if (activePayMethod === 'card') {
-                    const isValid = validateCardPayment();
-                    if (!isValid) return;
-                  }
+              {/* Delivery Truck Micro-Interaction & Order Complete Button */}
+              <div className="pt-2">
+                <CompleteOrderButton
+                  label={activePayMethod === 'cash' ? "Confirm Cash Token" : "Complete & Activate"}
+                  amountText={`₹${Number(paymentModalData.priceNum || 2499).toLocaleString('en-IN')}`}
+                  disabled={payProcessing}
+                  onComplete={() => {
+                    if (activePayMethod === 'card') {
+                      const isValid = validateCardPayment();
+                      if (!isValid) return;
+                    }
 
-                  const modeLabel = activePayMethod === 'card' 
-                    ? `Card (${cardNetwork})` 
-                    : activePayMethod === 'cash' 
-                    ? 'Cash at Counter' 
-                    : activePayMethod === 'upi' 
-                    ? 'UPI / Online' 
-                    : `Net Banking (${selectedBank})`;
+                    const modeLabel = activePayMethod === 'card' 
+                      ? `Card (${cardNetwork})` 
+                      : activePayMethod === 'cash' 
+                      ? 'Cash at Counter' 
+                      : activePayMethod === 'upi' 
+                      ? 'UPI / Online' 
+                      : `Net Banking (${selectedBank})`;
 
-                  completeMembershipActivation(
-                    paymentModalData.planName || paymentModalData.plan?.name,
-                    paymentModalData.priceNum,
-                    modeLabel
-                  );
-                }}
-                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-bold text-sm shadow-[0_0_25px_rgba(255,30,39,0.35)] hover:brightness-110 cursor-pointer transition-all flex items-center justify-center gap-2 disabled:opacity-75"
-              >
-                {payProcessing ? (
-                  <>
-                    <RefreshCw size={16} className="animate-spin" /> Confirming & Activating...
-                  </>
-                ) : activePayMethod === 'cash' ? (
-                  <>
-                    <CheckCircle2 size={16} /> Confirm Cash Registration (Pay at Desk)
-                  </>
-                ) : (
-                  <>
-                    <Lock size={15} /> Confirm & Pay ₹{Number(paymentModalData.priceNum || 2499).toLocaleString('en-IN')}
-                  </>
-                )}
-              </button>
+                    completeMembershipActivation(
+                      paymentModalData.planName || paymentModalData.plan?.name,
+                      paymentModalData.priceNum,
+                      modeLabel
+                    );
+                  }}
+                />
+              </div>
 
               <div className="flex items-center justify-center gap-2 text-[10px] text-slate-400">
                 <ShieldCheck size={13} className="text-emerald-400" />

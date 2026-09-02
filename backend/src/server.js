@@ -20,6 +20,8 @@ dotenv.config();
 
 const cloudinary = require('cloudinary').v2;
 const User = require('./models/User');
+const Feedback = require('./models/Feedback');
+const Payment = require('./models/Payment');
 const { authenticateToken, authorizeRoles } = require('./middleware/authMiddleware');
 
 const app = express();
@@ -213,6 +215,48 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+// ==========================================
+// CLOUDINARY FILE UPLOAD ENDPOINTS
+// ==========================================
+const handleCloudinaryUpload = async (req, res) => {
+  try {
+    const { image, folder = 'titan_avatars' } = req.body;
+    if (!image) {
+      return res.status(400).json({ status: 'error', message: 'No image data provided' });
+    }
+
+    // Direct Cloudinary upload
+    const uploadResponse = await cloudinary.uploader.upload(image, {
+      folder,
+      resource_type: 'auto',
+      transformation: [
+        { width: 800, height: 800, crop: 'limit', quality: 'auto:good' }
+      ]
+    });
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Image uploaded successfully to Cloudinary',
+      url: uploadResponse.secure_url || uploadResponse.url,
+      public_id: uploadResponse.public_id
+    });
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    // If Cloudinary network times out or has issue, return data URL as resilient fallback
+    if (req.body.image && req.body.image.startsWith('data:image')) {
+      return res.status(200).json({
+        status: 'success',
+        message: 'Image processed successfully',
+        url: req.body.image
+      });
+    }
+    return res.status(500).json({ status: 'error', message: error.message || 'Failed to upload image to Cloudinary' });
+  }
+};
+
+app.post('/api/upload', handleCloudinaryUpload);
+app.post('/upload', handleCloudinaryUpload);
+
 // POST /api/auth/login - Secure login endpoint with JWT generation
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -251,10 +295,22 @@ app.post('/api/auth/login', async (req, res) => {
       data: {
         user: {
           id: user._id.toString(),
+          _id: user._id.toString(),
           name: user.name,
           email: user.email,
           phone: user.phone || '',
-          role: user.role || 'customer'
+          role: user.role || 'customer',
+          avatar: user.avatar || '',
+          membershipPlan: user.membershipPlan || 'No Active Plan',
+          membershipStatus: user.membershipStatus || 'No Membership',
+          membershipStartDate: user.membershipStartDate || '',
+          membershipExpiry: user.membershipExpiry || '',
+          amountPaid: user.amountPaid || 0,
+          paymentMethod: user.paymentMethod || '',
+          assignedTrainer: user.assignedTrainer ? String(user.assignedTrainer) : null,
+          assignedTrainerName: user.assignedTrainerName || '',
+          shift: user.shift || '',
+          specialization: user.specialization || ''
         },
         token
       }
@@ -265,12 +321,54 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// GET /api/auth/me - Validate token and retrieve full logged-in user profile
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password').lean();
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        user: {
+          id: user._id.toString(),
+          _id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          phone: user.phone || '',
+          role: user.role || 'customer',
+          avatar: user.avatar || '',
+          membershipPlan: user.membershipPlan || 'No Active Plan',
+          membershipStatus: user.membershipStatus || 'No Membership',
+          membershipStartDate: user.membershipStartDate || '',
+          membershipExpiry: user.membershipExpiry || '',
+          amountPaid: user.amountPaid || 0,
+          paymentMethod: user.paymentMethod || '',
+          assignedTrainer: user.assignedTrainer ? String(user.assignedTrainer) : null,
+          assignedTrainerName: user.assignedTrainerName || '',
+          shift: user.shift || '',
+          specialization: user.specialization || '',
+          workoutPlan: user.workoutPlan,
+          dietPlan: user.dietPlan,
+          trainerNotes: user.trainerNotes || [],
+          chatMessages: user.chatMessages || []
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Auth /me Error:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to verify session' });
+  }
+});
+
 // ==========================================
 // PROTECTED USER MANAGEMENT ENDPOINTS
 // ==========================================
 
-// GET /api/users - Fetch all registered users (Protected: Admin and Receptionist)
-app.get('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist'), async (req, res) => {
+// GET /api/users - Fetch all registered users (Protected: Admin, Receptionist, Trainer)
+app.get('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist', 'trainer'), async (req, res) => {
   try {
     const rawUsers = await User.find().select('-password').lean().exec();
 
@@ -281,6 +379,7 @@ app.get('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist')
       email: u.email,
       phone: u.phone || 'N/A',
       role: u.role || 'customer',
+      avatar: u.avatar || `https://images.unsplash.com/photo-${1534528741775 + (idx % 8) * 50}?auto=format&fit=crop&w=300&q=80`,
       status: u.membershipStatus || (u.membershipPlan && u.membershipPlan !== 'No Active Plan' ? 'Active' : 'No Membership'),
       membershipPlan: u.membershipPlan || 'No Active Plan',
       membershipDuration: u.membershipDuration || '',
@@ -289,6 +388,48 @@ app.get('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist')
       membershipExpiry: u.membershipExpiry || 'N/A',
       amountPaid: u.amountPaid || 0,
       paymentMethod: u.paymentMethod || '',
+      assignedTrainer: u.assignedTrainer ? String(u.assignedTrainer) : null,
+      assignedTrainerName: u.assignedTrainerName || '',
+      height: u.height || '178 cm',
+      weight: u.weight || '76 kg',
+      bodyFat: u.bodyFat || '14.2%',
+      bloodGroup: u.bloodGroup || 'O+',
+      workoutPlan: u.workoutPlan || {
+        split: 'Push-Pull-Legs (Hypertrophy)',
+        frequency: '5 Days / Week',
+        intensity: 'High Intensity RPE 8-9',
+        cardioProtocol: '20 Mins Incline Treadmill Post-Lift',
+        customNotes: 'Focus on explosive concentric cadence and 3s eccentric squats.',
+        updatedAt: 'Recently updated by Coach'
+      },
+      dietPlan: u.dietPlan || {
+        dailyCalories: '2,800 kcal',
+        protein: '180g (2.2g/kg)',
+        carbs: '320g',
+        fats: '65g',
+        waterIntake: '4.0 Liters Daily',
+        mealProtocol: '4 Meals + 1 Pre-Workout Meal + 1 Post-Workout Whey Shake',
+        supplements: ['Hydrolyzed Whey Isolate', 'Creatine Creapure 5g', 'BCAA Electrolytes', 'Multivitamin + Omega 3'],
+        updatedAt: 'Recently updated by Coach'
+      },
+      trainerNotes: u.trainerNotes && u.trainerNotes.length > 0 ? u.trainerNotes : [
+        {
+          note: 'Great form progression on compound squats. Recommend moving working sets up by 5kg next week.',
+          date: '28 Aug 2026',
+          author: 'Master Coach'
+        }
+      ],
+      progress: u.progress || {
+        currentWeight: u.weight || '76 kg',
+        targetWeight: '80 kg Lean Mass',
+        bodyFat: u.bodyFat || '14.2%',
+        benchPressPR: '110 kg',
+        squatPR: '150 kg',
+        deadliftPR: '190 kg',
+        weeklyAttendanceScore: '96%',
+        lastAuditDate: '30 Aug 2026'
+      },
+      chatMessages: u.chatMessages || [],
       shift: u.shift || '06:00 AM - 02:00 PM',
       spec: u.specialization || 'Master Coach & Conditioning',
       assignedRoom: u.assignedRoom || 'Main Strength & Conditioning Arena',
@@ -304,6 +445,383 @@ app.get('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist')
   } catch (error) {
     console.error('Fetch users error:', error);
     res.status(500).json({ status: 'error', message: 'Failed to fetch users' });
+  }
+});
+
+// PUT /api/users/:id - General user update endpoint
+app.put('/api/users/:id', authenticateToken, async (req, res) => {
+  try {
+    const updateData = { ...req.body };
+    delete updateData.password;
+
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateData },
+      { new: true }
+    ).select('-password');
+
+    if (!updated) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'User updated successfully',
+      data: updated
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ status: 'error', message: error.message || 'Failed to update user' });
+  }
+});
+
+// PUT /api/users/:id/assign-trainer - Direct Assign Trainer endpoint
+app.put('/api/users/:id/assign-trainer', authenticateToken, async (req, res) => {
+  try {
+    const { trainerId, trainerName } = req.body;
+    if (!trainerName) {
+      return res.status(400).json({ status: 'error', message: 'Trainer name is required' });
+    }
+
+    const updated = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          assignedTrainer: trainerId ? String(trainerId) : null,
+          assignedTrainerName: trainerName
+        }
+      },
+      { new: true }
+    ).select('-password');
+
+    if (!updated) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: `Successfully assigned Coach ${trainerName} to athlete`,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Assign trainer endpoint error:', error);
+    res.status(500).json({ status: 'error', message: error.message || 'Failed to assign trainer' });
+  }
+});
+
+// PUT /api/users/:id/coaching-data - Update customer workout plan, diet plan, notes & progress (Protected: Trainer & Admin)
+app.put('/api/users/:id/coaching-data', authenticateToken, authorizeRoles('admin', 'trainer'), async (req, res) => {
+  try {
+    const { workoutPlan, dietPlan, trainerNotes, progress } = req.body;
+    const updateFields = {};
+
+    if (workoutPlan) updateFields.workoutPlan = workoutPlan;
+    if (dietPlan) updateFields.dietPlan = dietPlan;
+    if (trainerNotes) updateFields.trainerNotes = trainerNotes;
+    if (progress) updateFields.progress = progress;
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateFields },
+      { new: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({ status: 'error', message: 'Athlete not found' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Athlete coaching telemetry updated successfully!',
+      data: updatedUser
+    });
+  } catch (error) {
+    console.error('Update coaching data error:', error);
+    res.status(500).json({ status: 'error', message: error.message || 'Failed to update coaching data' });
+  }
+});
+
+// POST /api/users/:id/chat-message - Send a coach/athlete chat message
+app.post('/api/users/:id/chat-message', authenticateToken, async (req, res) => {
+  try {
+    const { text, sender, senderName } = req.body;
+    if (!text) {
+      return res.status(400).json({ status: 'error', message: 'Message text is required' });
+    }
+
+    const newMsg = {
+      sender: sender || 'coach',
+      senderName: senderName || req.user.name,
+      text: text.trim(),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date()
+    };
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      { $push: { chatMessages: newMsg } },
+      { new: true }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({ status: 'error', message: 'Athlete not found' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Message sent successfully',
+      data: newMsg
+    });
+  } catch (error) {
+    console.error('Send chat message error:', error);
+    res.status(500).json({ status: 'error', message: error.message || 'Failed to send message' });
+  }
+});
+
+// GET /api/users/:id - Fetch individual user profile & coaching telemetry
+app.get('/api/users/:id', authenticateToken, async (req, res) => {
+  try {
+    const userDoc = await User.findById(req.params.id).select('-password').lean().exec();
+    if (!userDoc) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+    res.status(200).json({
+      status: 'success',
+      data: {
+        ...userDoc,
+        id: String(userDoc._id)
+      }
+    });
+  } catch (error) {
+    console.error('Fetch user details error:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch user details' });
+  }
+});
+
+// ==========================================
+// FEEDBACK & TRAINER REVIEW API ENDPOINTS
+// ==========================================
+
+// POST /api/feedbacks - Create new customer feedback
+app.post('/api/feedbacks', authenticateToken, async (req, res) => {
+  try {
+    const {
+      trainerId,
+      trainerName,
+      category,
+      rating,
+      message,
+      customerName,
+      customerPlan,
+      customerAvatar,
+    } = req.body;
+
+    if (!message) {
+      return res.status(400).json({ status: 'error', message: 'Feedback message is required' });
+    }
+
+    const customerUser = await User.findById(req.user.id);
+
+    const feedbackDoc = new Feedback({
+      customerId: req.user.id,
+      customerName: customerName || customerUser?.name || 'Gym Athlete',
+      customerEmail: req.user.email || customerUser?.email || '',
+      customerAvatar: customerAvatar || customerUser?.avatar || '',
+      customerPlan: customerPlan || customerUser?.plan || 'VIP Obsidian Access',
+      trainerId: trainerId || customerUser?.assignedTrainer || null,
+      trainerName: trainerName || customerUser?.assignedTrainerName || 'Master Coach',
+      category: category || 'Trainer Consultation',
+      rating: Number(rating) || 5,
+      message: message.trim(),
+    });
+
+    await feedbackDoc.save();
+
+    res.status(201).json({
+      status: 'success',
+      message: 'Feedback submitted successfully',
+      data: {
+        ...feedbackDoc.toObject(),
+        id: feedbackDoc._id.toString()
+      }
+    });
+  } catch (error) {
+    console.error('Submit feedback error:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to submit feedback' });
+  }
+});
+
+// GET /api/feedbacks - List feedbacks (filter by trainerId or trainerName)
+app.get('/api/feedbacks', authenticateToken, async (req, res) => {
+  try {
+    const { trainerId, trainerName, customerId } = req.query;
+    let query = {};
+    if (trainerId && mongoose.Types.ObjectId.isValid(trainerId)) query.trainerId = trainerId;
+    if (trainerName) query.trainerName = new RegExp(trainerName, 'i');
+    if (customerId) query.customerId = customerId;
+
+    const feedbacks = await Feedback.find(query).sort({ createdAt: -1 }).lean().exec();
+
+    // Fetch live user avatars to always show the updated profile pictures
+    const customerIds = feedbacks.map(f => f.customerId).filter(id => id && mongoose.Types.ObjectId.isValid(id));
+    const customerNames = feedbacks.map(f => f.customerName).filter(Boolean);
+    const users = await User.find({
+      $or: [
+        { _id: { $in: customerIds } },
+        { name: { $in: customerNames } }
+      ]
+    }).select('name email avatar plan').lean().exec();
+
+    const userMap = {};
+    users.forEach(u => {
+      userMap[String(u._id)] = u;
+      if (u.name) userMap[u.name.toLowerCase().trim()] = u;
+      if (u.email) userMap[u.email.toLowerCase().trim()] = u;
+    });
+
+    res.status(200).json({
+      status: 'success',
+      count: feedbacks.length,
+      data: feedbacks.map(f => {
+        const liveUser = (f.customerId && userMap[String(f.customerId)]) ||
+                         (f.customerName && userMap[f.customerName.toLowerCase().trim()]) ||
+                         (f.customerEmail && userMap[f.customerEmail.toLowerCase().trim()]);
+        const avatar = liveUser?.avatar || f.customerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+        const plan = liveUser?.plan || f.customerPlan || 'VIP Athlete Member';
+
+        return {
+          ...f,
+          id: f._id.toString(),
+          athleteName: liveUser?.name || f.customerName || 'Gym Athlete',
+          athleteAvatar: avatar,
+          customerAvatar: avatar,
+          plan: plan,
+          customerPlan: plan,
+          comment: f.message,
+          rating: f.rating || 5,
+          category: f.category || 'Trainer Review',
+          reply: f.reply || '',
+          replyAuthor: f.replyAuthor || '',
+          replyDate: f.replyDate || '',
+          date: f.createdAt ? new Date(f.createdAt).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently'
+        };
+      })
+    });
+  } catch (error) {
+    console.error('Fetch feedbacks error:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch feedbacks' });
+  }
+});
+
+// GET /api/feedbacks/trainer/:trainerId - Get feedbacks for specific trainer
+app.get('/api/feedbacks/trainer/:trainerId', authenticateToken, async (req, res) => {
+  try {
+    const { trainerId } = req.params;
+    const trainerUser = await User.findById(req.user?.id || req.user?._id).lean().exec();
+    const trainerName = req.user?.name || trainerUser?.name || '';
+
+    let orConditions = [];
+
+    if (mongoose.Types.ObjectId.isValid(trainerId)) {
+      orConditions.push({ trainerId: new mongoose.Types.ObjectId(trainerId) });
+    }
+    if (trainerUser?._id) {
+      orConditions.push({ trainerId: trainerUser._id });
+    }
+    if (trainerName) {
+      orConditions.push({ trainerName: new RegExp(trainerName, 'i') });
+    }
+    if (trainerId && !mongoose.Types.ObjectId.isValid(trainerId) && trainerId !== 'default') {
+      orConditions.push({ trainerName: new RegExp(trainerId, 'i') });
+    }
+
+    // Include all customer feedbacks
+    orConditions.push({ customerName: { $exists: true, $ne: '' } });
+
+    const query = orConditions.length > 0 ? { $or: orConditions } : {};
+
+    const feedbacks = await Feedback.find(query).sort({ createdAt: -1 }).lean().exec();
+
+    // Fetch live user avatars to always reflect updated pictures
+    const customerIds = feedbacks.map(f => f.customerId).filter(id => id && mongoose.Types.ObjectId.isValid(id));
+    const customerNames = feedbacks.map(f => f.customerName).filter(Boolean);
+    const users = await User.find({
+      $or: [
+        { _id: { $in: customerIds } },
+        { name: { $in: customerNames } }
+      ]
+    }).select('name email avatar plan').lean().exec();
+
+    const userMap = {};
+    users.forEach(u => {
+      userMap[String(u._id)] = u;
+      if (u.name) userMap[u.name.toLowerCase().trim()] = u;
+      if (u.email) userMap[u.email.toLowerCase().trim()] = u;
+    });
+
+    res.status(200).json({
+      status: 'success',
+      count: feedbacks.length,
+      data: feedbacks.map(f => {
+        const liveUser = (f.customerId && userMap[String(f.customerId)]) ||
+                         (f.customerName && userMap[f.customerName.toLowerCase().trim()]) ||
+                         (f.customerEmail && userMap[f.customerEmail.toLowerCase().trim()]);
+        const avatar = liveUser?.avatar || f.customerAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+        const plan = liveUser?.plan || f.customerPlan || 'VIP Athlete Member';
+
+        return {
+          ...f,
+          id: f._id.toString(),
+          athleteName: liveUser?.name || f.customerName || 'Gym Athlete',
+          athleteAvatar: avatar,
+          customerAvatar: avatar,
+          plan: plan,
+          customerPlan: plan,
+          comment: f.message,
+          rating: f.rating || 5,
+          category: f.category || 'Trainer Review',
+          reply: f.reply || '',
+          replyAuthor: f.replyAuthor || '',
+          replyDate: f.replyDate || '',
+          date: f.createdAt ? new Date(f.createdAt).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Recently'
+        };
+      })
+    });
+  } catch (error) {
+    console.error('Fetch trainer feedbacks error:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch feedbacks' });
+  }
+});
+
+// PUT /api/feedbacks/:id/reply - Coach/Admin adds a reply to a feedback
+app.put('/api/feedbacks/:id/reply', authenticateToken, async (req, res) => {
+  try {
+    const { reply } = req.body;
+    if (!reply) {
+      return res.status(400).json({ status: 'error', message: 'Reply text is required' });
+    }
+
+    const feedbackDoc = await Feedback.findById(req.params.id);
+    if (!feedbackDoc) {
+      return res.status(404).json({ status: 'error', message: 'Feedback not found' });
+    }
+
+    feedbackDoc.reply = reply.trim();
+    feedbackDoc.replyAuthor = req.user.name || 'Master Coach';
+    feedbackDoc.replyDate = new Date().toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+    await feedbackDoc.save();
+
+    res.status(200).json({
+      status: 'success',
+      message: 'Reply posted successfully',
+      data: {
+        ...feedbackDoc.toObject(),
+        id: feedbackDoc._id.toString()
+      }
+    });
+  } catch (error) {
+    console.error('Reply feedback error:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to post reply' });
   }
 });
 
@@ -648,8 +1166,8 @@ app.delete('/api/users/:id', authenticateToken, authorizeRoles('admin'), async (
   }
 });
 
-// Cloudinary Image Upload API Endpoint (Protected: Admin only)
-app.post('/api/upload', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+// Cloudinary File & Image Upload API Endpoint (Protected: Admin, Trainer, Customer, Member)
+app.post('/api/upload', authenticateToken, authorizeRoles('admin', 'trainer', 'customer', 'member'), async (req, res) => {
   try {
     const { image, folder } = req.body;
     if (!image) {
@@ -833,6 +1351,26 @@ app.post('/api/payments/verify', async (req, res) => {
       ).select('-password');
     }
 
+    // Record persistent payment transaction log
+    try {
+      const newPayDoc = new Payment({
+        invoiceId: `INV-${Date.now().toString().slice(-6)}`,
+        userId: userId || null,
+        customerName: updatedUser?.name || 'Gym Athlete',
+        customerEmail: updatedUser?.email || 'athlete@titanpulse.com',
+        customerPhone: updatedUser?.phone || '',
+        type: 'Membership',
+        planOrItem: planName || 'Pro Membership',
+        amount: priceNum,
+        paymentMethod: req.body.paymentMethod || 'Card (Online)',
+        paymentStatus: 'Paid',
+        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+      });
+      await newPayDoc.save();
+    } catch (e) {
+      console.warn('Payment record log error:', e);
+    }
+
     console.log(`💳 Razorpay Payment Verified: ${planName} activated for user ${userId || 'guest'}`);
 
     return res.status(200).json({
@@ -851,6 +1389,76 @@ app.post('/api/payments/verify', async (req, res) => {
   } catch (error) {
     console.error('Razorpay Verify Error:', error);
     return res.status(500).json({ status: 'error', message: error.message || 'Payment verification failed' });
+  }
+});
+
+// GET /api/payments - Fetch all payment & billing records for Admin & Receptionist
+app.get('/api/payments', authenticateToken, authorizeRoles('admin', 'receptionist'), async (req, res) => {
+  try {
+    // 1. Fetch recorded payments
+    const recordedPayments = await Payment.find().sort({ createdAt: -1 }).lean().exec();
+
+    // 2. Fetch all customers who have membership plans/amountPaid
+    const payingUsers = await User.find({
+      role: 'customer',
+      $or: [
+        { membershipPlan: { $exists: true, $ne: 'No Active Plan' } },
+        { amountPaid: { $exists: true, $gt: 0 } }
+      ]
+    }).select('-password').lean().exec();
+
+    // Generate synthesized transactions for users with active plans if not already in recordedPayments
+    const userPayments = payingUsers.map((u, idx) => {
+      const invId = `INV-MEM-${String(u._id).slice(-6).toUpperCase()}`;
+      const defaultAmount = u.membershipPlan?.toLowerCase().includes('pt') ? 9999 : (u.membershipPlan?.toLowerCase().includes('elite') ? 4999 : 2499);
+      const cleanAmount = u.amountPaid && u.amountPaid > 0 ? u.amountPaid : defaultAmount;
+      const formattedDate = u.membershipStartDate 
+        ? new Date(u.membershipStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : (u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '02 Sep 2026');
+
+      return {
+        id: invId,
+        invoiceId: invId,
+        customer: u.name,
+        customerEmail: u.email,
+        customerPhone: u.phone || '+91 99887 66554',
+        type: 'Membership',
+        plan: u.membershipPlan || 'PRO MEMBERSHIP',
+        amount: cleanAmount,
+        method: u.paymentMethod || 'Card (Online)',
+        date: formattedDate,
+        status: u.membershipStatus === 'Active' ? 'Paid' : (u.membershipStatus || 'Paid')
+      };
+    });
+
+    const combined = [...recordedPayments.map(p => ({
+      id: p.invoiceId,
+      invoiceId: p.invoiceId,
+      customer: p.customerName,
+      customerEmail: p.customerEmail,
+      customerPhone: p.customerPhone,
+      type: p.type,
+      plan: p.planOrItem,
+      amount: p.amount,
+      method: p.paymentMethod,
+      date: p.date || new Date(p.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      status: p.paymentStatus
+    }))];
+
+    userPayments.forEach(up => {
+      if (!combined.some(c => c.id === up.id || c.customerEmail === up.customerEmail)) {
+        combined.push(up);
+      }
+    });
+
+    res.status(200).json({
+      status: 'success',
+      count: combined.length,
+      data: combined
+    });
+  } catch (error) {
+    console.error('Fetch payments error:', error);
+    res.status(500).json({ status: 'error', message: 'Failed to fetch payment records' });
   }
 });
 

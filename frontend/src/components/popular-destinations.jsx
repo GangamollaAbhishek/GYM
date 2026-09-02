@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ShoppingCart, ShoppingBag, Plus, Minus, Trash2, Zap, Star, X, ShieldCheck } from 'lucide-react';
+import { ShoppingBag, Zap } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import ProductCard from '@/components/smoothui/components/product-card';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -136,90 +137,21 @@ export default function PopularDestinations({ onReserveSpot }) {
             const inCartQty = inCartItem ? inCartItem.quantity : 0;
 
             return (
-              <div 
+              <ProductCard
                 key={product.id}
-                className="relative min-w-[340px] md:min-w-[440px] h-full rounded-3xl bg-[#12161A] border border-white/10 overflow-hidden group flex flex-col justify-between p-6 md:p-7 hover:border-[#FF2E4C]/60 transition-all duration-500 shrink-0 shadow-2xl"
-              >
-                {/* Product Card Top Badges */}
-                <div className="relative z-10 flex justify-between items-center mb-3">
-                  <span className="px-3 py-1 rounded-full bg-[#090C0E]/90 border border-[#FF2E4C]/50 text-[#FF2E4C] text-[10px] font-mono font-extrabold uppercase">
-                    {product.tag}
-                  </span>
-
-                  <span className="px-3 py-1 rounded-full bg-[#090C0E]/90 border border-white/10 text-white text-xs font-mono flex items-center gap-1">
-                    <Star size={13} className="fill-[#FFB800] text-[#FFB800]" />
-                    <span>{product.rating}</span>
-                  </span>
-                </div>
-
-                {/* Product Image Frame */}
-                <div className="relative w-full h-[220px] rounded-2xl overflow-hidden mb-4 bg-[#090C0E] border border-white/5 flex items-center justify-center p-4 group-hover:scale-105 transition-transform duration-500">
-                  <img 
-                    src={product.image} 
-                    alt={product.name}
-                    className="w-full h-full object-contain filter drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1593095948071-474c5cc2989d?auto=format&fit=crop&w=600&q=80';
-                    }}
-                  />
-                </div>
-
-                {/* Product Meta */}
-                <div>
-                  <span className="text-[10px] font-mono text-[#00F0FF] uppercase tracking-wider block mb-1">
-                    {product.category}
-                  </span>
-                  <h3 className="text-xl font-black font-heading text-white tracking-wide uppercase line-clamp-1 mb-3">
-                    {product.name}
-                  </h3>
-                  
-                  {/* Specs Tags */}
-                  <div className="flex flex-wrap gap-1.5 mb-5">
-                    {product.specs.map((spec, i) => (
-                      <span key={i} className="px-2.5 py-1 rounded-lg bg-[#090C0E] border border-white/10 text-[10px] text-[#8A94A0] font-mono">
-                        • {spec}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Price & Add to Cart Action Row */}
-                  <div className="flex items-center justify-between pt-3.5 border-t border-white/10">
-                    <div>
-                      <span className="text-[10px] text-[#8A94A0] font-mono uppercase block">PRICE</span>
-                      <span className="text-2xl font-black font-heading text-white">
-                        ₹{product.price.toLocaleString()}
-                      </span>
-                    </div>
-
-                    {inCartQty > 0 ? (
-                      <div className="flex items-center gap-2 bg-[#090C0E] border border-[#FF2E4C] rounded-2xl p-1.5">
-                        <button 
-                          onClick={() => updateQuantity(product.id, -1)}
-                          className="w-8 h-8 rounded-xl bg-[#12161A] text-white flex items-center justify-center hover:bg-[#FF2E4C] transition-colors"
-                        >
-                          <Minus size={14} />
-                        </button>
-                        <span className="px-3 text-sm font-mono font-bold text-white">{inCartQty}</span>
-                        <button 
-                          onClick={() => updateQuantity(product.id, 1)}
-                          className="w-8 h-8 rounded-xl bg-[#12161A] text-white flex items-center justify-center hover:bg-[#FF2E4C] transition-colors"
-                        >
-                          <Plus size={14} />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => addToCart(product)}
-                        className="px-5 py-3 rounded-2xl bg-gradient-to-r from-[#FF2E4C] to-[#FF526B] hover:brightness-110 text-white font-extrabold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(255,46,76,0.4)] flex items-center gap-2 transition-all"
-                      >
-                        <ShoppingCart size={15} />
-                        <span>Add To Cart</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-              </div>
+                title={product.name}
+                badge={product.tag}
+                image={product.image}
+                category={product.category}
+                price={product.price}
+                originalPrice={product.price ? Math.round(product.price * 1.25) : null}
+                rating={product.rating}
+                specs={product.specs}
+                inCartQty={inCartQty}
+                onAddToCart={() => addToCart(product)}
+                onUpdateQuantity={(delta) => updateQuantity(product.id, delta)}
+                className="min-w-[340px] md:min-w-[420px] h-full shrink-0"
+              />
             );
           })}
         </div>
