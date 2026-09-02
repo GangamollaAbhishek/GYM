@@ -139,6 +139,28 @@ html.lenis, html.lenis body {
   height: 0 !important;
 }
 
+/* Explicit custom scrollbars when needed */
+.custom-scrollbar {
+  scrollbar-width: thin !important;
+  -ms-overflow-style: auto !important;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  display: block !important;
+  width: 5px !important;
+  height: 5px !important;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 30, 39, 0.6);
+}
+
 /* Spotlight Navbar Styles */
 .spotlight-nav {
   --spotlight-color: rgba(229, 9, 20, 0.25);
