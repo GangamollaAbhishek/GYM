@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 
 const FRAME_COUNT = 60;
 
@@ -14,16 +14,16 @@ export default function HeroScrollCanvas({ progress = 0 }) {
 
     // Sample high-quality gym imagery URLs for sequence simulation
     const sampleUrls = [
-      'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&w=1200&q=80'
+      "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=1200&q=80",
+      "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&w=1200&q=80",
     ];
 
     // Initialize Image Array
     for (let i = 0; i < FRAME_COUNT; i++) {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      img.crossOrigin = "anonymous";
       images.push(img);
     }
     imagesRef.current = images;
@@ -81,10 +81,16 @@ export default function HeroScrollCanvas({ progress = 0 }) {
 
     // Search outward for nearest loaded frame
     for (let offset = 1; offset < FRAME_COUNT; offset++) {
-      if (targetIndex - offset >= 0 && loadedFramesRef.current.has(targetIndex - offset)) {
+      if (
+        targetIndex - offset >= 0 &&
+        loadedFramesRef.current.has(targetIndex - offset)
+      ) {
         return imagesRef.current[targetIndex - offset];
       }
-      if (targetIndex + offset < FRAME_COUNT && loadedFramesRef.current.has(targetIndex + offset)) {
+      if (
+        targetIndex + offset < FRAME_COUNT &&
+        loadedFramesRef.current.has(targetIndex + offset)
+      ) {
         return imagesRef.current[targetIndex + offset];
       }
     }
@@ -96,7 +102,7 @@ export default function HeroScrollCanvas({ progress = 0 }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
 
     const render = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -113,7 +119,10 @@ export default function HeroScrollCanvas({ progress = 0 }) {
       ctx.clearRect(0, 0, width, height);
 
       // Compute frame index from progress (0.0 to 1.0)
-      const targetIndex = Math.min(FRAME_COUNT - 1, Math.max(0, Math.floor(progress * (FRAME_COUNT - 1))));
+      const targetIndex = Math.min(
+        FRAME_COUNT - 1,
+        Math.max(0, Math.floor(progress * (FRAME_COUNT - 1))),
+      );
       const img = getNearestLoadedImage(targetIndex);
 
       if (img && img.complete && img.naturalWidth !== 0) {
@@ -137,18 +146,24 @@ export default function HeroScrollCanvas({ progress = 0 }) {
         ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
 
         // Dark Vignette & Color Grade Overlay
-        const grad = ctx.createRadialGradient(width / 2, height / 2, width * 0.2, width / 2, height / 2, width * 0.8);
-        grad.addColorStop(0, 'rgba(9, 12, 14, 0.3)');
-        grad.addColorStop(1, 'rgba(9, 12, 14, 0.85)');
+        const grad = ctx.createRadialGradient(
+          width / 2,
+          height / 2,
+          width * 0.2,
+          width / 2,
+          height / 2,
+          width * 0.8,
+        );
+        grad.addColorStop(0, "rgba(9, 12, 14, 0.3)");
+        grad.addColorStop(1, "rgba(9, 12, 14, 0.85)");
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
-
       } else {
         // High-Quality Procedural Gym Fallback Graphic
         const grad = ctx.createLinearGradient(0, 0, width, height);
-        grad.addColorStop(0, '#090C0E');
-        grad.addColorStop(0.5, '#12161A');
-        grad.addColorStop(1, '#090C0E');
+        grad.addColorStop(0, "#090C0E");
+        grad.addColorStop(0.5, "#12161A");
+        grad.addColorStop(1, "#090C0E");
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
 
@@ -177,9 +192,9 @@ export default function HeroScrollCanvas({ progress = 0 }) {
   }, [progress]);
 
   return (
-    <canvas 
-      ref={canvasRef} 
-      className="absolute inset-0 w-full h-full object-cover pointer-events-none rounded-[40px]" 
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full object-cover pointer-events-none rounded-[40px]"
     />
   );
 }

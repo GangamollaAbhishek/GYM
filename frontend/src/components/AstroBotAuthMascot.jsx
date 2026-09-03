@@ -1,6 +1,12 @@
-import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 // ============================================================================
 // Web Audio Synthesizer (Cyber Robot Sound Effects)
@@ -18,7 +24,7 @@ class AstroBotAudio {
         this.ctx = new AudioCtx();
       }
     }
-    if (this.ctx && this.ctx.state === 'suspended') {
+    if (this.ctx && this.ctx.state === "suspended") {
       this.ctx.resume();
     }
   }
@@ -36,12 +42,18 @@ class AstroBotAudio {
     try {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      osc.type = 'sine';
+      osc.type = "sine";
       osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(freq * 1.5, this.ctx.currentTime + 0.06);
+      osc.frequency.exponentialRampToValueAtTime(
+        freq * 1.5,
+        this.ctx.currentTime + 0.06,
+      );
 
       gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.07);
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        this.ctx.currentTime + 0.07,
+      );
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -58,14 +70,20 @@ class AstroBotAudio {
     try {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      osc.type = 'triangle';
+      osc.type = "triangle";
       osc.frequency.setValueAtTime(320, this.ctx.currentTime);
       osc.frequency.linearRampToValueAtTime(540, this.ctx.currentTime + 0.12);
-      osc.frequency.exponentialRampToValueAtTime(240, this.ctx.currentTime + 0.25);
+      osc.frequency.exponentialRampToValueAtTime(
+        240,
+        this.ctx.currentTime + 0.25,
+      );
 
       gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0.1, this.ctx.currentTime + 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        this.ctx.currentTime + 0.25,
+      );
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -82,12 +100,18 @@ class AstroBotAudio {
     try {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      osc.type = 'sine';
+      osc.type = "sine";
       osc.frequency.setValueAtTime(520, this.ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(380, this.ctx.currentTime + 0.22);
+      osc.frequency.exponentialRampToValueAtTime(
+        380,
+        this.ctx.currentTime + 0.22,
+      );
 
       gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.22);
+      gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        this.ctx.currentTime + 0.22,
+      );
 
       osc.connect(gain);
       gain.connect(this.ctx.destination);
@@ -102,11 +126,11 @@ class AstroBotAudio {
     if (!this.ctx) return;
 
     try {
-      const notes = [587.33, 739.99, 880.00, 1174.66];
+      const notes = [587.33, 739.99, 880.0, 1174.66];
       notes.forEach((freq, i) => {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'sine';
+        osc.type = "sine";
         osc.frequency.value = freq;
 
         const startTime = this.ctx.currentTime + i * 0.08;
@@ -130,18 +154,20 @@ export const astroAudio = new AstroBotAudio();
 // ============================================================================
 const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
   {
-    modelType = 'robot', // 'robot' | 'xbot' | 'soldier'
-    bodyColor = 'white',
-    ledColor = 'cyan',
+    modelType = "robot", // 'robot' | 'xbot' | 'soldier'
+    bodyColor = "white",
+    ledColor = "cyan",
     onSpeechChange,
-    className = ''
+    className = "",
   },
-  ref
+  ref,
 ) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
 
-  const [speechText, setSpeechText] = useState('Beep boop! Ready to roll! 🤖✨');
+  const [speechText, setSpeechText] = useState(
+    "Beep boop! Ready to roll! 🤖✨",
+  );
   const [speechVisible, setSpeechVisible] = useState(true);
   const speechTimeoutRef = useRef(null);
 
@@ -190,12 +216,26 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
     targetRightEyeScale: new THREE.Vector3(1, 1.18, 0.25),
     targetBlushOpacity: 0.0,
 
-    targetLeftArm: { posX: -0.46, posY: -0.06, posZ: 0.26, rotX: 0.2, rotY: 0.1, rotZ: 0.2 },
-    targetRightArm: { posX: 0.46, posY: -0.06, posZ: 0.26, rotX: 0.2, rotY: -0.1, rotZ: -0.2 },
+    targetLeftArm: {
+      posX: -0.46,
+      posY: -0.06,
+      posZ: 0.26,
+      rotX: 0.2,
+      rotY: 0.1,
+      rotZ: 0.2,
+    },
+    targetRightArm: {
+      posX: 0.46,
+      posY: -0.06,
+      posZ: 0.26,
+      rotX: 0.2,
+      rotY: -0.1,
+      rotZ: -0.2,
+    },
 
-    currentState: 'IDLE',
+    currentState: "IDLE",
     blinkTimer: 0,
-    animFrameId: null
+    animFrameId: null,
   });
 
   const say = (text, duration = 3000) => {
@@ -213,7 +253,7 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
   useImperativeHandle(ref, () => ({
     trackInput: (inputElement) => {
       const eng = engineRef.current;
-      if (eng.currentState === 'PASSWORD_FOCUS') return;
+      if (eng.currentState === "PASSWORD_FOCUS") return;
 
       if (!inputElement || !containerRef.current) return;
       const rect = inputElement.getBoundingClientRect();
@@ -246,7 +286,7 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
 
     resetLook: () => {
       const eng = engineRef.current;
-      if (eng.currentState === 'PASSWORD_FOCUS') return;
+      if (eng.currentState === "PASSWORD_FOCUS") return;
       eng.targetHeadRot.set(0, 0, 0);
       eng.targetEyePos.set(0, 0);
       if (eng.gltfModel) eng.targetRootRotY = 0;
@@ -254,15 +294,29 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
 
     coverEyes: () => {
       const eng = engineRef.current;
-      eng.currentState = 'PASSWORD_FOCUS';
+      eng.currentState = "PASSWORD_FOCUS";
 
       // Turn robot 150° around
       eng.targetRootRotY = Math.PI * 0.82;
       eng.targetHeadRot.set(0.1, -0.45, -0.05);
 
       // Fold arms on back
-      eng.targetLeftArm = { posX: -0.38, posY: 0.05, posZ: 0.22, rotX: -0.6, rotY: 0.4, rotZ: 0.4 };
-      eng.targetRightArm = { posX: 0.38, posY: 0.05, posZ: 0.22, rotX: -0.6, rotY: -0.4, rotZ: -0.4 };
+      eng.targetLeftArm = {
+        posX: -0.38,
+        posY: 0.05,
+        posZ: 0.22,
+        rotX: -0.6,
+        rotY: 0.4,
+        rotZ: 0.4,
+      };
+      eng.targetRightArm = {
+        posX: 0.38,
+        posY: 0.05,
+        posZ: 0.22,
+        rotX: -0.6,
+        rotY: -0.4,
+        rotZ: -0.4,
+      };
 
       eng.targetLeftEyeScale.set(1.2, 1.25, 0.3);
       eng.targetEyePos.set(-0.02, 0.02);
@@ -270,7 +324,11 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
       eng.targetBlushOpacity = 0.85;
 
       if (eng.mixer && eng.actions) {
-        const animName = Object.keys(eng.actions).find(k => k.toLowerCase().includes('idle') || k.toLowerCase().includes('walk'));
+        const animName = Object.keys(eng.actions).find(
+          (k) =>
+            k.toLowerCase().includes("idle") ||
+            k.toLowerCase().includes("walk"),
+        );
         if (animName && eng.actions[animName]) {
           eng.actions[animName].play();
         }
@@ -283,13 +341,27 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
 
     peek: () => {
       const eng = engineRef.current;
-      eng.currentState = 'PEEK';
+      eng.currentState = "PEEK";
 
       eng.targetRootRotY = 0.45;
       eng.targetHeadRot.set(0.2, 0.1, 0);
 
-      eng.targetLeftArm = { posX: -0.46, posY: -0.06, posZ: 0.26, rotX: 0.2, rotY: 0.1, rotZ: 0.2 };
-      eng.targetRightArm = { posX: 0.46, posY: -0.06, posZ: 0.26, rotX: 0.2, rotY: -0.1, rotZ: -0.2 };
+      eng.targetLeftArm = {
+        posX: -0.46,
+        posY: -0.06,
+        posZ: 0.26,
+        rotX: 0.2,
+        rotY: 0.1,
+        rotZ: 0.2,
+      };
+      eng.targetRightArm = {
+        posX: 0.46,
+        posY: -0.06,
+        posZ: 0.26,
+        rotX: 0.2,
+        rotY: -0.1,
+        rotZ: -0.2,
+      };
 
       eng.targetEyePos.set(0.02, -0.04);
       eng.targetLeftEyeScale.set(1.35, 1.35, 0.3);
@@ -302,14 +374,28 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
 
     uncoverEyes: () => {
       const eng = engineRef.current;
-      eng.currentState = 'IDLE';
+      eng.currentState = "IDLE";
 
       eng.targetRootRotY = 0;
       eng.targetHeadRot.set(0, 0, 0);
       eng.targetEyePos.set(0, 0);
 
-      eng.targetLeftArm = { posX: -0.46, posY: -0.06, posZ: 0.26, rotX: 0.2, rotY: 0.1, rotZ: 0.2 };
-      eng.targetRightArm = { posX: 0.46, posY: -0.06, posZ: 0.26, rotX: 0.2, rotY: -0.1, rotZ: -0.2 };
+      eng.targetLeftArm = {
+        posX: -0.46,
+        posY: -0.06,
+        posZ: 0.26,
+        rotX: 0.2,
+        rotY: 0.1,
+        rotZ: 0.2,
+      };
+      eng.targetRightArm = {
+        posX: 0.46,
+        posY: -0.06,
+        posZ: 0.26,
+        rotX: 0.2,
+        rotY: -0.1,
+        rotZ: -0.2,
+      };
 
       eng.targetLeftEyeScale.set(1.0, 1.18, 0.25);
       eng.targetRightEyeScale.set(1.0, 1.18, 0.25);
@@ -318,12 +404,26 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
 
     celebrate: () => {
       const eng = engineRef.current;
-      eng.currentState = 'CELEBRATE';
+      eng.currentState = "CELEBRATE";
       eng.targetRootRotY = 0;
       eng.targetHeadRot.set(-0.35, 0, 0);
 
-      eng.targetLeftArm = { posX: -0.55, posY: 0.75, posZ: 0.2, rotX: -2.6, rotY: 0.3, rotZ: 0.6 };
-      eng.targetRightArm = { posX: 0.55, posY: 0.75, posZ: 0.2, rotX: -2.6, rotY: -0.3, rotZ: -0.6 };
+      eng.targetLeftArm = {
+        posX: -0.55,
+        posY: 0.75,
+        posZ: 0.2,
+        rotX: -2.6,
+        rotY: 0.3,
+        rotZ: 0.6,
+      };
+      eng.targetRightArm = {
+        posX: 0.55,
+        posY: 0.75,
+        posZ: 0.2,
+        rotX: -2.6,
+        rotY: -0.3,
+        rotZ: -0.6,
+      };
 
       eng.targetLeftEyeScale.set(1.4, 0.4, 0.3);
       eng.targetRightEyeScale.set(1.4, 0.4, 0.3);
@@ -335,7 +435,7 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
 
     think: () => {
       const eng = engineRef.current;
-      eng.currentState = 'THINK';
+      eng.currentState = "THINK";
       eng.targetHeadRot.set(-0.25, 0.35, 0.12);
       if (eng.leftEar && eng.rightEar) {
         eng.leftEar.rotation.x = Math.PI / 2 + 0.3;
@@ -350,15 +450,22 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
           eng.leftEar.rotation.x = 0;
           eng.rightEar.rotation.x = 0;
         }
-        eng.currentState = 'IDLE';
+        eng.currentState = "IDLE";
         eng.targetHeadRot.set(0, 0, 0);
       }, 2200);
     },
 
     wave: () => {
       const eng = engineRef.current;
-      eng.currentState = 'IDLE';
-      eng.targetRightArm = { posX: 0.52, posY: 0.65, posZ: 0.25, rotX: -1.8, rotY: -0.4, rotZ: -0.5 };
+      eng.currentState = "IDLE";
+      eng.targetRightArm = {
+        posX: 0.52,
+        posY: 0.65,
+        posZ: 0.25,
+        rotX: -1.8,
+        rotY: -0.4,
+        rotZ: -0.5,
+      };
 
       astroAudio.playBleep(740);
       say("Welcome to Titan Pulse! 👋", 2400);
@@ -376,7 +483,7 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
       }, 150);
     },
 
-    say: (msg, dur) => say(msg, dur)
+    say: (msg, dur) => say(msg, dur),
   }));
 
   // Build Procedural Robot
@@ -389,35 +496,35 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
     eng.matBody = new THREE.MeshStandardMaterial({
       color: getBodyColorHex(bodyColor),
       roughness: 0.18,
-      metalness: 0.15
+      metalness: 0.15,
     });
 
     eng.matVisor = new THREE.MeshStandardMaterial({
       color: 0x070b14,
       roughness: 0.1,
-      metalness: 0.85
+      metalness: 0.85,
     });
 
     eng.matLED = new THREE.MeshBasicMaterial({
-      color: getLedColorHex(ledColor)
+      color: getLedColorHex(ledColor),
     });
 
     eng.matBlush = new THREE.MeshBasicMaterial({
       color: 0xff4d6d,
       transparent: true,
-      opacity: 0.0
+      opacity: 0.0,
     });
 
     eng.matAccent = new THREE.MeshStandardMaterial({
       color: 0xff1e27,
       roughness: 0.3,
-      metalness: 0.4
+      metalness: 0.4,
     });
 
     eng.matChrome = new THREE.MeshStandardMaterial({
       color: 0xe2e8f0,
       roughness: 0.1,
-      metalness: 0.9
+      metalness: 0.9,
     });
 
     // Torso / Neck Collar
@@ -447,7 +554,7 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
     const visorGeo = new THREE.SphereGeometry(0.49, 32, 32);
     visorGeo.scale(1.02, 0.84, 0.82);
     eng.visorMesh = new THREE.Mesh(visorGeo, eng.matVisor);
-    eng.visorMesh.position.set(0, 0.02, 0.20);
+    eng.visorMesh.position.set(0, 0.02, 0.2);
     eng.headGroup.add(eng.visorMesh);
 
     // Glowing LED Eyes
@@ -499,7 +606,12 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
     eng.headGroup.add(eng.rightEar);
 
     // Top Antenna
-    const topAntennaStemGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.22, 12);
+    const topAntennaStemGeo = new THREE.CylinderGeometry(
+      0.015,
+      0.015,
+      0.22,
+      12,
+    );
     const topStem = new THREE.Mesh(topAntennaStemGeo, eng.matChrome);
     topStem.position.set(0, 0.62, 0);
     eng.headGroup.add(topStem);
@@ -512,20 +624,32 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
     // Articulated Arms
     const buildArm = () => {
       const armGroup = new THREE.Group();
-      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), eng.matChrome);
+      const shoulder = new THREE.Mesh(
+        new THREE.SphereGeometry(0.09, 16, 16),
+        eng.matChrome,
+      );
       armGroup.add(shoulder);
 
-      const armPod = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.08, 0.22, 16), eng.matBody);
+      const armPod = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.065, 0.08, 0.22, 16),
+        eng.matBody,
+      );
       armPod.position.set(0, -0.12, 0.06);
       armPod.rotation.x = -0.35;
       armGroup.add(armPod);
 
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.10, 16, 16), eng.matBody);
+      const hand = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 16, 16),
+        eng.matBody,
+      );
       hand.scale.set(1.15, 0.85, 1.15);
       hand.position.set(0, -0.24, 0.14);
       armGroup.add(hand);
 
-      const padAccent = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 16), eng.matAccent);
+      const padAccent = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.05, 0.05, 0.02, 16),
+        eng.matAccent,
+      );
       padAccent.position.set(0, -0.28, 0.17);
       padAccent.rotation.x = Math.PI / 2;
       armGroup.add(padAccent);
@@ -568,9 +692,9 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
       },
       undefined,
       (err) => {
-        console.warn('Fallback to procedural robot mascot:', err);
+        console.warn("Fallback to procedural robot mascot:", err);
         buildProceduralRobot(eng);
-      }
+      },
     );
   };
 
@@ -580,7 +704,7 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
       black: 0x18181b,
       gold: 0xf59e0b,
       purple: 0x8b5cf6,
-      crimson: 0xff1e27
+      crimson: 0xff1e27,
     };
     return map[key] || map.white;
   };
@@ -591,7 +715,7 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
       emerald: 0x10b981,
       amber: 0xf59e0b,
       pink: 0xec4899,
-      red: 0xff1e27
+      red: 0xff1e27,
     };
     return map[key] || map.cyan;
   };
@@ -634,7 +758,7 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
       canvas,
       antialias: true,
       alpha: true,
-      powerPreference: 'high-performance'
+      powerPreference: "high-performance",
     });
     eng.renderer.setSize(width, height);
     eng.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -652,17 +776,17 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
     eng.scene.add(eng.rimLight);
 
     // Build Model
-    if (modelType === 'xbot') {
-      loadGLTFModel(eng, '/assets/Xbot.glb');
-    } else if (modelType === 'soldier') {
-      loadGLTFModel(eng, '/assets/Soldier.glb');
+    if (modelType === "xbot") {
+      loadGLTFModel(eng, "/assets/Xbot.glb");
+    } else if (modelType === "soldier") {
+      loadGLTFModel(eng, "/assets/Soldier.glb");
     } else {
       buildProceduralRobot(eng);
     }
 
     // Pointer Tracking
     const handlePointerMove = (clientX, clientY) => {
-      if (eng.currentState !== 'IDLE') return;
+      if (eng.currentState !== "IDLE") return;
       const normX = (clientX / window.innerWidth) * 2 - 1;
       const normY = -(clientY / window.innerHeight) * 2 + 1;
       eng.targetHeadRot.y = normX * 0.52;
@@ -681,8 +805,8 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
       }
     };
 
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('touchmove', onTouchMove);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove);
 
     const onResize = () => {
       if (!eng.renderer || !eng.camera || !container) return;
@@ -692,7 +816,7 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
       eng.camera.updateProjectionMatrix();
       eng.renderer.setSize(w, h);
     };
-    window.addEventListener('resize', onResize);
+    window.addEventListener("resize", onResize);
 
     // Animation Loop
     const animate = () => {
@@ -707,67 +831,183 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
 
       if (eng.robotRoot) {
         // Idle Breathing
-        if (eng.currentState === 'IDLE' || eng.currentState === 'PASSWORD_FOCUS') {
+        if (
+          eng.currentState === "IDLE" ||
+          eng.currentState === "PASSWORD_FOCUS"
+        ) {
           eng.robotRoot.position.y = -0.18 + Math.sin(t * 2.2) * 0.015;
           if (eng.leftEar && eng.rightEar) {
             eng.leftEar.rotation.y = Math.sin(t * 1.5) * 0.08;
             eng.rightEar.rotation.y = -Math.sin(t * 1.5) * 0.08;
           }
-        } else if (eng.currentState === 'CELEBRATE') {
+        } else if (eng.currentState === "CELEBRATE") {
           eng.robotRoot.position.y = -0.18 + Math.abs(Math.sin(t * 8)) * 0.06;
         }
 
         const lerpSpeed = Math.min(10 * delta, 1.0);
-        eng.robotRoot.rotation.y = THREE.MathUtils.lerp(eng.robotRoot.rotation.y, eng.targetRootRotY, lerpSpeed);
+        eng.robotRoot.rotation.y = THREE.MathUtils.lerp(
+          eng.robotRoot.rotation.y,
+          eng.targetRootRotY,
+          lerpSpeed,
+        );
 
         if (eng.headGroup) {
-          eng.headGroup.rotation.x = THREE.MathUtils.lerp(eng.headGroup.rotation.x, eng.targetHeadRot.x, lerpSpeed);
-          eng.headGroup.rotation.y = THREE.MathUtils.lerp(eng.headGroup.rotation.y, eng.targetHeadRot.y, lerpSpeed);
-          eng.headGroup.rotation.z = THREE.MathUtils.lerp(eng.headGroup.rotation.z, eng.targetHeadRot.z, lerpSpeed);
+          eng.headGroup.rotation.x = THREE.MathUtils.lerp(
+            eng.headGroup.rotation.x,
+            eng.targetHeadRot.x,
+            lerpSpeed,
+          );
+          eng.headGroup.rotation.y = THREE.MathUtils.lerp(
+            eng.headGroup.rotation.y,
+            eng.targetHeadRot.y,
+            lerpSpeed,
+          );
+          eng.headGroup.rotation.z = THREE.MathUtils.lerp(
+            eng.headGroup.rotation.z,
+            eng.targetHeadRot.z,
+            lerpSpeed,
+          );
         }
 
         if (eng.eyeLeft && eng.eyeRight) {
-          eng.eyeLeft.position.x = THREE.MathUtils.lerp(eng.eyeLeft.position.x, -0.18 + eng.targetEyePos.x, lerpSpeed);
-          eng.eyeLeft.position.y = THREE.MathUtils.lerp(eng.eyeLeft.position.y, 0.04 + eng.targetEyePos.y, lerpSpeed);
-          eng.eyeRight.position.x = THREE.MathUtils.lerp(eng.eyeRight.position.x, 0.18 + eng.targetEyePos.x, lerpSpeed);
-          eng.eyeRight.position.y = THREE.MathUtils.lerp(eng.eyeRight.position.y, 0.04 + eng.targetEyePos.y, lerpSpeed);
+          eng.eyeLeft.position.x = THREE.MathUtils.lerp(
+            eng.eyeLeft.position.x,
+            -0.18 + eng.targetEyePos.x,
+            lerpSpeed,
+          );
+          eng.eyeLeft.position.y = THREE.MathUtils.lerp(
+            eng.eyeLeft.position.y,
+            0.04 + eng.targetEyePos.y,
+            lerpSpeed,
+          );
+          eng.eyeRight.position.x = THREE.MathUtils.lerp(
+            eng.eyeRight.position.x,
+            0.18 + eng.targetEyePos.x,
+            lerpSpeed,
+          );
+          eng.eyeRight.position.y = THREE.MathUtils.lerp(
+            eng.eyeRight.position.y,
+            0.04 + eng.targetEyePos.y,
+            lerpSpeed,
+          );
 
-          eng.eyeLeft.scale.x = THREE.MathUtils.lerp(eng.eyeLeft.scale.x, eng.targetLeftEyeScale.x, lerpSpeed);
-          eng.eyeLeft.scale.y = THREE.MathUtils.lerp(eng.eyeLeft.scale.y, eng.targetLeftEyeScale.y, lerpSpeed);
-          eng.eyeLeft.scale.z = THREE.MathUtils.lerp(eng.eyeLeft.scale.z, eng.targetLeftEyeScale.z, lerpSpeed);
+          eng.eyeLeft.scale.x = THREE.MathUtils.lerp(
+            eng.eyeLeft.scale.x,
+            eng.targetLeftEyeScale.x,
+            lerpSpeed,
+          );
+          eng.eyeLeft.scale.y = THREE.MathUtils.lerp(
+            eng.eyeLeft.scale.y,
+            eng.targetLeftEyeScale.y,
+            lerpSpeed,
+          );
+          eng.eyeLeft.scale.z = THREE.MathUtils.lerp(
+            eng.eyeLeft.scale.z,
+            eng.targetLeftEyeScale.z,
+            lerpSpeed,
+          );
 
-          eng.eyeRight.scale.x = THREE.MathUtils.lerp(eng.eyeRight.scale.x, eng.targetRightEyeScale.x, lerpSpeed);
-          eng.eyeRight.scale.y = THREE.MathUtils.lerp(eng.eyeRight.scale.y, eng.targetRightEyeScale.y, lerpSpeed);
-          eng.eyeRight.scale.z = THREE.MathUtils.lerp(eng.eyeRight.scale.z, eng.targetRightEyeScale.z, lerpSpeed);
+          eng.eyeRight.scale.x = THREE.MathUtils.lerp(
+            eng.eyeRight.scale.x,
+            eng.targetRightEyeScale.x,
+            lerpSpeed,
+          );
+          eng.eyeRight.scale.y = THREE.MathUtils.lerp(
+            eng.eyeRight.scale.y,
+            eng.targetRightEyeScale.y,
+            lerpSpeed,
+          );
+          eng.eyeRight.scale.z = THREE.MathUtils.lerp(
+            eng.eyeRight.scale.z,
+            eng.targetRightEyeScale.z,
+            lerpSpeed,
+          );
         }
 
         if (eng.leftArm && eng.rightArm) {
-          eng.leftArm.position.x = THREE.MathUtils.lerp(eng.leftArm.position.x, eng.targetLeftArm.posX, lerpSpeed);
-          eng.leftArm.position.y = THREE.MathUtils.lerp(eng.leftArm.position.y, eng.targetLeftArm.posY, lerpSpeed);
-          eng.leftArm.position.z = THREE.MathUtils.lerp(eng.leftArm.position.z, eng.targetLeftArm.posZ, lerpSpeed);
-          eng.leftArm.rotation.x = THREE.MathUtils.lerp(eng.leftArm.rotation.x, eng.targetLeftArm.rotX, lerpSpeed);
-          eng.leftArm.rotation.y = THREE.MathUtils.lerp(eng.leftArm.rotation.y, eng.targetLeftArm.rotY, lerpSpeed);
-          eng.leftArm.rotation.z = THREE.MathUtils.lerp(eng.leftArm.rotation.z, eng.targetLeftArm.rotZ, lerpSpeed);
+          eng.leftArm.position.x = THREE.MathUtils.lerp(
+            eng.leftArm.position.x,
+            eng.targetLeftArm.posX,
+            lerpSpeed,
+          );
+          eng.leftArm.position.y = THREE.MathUtils.lerp(
+            eng.leftArm.position.y,
+            eng.targetLeftArm.posY,
+            lerpSpeed,
+          );
+          eng.leftArm.position.z = THREE.MathUtils.lerp(
+            eng.leftArm.position.z,
+            eng.targetLeftArm.posZ,
+            lerpSpeed,
+          );
+          eng.leftArm.rotation.x = THREE.MathUtils.lerp(
+            eng.leftArm.rotation.x,
+            eng.targetLeftArm.rotX,
+            lerpSpeed,
+          );
+          eng.leftArm.rotation.y = THREE.MathUtils.lerp(
+            eng.leftArm.rotation.y,
+            eng.targetLeftArm.rotY,
+            lerpSpeed,
+          );
+          eng.leftArm.rotation.z = THREE.MathUtils.lerp(
+            eng.leftArm.rotation.z,
+            eng.targetLeftArm.rotZ,
+            lerpSpeed,
+          );
 
-          eng.rightArm.position.x = THREE.MathUtils.lerp(eng.rightArm.position.x, eng.targetRightArm.posX, lerpSpeed);
-          eng.rightArm.position.y = THREE.MathUtils.lerp(eng.rightArm.position.y, eng.targetRightArm.posY, lerpSpeed);
-          eng.rightArm.position.z = THREE.MathUtils.lerp(eng.rightArm.position.z, eng.targetRightArm.posZ, lerpSpeed);
-          eng.rightArm.rotation.x = THREE.MathUtils.lerp(eng.rightArm.rotation.x, eng.targetRightArm.rotX, lerpSpeed);
-          eng.rightArm.rotation.y = THREE.MathUtils.lerp(eng.rightArm.rotation.y, eng.targetRightArm.rotY, lerpSpeed);
-          eng.rightArm.rotation.z = THREE.MathUtils.lerp(eng.rightArm.rotation.z, eng.targetRightArm.rotZ, lerpSpeed);
+          eng.rightArm.position.x = THREE.MathUtils.lerp(
+            eng.rightArm.position.x,
+            eng.targetRightArm.posX,
+            lerpSpeed,
+          );
+          eng.rightArm.position.y = THREE.MathUtils.lerp(
+            eng.rightArm.position.y,
+            eng.targetRightArm.posY,
+            lerpSpeed,
+          );
+          eng.rightArm.position.z = THREE.MathUtils.lerp(
+            eng.rightArm.position.z,
+            eng.targetRightArm.posZ,
+            lerpSpeed,
+          );
+          eng.rightArm.rotation.x = THREE.MathUtils.lerp(
+            eng.rightArm.rotation.x,
+            eng.targetRightArm.rotX,
+            lerpSpeed,
+          );
+          eng.rightArm.rotation.y = THREE.MathUtils.lerp(
+            eng.rightArm.rotation.y,
+            eng.targetRightArm.rotY,
+            lerpSpeed,
+          );
+          eng.rightArm.rotation.z = THREE.MathUtils.lerp(
+            eng.rightArm.rotation.z,
+            eng.targetRightArm.rotZ,
+            lerpSpeed,
+          );
         }
 
         if (eng.matBlush) {
-          eng.matBlush.opacity = THREE.MathUtils.lerp(eng.matBlush.opacity, eng.targetBlushOpacity, lerpSpeed);
+          eng.matBlush.opacity = THREE.MathUtils.lerp(
+            eng.matBlush.opacity,
+            eng.targetBlushOpacity,
+            lerpSpeed,
+          );
         }
 
         // Blinking
         eng.blinkTimer += delta;
-        if (eng.blinkTimer > 3.5 && eng.currentState === 'IDLE' && eng.eyeLeft && eng.eyeRight) {
+        if (
+          eng.blinkTimer > 3.5 &&
+          eng.currentState === "IDLE" &&
+          eng.eyeLeft &&
+          eng.eyeRight
+        ) {
           eng.eyeLeft.scale.y = 0.1;
           eng.eyeRight.scale.y = 0.1;
           setTimeout(() => {
-            if (eng.currentState === 'IDLE' && eng.eyeLeft && eng.eyeRight) {
+            if (eng.currentState === "IDLE" && eng.eyeLeft && eng.eyeRight) {
               eng.eyeLeft.scale.y = 1.18;
               eng.eyeRight.scale.y = 1.18;
             }
@@ -778,7 +1018,11 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
 
       if (eng.gltfModel) {
         const lerpSpeed = Math.min(10 * delta, 1.0);
-        eng.gltfModel.rotation.y = THREE.MathUtils.lerp(eng.gltfModel.rotation.y, eng.targetRootRotY, lerpSpeed);
+        eng.gltfModel.rotation.y = THREE.MathUtils.lerp(
+          eng.gltfModel.rotation.y,
+          eng.targetRootRotY,
+          lerpSpeed,
+        );
       }
 
       eng.renderer.render(eng.scene, eng.camera);
@@ -788,17 +1032,23 @@ const AstroBotAuthMascot = forwardRef(function AstroBotAuthMascot(
 
     return () => {
       if (eng.animFrameId) cancelAnimationFrame(eng.animFrameId);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("resize", onResize);
       if (eng.renderer) eng.renderer.dispose();
     };
   }, [modelType]);
 
   return (
-    <div className={`astro-robot-avatar-wrapper ${className}`} id="robot-wrapper">
+    <div
+      className={`astro-robot-avatar-wrapper ${className}`}
+      id="robot-wrapper"
+    >
       {/* Animated Speech Bubble */}
-      <div className={`astro-robot-speech-bubble ${speechVisible ? 'visible' : ''}`} aria-live="polite">
+      <div
+        className={`astro-robot-speech-bubble ${speechVisible ? "visible" : ""}`}
+        aria-live="polite"
+      >
         <span>{speechText}</span>
       </div>
 

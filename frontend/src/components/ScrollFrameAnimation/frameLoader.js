@@ -5,12 +5,12 @@
 
 export class FrameLoader {
   constructor({
-    framePath = '/frames/ezgif-frame-',
+    framePath = "/frames/ezgif-frame-",
     frameCount = 300,
-    frameExtension = 'jpg',
+    frameExtension = "jpg",
     digits = 3,
     onProgress = null,
-    onComplete = null
+    onComplete = null,
   }) {
     this.framePath = framePath;
     this.frameCount = frameCount;
@@ -27,7 +27,7 @@ export class FrameLoader {
 
   formatIndex(index) {
     const frameNum = index + 1; // 1-indexed filenames (001 to 300)
-    return String(frameNum).padStart(this.digits, '0');
+    return String(frameNum).padStart(this.digits, "0");
   }
 
   getFrameUrl(index) {
@@ -38,9 +38,9 @@ export class FrameLoader {
     if (this.images[index] || this.isDestroyed) return;
 
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    img.crossOrigin = "anonymous";
     img.src = this.getFrameUrl(index);
-    
+
     img.onload = () => {
       if (this.isDestroyed) return;
       this.loadedSet.add(index);
@@ -90,7 +90,7 @@ export class FrameLoader {
       }
 
       if (currentIndex < this.frameCount) {
-        if ('requestIdleCallback' in window) {
+        if ("requestIdleCallback" in window) {
           window.requestIdleCallback(() => loadNextBatch(), { timeout: 200 });
         } else {
           this.batchTimer = setTimeout(loadNextBatch, 30);
@@ -98,7 +98,7 @@ export class FrameLoader {
       }
     };
 
-    if ('requestIdleCallback' in window) {
+    if ("requestIdleCallback" in window) {
       window.requestIdleCallback(() => loadNextBatch(), { timeout: 100 });
     } else {
       this.batchTimer = setTimeout(loadNextBatch, 50);
@@ -106,7 +106,10 @@ export class FrameLoader {
   }
 
   getFrame(index) {
-    const validIndex = Math.max(0, Math.min(this.frameCount - 1, Math.floor(index)));
+    const validIndex = Math.max(
+      0,
+      Math.min(this.frameCount - 1, Math.floor(index)),
+    );
     const img = this.images[validIndex];
     if (img && img.complete && img.naturalWidth !== 0) {
       return img;
@@ -121,11 +124,21 @@ export class FrameLoader {
 
     for (let offset = 1; offset < this.frameCount; offset++) {
       const prev = targetIndex - offset;
-      if (prev >= 0 && this.loadedSet.has(prev) && this.images[prev]?.complete && this.images[prev]?.naturalWidth !== 0) {
+      if (
+        prev >= 0 &&
+        this.loadedSet.has(prev) &&
+        this.images[prev]?.complete &&
+        this.images[prev]?.naturalWidth !== 0
+      ) {
         return this.images[prev];
       }
       const next = targetIndex + offset;
-      if (next < this.frameCount && this.loadedSet.has(next) && this.images[next]?.complete && this.images[next]?.naturalWidth !== 0) {
+      if (
+        next < this.frameCount &&
+        this.loadedSet.has(next) &&
+        this.images[next]?.complete &&
+        this.images[next]?.naturalWidth !== 0
+      ) {
         return this.images[next];
       }
     }

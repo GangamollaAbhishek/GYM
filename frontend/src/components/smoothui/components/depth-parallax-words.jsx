@@ -1,12 +1,12 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from "react";
 
 export default function DepthParallaxWords({
   children,
-  className = '',
+  className = "",
   delay = 0,
   depth = 30,
   perspective = 1000,
-  as: Component = 'div',
+  as: Component = "div",
   ...props
 }) {
   const containerRef = useRef(null);
@@ -32,15 +32,16 @@ export default function DepthParallaxWords({
 
     const container = containerRef.current;
     if (container) {
-      container.addEventListener('mousemove', handleMouseMove);
+      container.addEventListener("mousemove", handleMouseMove);
     }
     return () => {
-      if (container) container.removeEventListener('mousemove', handleMouseMove);
+      if (container)
+        container.removeEventListener("mousemove", handleMouseMove);
     };
   }, []);
 
-  const text = typeof children === 'string' ? children : String(children || '');
-  const words = text.split(' ');
+  const text = typeof children === "string" ? children : String(children || "");
+  const words = text.split(" ");
 
   return (
     <Component
@@ -51,11 +52,11 @@ export default function DepthParallaxWords({
         setMousePos({ x: 0, y: 0 });
       }}
       className={`relative inline-flex flex-wrap items-center justify-center gap-x-[0.35em] gap-y-1 select-none transition-all duration-700 ${
-        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
       } ${className}`}
       style={{
         perspective: `${perspective}px`,
-        transformStyle: 'preserve-3d'
+        transformStyle: "preserve-3d",
       }}
       {...props}
     >
@@ -73,7 +74,7 @@ export default function DepthParallaxWords({
             className="inline-block transition-transform duration-200 ease-out will-change-transform transform-gpu"
             style={{
               transform: `translate3d(${translateX}px, ${translateY}px, ${translateZ}px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
-              transformStyle: 'preserve-3d',
+              transformStyle: "preserve-3d",
               transitionDelay: `${idx * 20}ms`,
             }}
           >

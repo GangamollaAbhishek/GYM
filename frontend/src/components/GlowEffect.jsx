@@ -20,7 +20,12 @@ export function GlowEffect({
   const gradientStops = colors.join(", ");
 
   return (
-    <div className={cn("absolute inset-0 overflow-hidden pointer-events-none", className)}>
+    <div
+      className={cn(
+        "absolute inset-0 overflow-hidden pointer-events-none",
+        className,
+      )}
+    >
       <motion.div
         animate={{
           rotate: mode === "rotate" ? [0, 360] : 0,
@@ -40,7 +45,7 @@ export function GlowEffect({
         }}
         className={cn(
           "absolute -inset-[100%] origin-center opacity-75",
-          blurMap[blur] || "blur-[30px]"
+          blurMap[blur] || "blur-[30px]",
         )}
         style={{
           background: `conic-gradient(from 0deg, ${gradientStops})`,

@@ -21,7 +21,7 @@ export function FluidBlobs({
     <div
       className={cn(
         "absolute inset-0 overflow-hidden pointer-events-none select-none",
-        className
+        className,
       )}
       style={{ filter: `blur(${blur}px)` }}
     >

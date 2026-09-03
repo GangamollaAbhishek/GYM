@@ -37,8 +37,10 @@ export const CreepyButton = ({
     const visionRangeY = 75;
     const distance = Math.hypot(dx, dy);
 
-    const x = (Math.sin(angle) * Math.min(distance, visionRangeX)) / visionRangeX;
-    const y = (Math.cos(angle) * Math.min(distance, visionRangeY)) / visionRangeY;
+    const x =
+      (Math.sin(angle) * Math.min(distance, visionRangeX)) / visionRangeX;
+    const y =
+      (Math.cos(angle) * Math.min(distance, visionRangeY)) / visionRangeY;
 
     setEyeCoords({ x, y });
   };
@@ -57,7 +59,7 @@ export const CreepyButton = ({
       className={cn(
         "relative min-w-[9em] rounded-xl bg-black cursor-pointer outline-none select-none group tap-highlight-transparent overflow-hidden",
         "focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#E50914]",
-        className
+        className,
       )}
       onClick={onClick}
       onMouseMove={(e) => {
@@ -116,7 +118,7 @@ export const CreepyButton = ({
           "shadow-[inset_0_0_0_0.125em_rgba(0,0,0,0.4)]",
           "flex items-center justify-center px-4 py-2",
           "origin-[1.25em_50%]",
-          coverClassName
+          coverClassName,
         )}
         animate={{
           rotate: isHovered ? -12 : 0,

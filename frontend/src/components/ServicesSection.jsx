@@ -1,10 +1,18 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState, useMemo } from 'react';
-import * as THREE from 'three';
-import { cn } from '@/lib/utils';
-import { Sparkles, Check, ChevronRight, ChevronLeft, Zap, Crown, Percent } from 'lucide-react';
-import { useLandingPageCMS } from '../context/LandingPageCMSContext';
+import { useEffect, useRef, useState, useMemo } from "react";
+import * as THREE from "three";
+import { cn } from "@/lib/utils";
+import {
+  Sparkles,
+  Check,
+  ChevronRight,
+  ChevronLeft,
+  Zap,
+  Crown,
+  Percent,
+} from "lucide-react";
+import { useLandingPageCMS } from "../context/LandingPageCMSContext";
 
 function rr(x, px, py, w, h, r) {
   x.beginPath();
@@ -18,7 +26,7 @@ function rr(x, px, py, w, h, r) {
 
 function drawSpaced(x, text, cx, y, ls) {
   const prev = x.textAlign;
-  x.textAlign = 'left';
+  x.textAlign = "left";
   const chars = [...text];
   let tot = 0;
   const ws = chars.map((ch) => {
@@ -40,146 +48,160 @@ function paintProFront(x, w, h, isYearly, cfg) {
   const dyn = cfg?.dynamicData;
   const mPrice = dyn?.price || 2499;
   const yPrice = dyn?.annualPrice || 24999;
-  const priceText = isYearly ? `₹${Number(yPrice).toLocaleString()} / YEAR` : `₹${Number(mPrice).toLocaleString()} / MONTH`;
-  const badgeTop = dyn?.badge || 'TITAN ALL-ACCESS PASS';
-  const badgeSub = isYearly ? 'SAVE ANNUALLY' : (dyn?.subBadge || 'BIOMETRIC UNLOCKED • 24/7 ACCESS');
-  const titleText = dyn?.name ? dyn.name.replace(/MEMBERSHIP/gi, '').trim() || 'PRO' : 'PRO';
+  const priceText = isYearly
+    ? `₹${Number(yPrice).toLocaleString()} / YEAR`
+    : `₹${Number(mPrice).toLocaleString()} / MONTH`;
+  const badgeTop = dyn?.badge || "TITAN ALL-ACCESS PASS";
+  const badgeSub = isYearly
+    ? "SAVE ANNUALLY"
+    : dyn?.subBadge || "BIOMETRIC UNLOCKED • 24/7 ACCESS";
+  const titleText = dyn?.name
+    ? dyn.name.replace(/MEMBERSHIP/gi, "").trim() || "PRO"
+    : "PRO";
 
   const g = x.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, '#161b22');
-  g.addColorStop(0.5, '#0f1318');
-  g.addColorStop(1, '#080a0d');
+  g.addColorStop(0, "#161b22");
+  g.addColorStop(0.5, "#0f1318");
+  g.addColorStop(1, "#080a0d");
   x.fillStyle = g;
   x.fillRect(0, 0, w, h);
 
   // Carbon Tech Grid
-  x.strokeStyle = 'rgba(255, 46, 76, 0.07)';
+  x.strokeStyle = "rgba(255, 46, 76, 0.07)";
   x.lineWidth = 1;
   for (let i = 0; i < w; i += 32) {
-    x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke();
+    x.beginPath();
+    x.moveTo(i, 0);
+    x.lineTo(i, h);
+    x.stroke();
   }
   for (let j = 0; j < h; j += 32) {
-    x.beginPath(); x.moveTo(0, j); x.lineTo(w, j); x.stroke();
+    x.beginPath();
+    x.moveTo(0, j);
+    x.lineTo(w, j);
+    x.stroke();
   }
 
   // Crimson Outer Frame
-  x.strokeStyle = '#FF2E4C';
+  x.strokeStyle = "#FF2E4C";
   x.lineWidth = 14;
   x.strokeRect(36, 36, w - 72, h - 72);
 
-  x.strokeStyle = 'rgba(255,255,255,0.2)';
+  x.strokeStyle = "rgba(255,255,255,0.2)";
   x.lineWidth = 2;
   x.strokeRect(52, 52, w - 104, h - 104);
 
   // Header Badge
-  x.fillStyle = '#FF2E4C';
+  x.fillStyle = "#FF2E4C";
   rr(x, w / 2 - 190, 120, 380, 56, 28);
   x.fill();
-  x.fillStyle = '#FFFFFF';
-  x.font = '900 24px Inter, sans-serif';
-  x.textAlign = 'center';
+  x.fillStyle = "#FFFFFF";
+  x.font = "900 24px Inter, sans-serif";
+  x.textAlign = "center";
   x.fillText(badgeTop, w / 2, 156);
 
   // Title
-  x.fillStyle = '#FFFFFF';
-  x.font = '900 100px Inter, sans-serif';
+  x.fillStyle = "#FFFFFF";
+  x.font = "900 100px Inter, sans-serif";
   x.fillText(titleText, w / 2, h * 0.42);
 
-  x.fillStyle = '#FF2E4C';
-  x.font = '800 36px Inter, sans-serif';
-  x.fillText('MEMBERSHIP', w / 2, h * 0.42 + 64);
+  x.fillStyle = "#FF2E4C";
+  x.font = "800 36px Inter, sans-serif";
+  x.fillText("MEMBERSHIP", w / 2, h * 0.42 + 64);
 
   // Stars
-  x.fillStyle = '#FFD700';
-  x.font = '40px sans-serif';
-  x.fillText('★ ★ ★ ★ ★', w / 2, h * 0.42 + 130);
+  x.fillStyle = "#FFD700";
+  x.font = "40px sans-serif";
+  x.fillText("★ ★ ★ ★ ★", w / 2, h * 0.42 + 130);
 
   // Price Stamp
-  x.fillStyle = 'rgba(255, 46, 76, 0.15)';
+  x.fillStyle = "rgba(255, 46, 76, 0.15)";
   rr(x, w / 2 - 210, h - 340, 420, 110, 20);
   x.fill();
-  x.strokeStyle = 'rgba(255, 46, 76, 0.5)';
+  x.strokeStyle = "rgba(255, 46, 76, 0.5)";
   x.lineWidth = 3;
   x.stroke();
 
-  x.fillStyle = '#FFFFFF';
-  x.font = '900 48px Inter, sans-serif';
+  x.fillStyle = "#FFFFFF";
+  x.font = "900 48px Inter, sans-serif";
   x.fillText(priceText, w / 2, h - 268);
 
-  x.fillStyle = '#8A94A0';
-  x.font = '600 22px Inter, sans-serif';
+  x.fillStyle = "#8A94A0";
+  x.font = "600 22px Inter, sans-serif";
   x.fillText(badgeSub, w / 2, h - 140);
 }
 
 function paintProBack(x, w, h, isYearly, cfg) {
-  x.fillStyle = '#0f1318';
+  x.fillStyle = "#0f1318";
   x.fillRect(0, 0, w, h);
 
-  x.strokeStyle = 'rgba(255, 46, 76, 0.3)';
+  x.strokeStyle = "rgba(255, 46, 76, 0.3)";
   x.lineWidth = 6;
   x.strokeRect(40, 40, w - 80, h - 80);
 
-  x.fillStyle = '#FFFFFF';
-  x.font = '800 36px Inter, sans-serif';
-  x.textAlign = 'center';
-  x.fillText('TITAN PULSE 3D PROTOCOL', w / 2, 140);
+  x.fillStyle = "#FFFFFF";
+  x.font = "800 36px Inter, sans-serif";
+  x.textAlign = "center";
+  x.fillText("TITAN PULSE 3D PROTOCOL", w / 2, 140);
 
-  x.fillStyle = 'rgba(255, 255, 255, 0.15)';
+  x.fillStyle = "rgba(255, 255, 255, 0.15)";
   rr(x, 80, 200, w - 160, 360, 16);
   x.fill();
 
-  x.fillStyle = '#FF2E4C';
-  x.font = '700 24px Inter, sans-serif';
-  x.fillText('TERMS & BIOMETRIC RULES', w / 2, 250);
+  x.fillStyle = "#FF2E4C";
+  x.font = "700 24px Inter, sans-serif";
+  x.fillText("TERMS & BIOMETRIC RULES", w / 2, 250);
 
   const perks = cfg?.chapters || [
-    'All-Access Gym Floor & Cardio Zone',
-    'Biometric Smart Locker Activation',
-    'Automated 3D Telemetry Body Scan',
-    'Hydro-Sauna Recovery Lounge'
+    "All-Access Gym Floor & Cardio Zone",
+    "Biometric Smart Locker Activation",
+    "Automated 3D Telemetry Body Scan",
+    "Hydro-Sauna Recovery Lounge",
   ];
 
-  x.fillStyle = '#A0AEC0';
-  x.font = '500 20px Inter, sans-serif';
+  x.fillStyle = "#A0AEC0";
+  x.font = "500 20px Inter, sans-serif";
   perks.slice(0, 4).forEach((p, idx) => {
     x.fillText(`${idx + 1}. ${p}`, w / 2, 310 + idx * 40);
   });
 
   // Barcode Box
-  x.fillStyle = '#FFFFFF';
+  x.fillStyle = "#FFFFFF";
   rr(x, w / 2 - 220, h - 300, 440, 160, 12);
   x.fill();
 
-  x.fillStyle = '#000000';
+  x.fillStyle = "#000000";
   let bx = w / 2 - 190;
   while (bx < w / 2 + 190) {
     const bw = 2 + Math.random() * 8;
     if (Math.random() > 0.35) x.fillRect(bx, h - 280, bw, 90);
     bx += bw + 2 + Math.random() * 5;
   }
-  x.font = '700 20px monospace';
-  x.fillText('PRO-2026-TITAN-8890', w / 2, h - 165);
+  x.font = "700 20px monospace";
+  x.fillText("PRO-2026-TITAN-8890", w / 2, h - 165);
 }
 
 function paintProSpine(x, w, h, isYearly, cfg) {
   const dyn = cfg?.dynamicData;
   const mPrice = dyn?.price || 2499;
   const yPrice = dyn?.annualPrice || 24999;
-  const priceSpine = isYearly ? `₹${Number(yPrice).toLocaleString()}/YR` : `₹${Number(mPrice).toLocaleString()}/MO`;
-  x.fillStyle = '#161b22';
+  const priceSpine = isYearly
+    ? `₹${Number(yPrice).toLocaleString()}/YR`
+    : `₹${Number(mPrice).toLocaleString()}/MO`;
+  x.fillStyle = "#161b22";
   x.fillRect(0, 0, w, h);
-  x.fillStyle = '#FF2E4C';
+  x.fillStyle = "#FF2E4C";
   x.fillRect(0, 0, 12, h);
   x.fillRect(w - 12, 0, 12, h);
 
   x.save();
   x.translate(w / 2, h / 2);
   x.rotate(Math.PI / 2);
-  x.fillStyle = '#FFFFFF';
-  x.font = '900 42px Inter, sans-serif';
-  drawSpaced(x, 'TITAN PRO PASS', -h * 0.08, 14, 4);
-  x.fillStyle = '#FF2E4C';
-  x.font = '700 26px Inter, sans-serif';
+  x.fillStyle = "#FFFFFF";
+  x.font = "900 42px Inter, sans-serif";
+  drawSpaced(x, "TITAN PRO PASS", -h * 0.08, 14, 4);
+  x.fillStyle = "#FF2E4C";
+  x.font = "700 26px Inter, sans-serif";
   drawSpaced(x, priceSpine, h * 0.34, 10, 3);
   x.restore();
 }
@@ -188,136 +210,144 @@ function paintEliteFront(x, w, h, isYearly, cfg) {
   const dyn = cfg?.dynamicData;
   const mPrice = dyn?.price || 4999;
   const yPrice = dyn?.annualPrice || 49999;
-  const priceText = isYearly ? `₹${Number(yPrice).toLocaleString()} / YEAR` : `₹${Number(mPrice).toLocaleString()} / MONTH`;
-  const badgeSub = isYearly ? 'SAVE ANNUALLY' : (dyn?.subBadge || 'CRYOTHERAPY • HYDRO SUITE • GUEST PERKS');
-  const titleText = dyn?.name ? dyn.name.replace(/VIP ATHLETE STATUS/gi, '').trim() || 'ELITE' : 'ELITE';
-  const subTitle = dyn?.badge || 'VIP ATHLETE STATUS';
+  const priceText = isYearly
+    ? `₹${Number(yPrice).toLocaleString()} / YEAR`
+    : `₹${Number(mPrice).toLocaleString()} / MONTH`;
+  const badgeSub = isYearly
+    ? "SAVE ANNUALLY"
+    : dyn?.subBadge || "CRYOTHERAPY • HYDRO SUITE • GUEST PERKS";
+  const titleText = dyn?.name
+    ? dyn.name.replace(/VIP ATHLETE STATUS/gi, "").trim() || "ELITE"
+    : "ELITE";
+  const subTitle = dyn?.badge || "VIP ATHLETE STATUS";
 
   const g = x.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, '#1a1608');
-  g.addColorStop(0.5, '#0a0d18');
-  g.addColorStop(1, '#05060a');
+  g.addColorStop(0, "#1a1608");
+  g.addColorStop(0.5, "#0a0d18");
+  g.addColorStop(1, "#05060a");
   x.fillStyle = g;
   x.fillRect(0, 0, w, h);
 
   // Gold Double Foil Border
-  x.strokeStyle = '#D4AF37';
+  x.strokeStyle = "#D4AF37";
   x.lineWidth = 12;
   x.strokeRect(36, 36, w - 72, h - 72);
 
-  x.strokeStyle = '#FFD700';
+  x.strokeStyle = "#FFD700";
   x.lineWidth = 3;
   x.strokeRect(54, 54, w - 108, h - 108);
 
   // Crest Emblem
-  x.fillStyle = '#D4AF37';
+  x.fillStyle = "#D4AF37";
   x.beginPath();
   x.arc(w / 2, 180, 50, 0, Math.PI * 2);
   x.fill();
-  x.fillStyle = '#0A0D18';
-  x.font = '900 36px serif';
-  x.textAlign = 'center';
-  x.fillText('👑', w / 2, 192);
+  x.fillStyle = "#0A0D18";
+  x.font = "900 36px serif";
+  x.textAlign = "center";
+  x.fillText("👑", w / 2, 192);
 
   // Title
-  x.fillStyle = '#FFD700';
-  x.font = '900 96px Inter, sans-serif';
+  x.fillStyle = "#FFD700";
+  x.font = "900 96px Inter, sans-serif";
   x.fillText(titleText, w / 2, h * 0.41);
 
-  x.fillStyle = '#FFFFFF';
-  x.font = '800 34px Inter, sans-serif';
+  x.fillStyle = "#FFFFFF";
+  x.font = "800 34px Inter, sans-serif";
   x.fillText(subTitle, w / 2, h * 0.41 + 60);
 
-  x.fillStyle = '#D4AF37';
-  x.font = '36px sans-serif';
-  x.fillText('★ ★ ★ ★ ★', w / 2, h * 0.41 + 120);
+  x.fillStyle = "#D4AF37";
+  x.font = "36px sans-serif";
+  x.fillText("★ ★ ★ ★ ★", w / 2, h * 0.41 + 120);
 
   // Price Badge
-  x.fillStyle = 'rgba(212, 175, 55, 0.18)';
+  x.fillStyle = "rgba(212, 175, 55, 0.18)";
   rr(x, w / 2 - 210, h - 340, 420, 110, 20);
   x.fill();
-  x.strokeStyle = '#D4AF37';
+  x.strokeStyle = "#D4AF37";
   x.lineWidth = 3;
   x.stroke();
 
-  x.fillStyle = '#FFD700';
-  x.font = '900 48px Inter, sans-serif';
+  x.fillStyle = "#FFD700";
+  x.font = "900 48px Inter, sans-serif";
   x.fillText(priceText, w / 2, h - 268);
 
-  x.fillStyle = '#E2E8F0';
-  x.font = '600 22px Inter, sans-serif';
+  x.fillStyle = "#E2E8F0";
+  x.font = "600 22px Inter, sans-serif";
   x.fillText(badgeSub, w / 2, h - 140);
 }
 
 function paintEliteBack(x, w, h, isYearly, cfg) {
-  x.fillStyle = '#0a0d18';
+  x.fillStyle = "#0a0d18";
   x.fillRect(0, 0, w, h);
 
-  x.strokeStyle = '#D4AF37';
+  x.strokeStyle = "#D4AF37";
   x.lineWidth = 6;
   x.strokeRect(40, 40, w - 80, h - 80);
 
-  x.fillStyle = '#FFD700';
-  x.font = '800 36px Inter, sans-serif';
-  x.textAlign = 'center';
-  x.fillText('TITAN ELITE PRIVILEGES', w / 2, 140);
+  x.fillStyle = "#FFD700";
+  x.font = "800 36px Inter, sans-serif";
+  x.textAlign = "center";
+  x.fillText("TITAN ELITE PRIVILEGES", w / 2, 140);
 
-  x.fillStyle = 'rgba(212, 175, 55, 0.12)';
+  x.fillStyle = "rgba(212, 175, 55, 0.12)";
   rr(x, 80, 200, w - 160, 360, 16);
   x.fill();
 
-  x.fillStyle = '#FFFFFF';
-  x.font = '700 24px Inter, sans-serif';
-  x.fillText('VIP ALL-ACCESS AMENITIES', w / 2, 250);
+  x.fillStyle = "#FFFFFF";
+  x.font = "700 24px Inter, sans-serif";
+  x.fillText("VIP ALL-ACCESS AMENITIES", w / 2, 250);
 
   const perks = cfg?.chapters || [
-    'Unlimited Cryotherapy Chambers Access',
-    'Private Hydro-Massage Therapy Suite',
-    'Dedicated VIP Keycard Locker Lounge',
-    'Free Daily Micro-Nutrient Shake Bar'
+    "Unlimited Cryotherapy Chambers Access",
+    "Private Hydro-Massage Therapy Suite",
+    "Dedicated VIP Keycard Locker Lounge",
+    "Free Daily Micro-Nutrient Shake Bar",
   ];
 
-  x.fillStyle = '#D4AF37';
-  x.font = '500 20px Inter, sans-serif';
+  x.fillStyle = "#D4AF37";
+  x.font = "500 20px Inter, sans-serif";
   perks.slice(0, 4).forEach((p, idx) => {
     x.fillText(`${idx + 1}. ${p}`, w / 2, 310 + idx * 40);
   });
 
   // Gold Barcode Box
-  x.fillStyle = '#FFFDF5';
+  x.fillStyle = "#FFFDF5";
   rr(x, w / 2 - 220, h - 300, 440, 160, 12);
   x.fill();
 
-  x.fillStyle = '#000000';
+  x.fillStyle = "#000000";
   let bx = w / 2 - 190;
   while (bx < w / 2 + 190) {
     const bw = 2 + Math.random() * 8;
     if (Math.random() > 0.35) x.fillRect(bx, h - 280, bw, 90);
     bx += bw + 2 + Math.random() * 5;
   }
-  x.font = '700 20px monospace';
-  x.fillText('ELITE-2026-VIP-0001', w / 2, h - 165);
+  x.font = "700 20px monospace";
+  x.fillText("ELITE-2026-VIP-0001", w / 2, h - 165);
 }
 
 function paintEliteSpine(x, w, h, isYearly, cfg) {
   const dyn = cfg?.dynamicData;
   const mPrice = dyn?.price || 4999;
   const yPrice = dyn?.annualPrice || 49999;
-  const priceSpine = isYearly ? `₹${Number(yPrice).toLocaleString()}/YR` : `₹${Number(mPrice).toLocaleString()}/MO`;
-  x.fillStyle = '#0a0d18';
+  const priceSpine = isYearly
+    ? `₹${Number(yPrice).toLocaleString()}/YR`
+    : `₹${Number(mPrice).toLocaleString()}/MO`;
+  x.fillStyle = "#0a0d18";
   x.fillRect(0, 0, w, h);
-  x.fillStyle = '#D4AF37';
+  x.fillStyle = "#D4AF37";
   x.fillRect(0, 0, 12, h);
   x.fillRect(w - 12, 0, 12, h);
 
   x.save();
   x.translate(w / 2, h / 2);
   x.rotate(Math.PI / 2);
-  x.fillStyle = '#FFD700';
-  x.font = '900 42px Inter, sans-serif';
-  drawSpaced(x, 'TITAN ELITE VIP', -h * 0.08, 14, 4);
-  x.fillStyle = '#FFFFFF';
-  x.font = '700 26px Inter, sans-serif';
+  x.fillStyle = "#FFD700";
+  x.font = "900 42px Inter, sans-serif";
+  drawSpaced(x, "TITAN ELITE VIP", -h * 0.08, 14, 4);
+  x.fillStyle = "#FFFFFF";
+  x.font = "700 26px Inter, sans-serif";
   drawSpaced(x, priceSpine, h * 0.34, 10, 3);
   x.restore();
 }
@@ -326,229 +356,237 @@ function paintPTFront(x, w, h, isYearly, cfg) {
   const dyn = cfg?.dynamicData;
   const mPrice = dyn?.price || 9999;
   const yPrice = dyn?.annualPrice || 99999;
-  const priceText = isYearly ? `₹${Number(yPrice).toLocaleString()} / YEAR` : `₹${Number(mPrice).toLocaleString()} / MONTH`;
-  const badgeTop = dyn?.badge || '1-ON-1 MASTER COACHING';
-  const badgeSub = isYearly ? 'SAVE ANNUALLY' : (dyn?.subBadge || 'DEDICATED COACH • 3D BIO-SCANS • MEAL MATRIX');
-  const titleText = dyn?.name ? dyn.name.replace(/COACHING MANUAL/gi, '').trim() || 'PT VIP' : 'PT VIP';
+  const priceText = isYearly
+    ? `₹${Number(yPrice).toLocaleString()} / YEAR`
+    : `₹${Number(mPrice).toLocaleString()} / MONTH`;
+  const badgeTop = dyn?.badge || "1-ON-1 MASTER COACHING";
+  const badgeSub = isYearly
+    ? "SAVE ANNUALLY"
+    : dyn?.subBadge || "DEDICATED COACH • 3D BIO-SCANS • MEAL MATRIX";
+  const titleText = dyn?.name
+    ? dyn.name.replace(/COACHING MANUAL/gi, "").trim() || "PT VIP"
+    : "PT VIP";
 
   const g = x.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, '#041624');
-  g.addColorStop(0.5, '#090e17');
-  g.addColorStop(1, '#0e061a');
+  g.addColorStop(0, "#041624");
+  g.addColorStop(0.5, "#090e17");
+  g.addColorStop(1, "#0e061a");
   x.fillStyle = g;
   x.fillRect(0, 0, w, h);
 
   // Cyber Neon Cyan Frame
-  x.strokeStyle = '#00F0FF';
+  x.strokeStyle = "#00F0FF";
   x.lineWidth = 12;
   x.strokeRect(36, 36, w - 72, h - 72);
 
-  x.strokeStyle = '#7000FF';
+  x.strokeStyle = "#7000FF";
   x.lineWidth = 4;
   x.strokeRect(52, 52, w - 104, h - 104);
 
   // Tech Badge
-  x.fillStyle = 'rgba(0, 240, 255, 0.2)';
+  x.fillStyle = "rgba(0, 240, 255, 0.2)";
   rr(x, w / 2 - 180, 120, 360, 56, 28);
   x.fill();
-  x.strokeStyle = '#00F0FF';
+  x.strokeStyle = "#00F0FF";
   x.lineWidth = 2;
   x.stroke();
 
-  x.fillStyle = '#00F0FF';
-  x.font = '900 22px Inter, sans-serif';
-  x.textAlign = 'center';
+  x.fillStyle = "#00F0FF";
+  x.font = "900 22px Inter, sans-serif";
+  x.textAlign = "center";
   x.fillText(badgeTop, w / 2, 156);
 
   // Title
-  x.fillStyle = '#FFFFFF';
-  x.font = '900 88px Inter, sans-serif';
+  x.fillStyle = "#FFFFFF";
+  x.font = "900 88px Inter, sans-serif";
   x.fillText(titleText, w / 2, h * 0.39);
 
-  x.fillStyle = '#00F0FF';
-  x.font = '800 36px Inter, sans-serif';
-  x.fillText('COACHING MANUAL', w / 2, h * 0.39 + 60);
+  x.fillStyle = "#00F0FF";
+  x.font = "800 36px Inter, sans-serif";
+  x.fillText("COACHING MANUAL", w / 2, h * 0.39 + 60);
 
-  x.fillStyle = '#7000FF';
-  x.font = '36px sans-serif';
-  x.fillText('⚡ ⚡ ⚡ ⚡ ⚡', w / 2, h * 0.39 + 120);
+  x.fillStyle = "#7000FF";
+  x.font = "36px sans-serif";
+  x.fillText("⚡ ⚡ ⚡ ⚡ ⚡", w / 2, h * 0.39 + 120);
 
   // Price Stamp
-  x.fillStyle = 'rgba(112, 0, 255, 0.2)';
+  x.fillStyle = "rgba(112, 0, 255, 0.2)";
   rr(x, w / 2 - 210, h - 340, 420, 110, 20);
   x.fill();
-  x.strokeStyle = '#00F0FF';
+  x.strokeStyle = "#00F0FF";
   x.lineWidth = 3;
   x.stroke();
 
-  x.fillStyle = '#FFFFFF';
-  x.font = '900 48px Inter, sans-serif';
+  x.fillStyle = "#FFFFFF";
+  x.font = "900 48px Inter, sans-serif";
   x.fillText(priceText, w / 2, h - 268);
 
-  x.fillStyle = '#A0AEC0';
-  x.font = '600 22px Inter, sans-serif';
+  x.fillStyle = "#A0AEC0";
+  x.font = "600 22px Inter, sans-serif";
   x.fillText(badgeSub, w / 2, h - 140);
 }
 
 function paintPTBack(x, w, h, isYearly, cfg) {
-  x.fillStyle = '#090e17';
+  x.fillStyle = "#090e17";
   x.fillRect(0, 0, w, h);
 
-  x.strokeStyle = '#00F0FF';
+  x.strokeStyle = "#00F0FF";
   x.lineWidth = 6;
   x.strokeRect(40, 40, w - 80, h - 80);
 
-  x.fillStyle = '#00F0FF';
-  x.font = '800 36px Inter, sans-serif';
-  x.textAlign = 'center';
-  x.fillText('TITAN PT MASTER PROGRAM', w / 2, 140);
+  x.fillStyle = "#00F0FF";
+  x.font = "800 36px Inter, sans-serif";
+  x.textAlign = "center";
+  x.fillText("TITAN PT MASTER PROGRAM", w / 2, 140);
 
-  x.fillStyle = 'rgba(0, 240, 255, 0.12)';
+  x.fillStyle = "rgba(0, 240, 255, 0.12)";
   rr(x, 80, 200, w - 160, 360, 16);
   x.fill();
 
-  x.fillStyle = '#FFFFFF';
-  x.font = '700 24px Inter, sans-serif';
-  x.fillText('GUARANTEED TRANSFORMATION BLUEPRINT', w / 2, 250);
+  x.fillStyle = "#FFFFFF";
+  x.font = "700 24px Inter, sans-serif";
+  x.fillText("GUARANTEED TRANSFORMATION BLUEPRINT", w / 2, 250);
 
   const perks = cfg?.chapters || [
-    'Dedicated 1-on-1 Master Fitness Coach',
-    'Weekly 3D Muscle & Body Fat Scans',
-    'Custom Macro & Nutrition Meal Matrix',
-    'Live Heart-Rate & Metabolic Telemetry'
+    "Dedicated 1-on-1 Master Fitness Coach",
+    "Weekly 3D Muscle & Body Fat Scans",
+    "Custom Macro & Nutrition Meal Matrix",
+    "Live Heart-Rate & Metabolic Telemetry",
   ];
 
-  x.fillStyle = '#00F0FF';
-  x.font = '500 20px Inter, sans-serif';
+  x.fillStyle = "#00F0FF";
+  x.font = "500 20px Inter, sans-serif";
   perks.slice(0, 4).forEach((p, idx) => {
     x.fillText(`${idx + 1}. ${p}`, w / 2, 310 + idx * 40);
   });
 
   // Tech Barcode Box
-  x.fillStyle = '#E6FFFA';
+  x.fillStyle = "#E6FFFA";
   rr(x, w / 2 - 220, h - 300, 440, 160, 12);
   x.fill();
 
-  x.fillStyle = '#000000';
+  x.fillStyle = "#000000";
   let bx = w / 2 - 190;
   while (bx < w / 2 + 190) {
     const bw = 2 + Math.random() * 8;
     if (Math.random() > 0.35) x.fillRect(bx, h - 280, bw, 90);
     bx += bw + 2 + Math.random() * 5;
   }
-  x.font = '700 20px monospace';
-  x.fillText('PT-2026-COACH-7700', w / 2, h - 165);
+  x.font = "700 20px monospace";
+  x.fillText("PT-2026-COACH-7700", w / 2, h - 165);
 }
 
 function paintPTSpine(x, w, h, isYearly, cfg) {
   const dyn = cfg?.dynamicData;
   const mPrice = dyn?.price || 9999;
   const yPrice = dyn?.annualPrice || 99999;
-  const priceSpine = isYearly ? `₹${Number(yPrice).toLocaleString()}/YR` : `₹${Number(mPrice).toLocaleString()}/MO`;
-  x.fillStyle = '#090e17';
+  const priceSpine = isYearly
+    ? `₹${Number(yPrice).toLocaleString()}/YR`
+    : `₹${Number(mPrice).toLocaleString()}/MO`;
+  x.fillStyle = "#090e17";
   x.fillRect(0, 0, w, h);
-  x.fillStyle = '#00F0FF';
+  x.fillStyle = "#00F0FF";
   x.fillRect(0, 0, 12, h);
   x.fillRect(w - 12, 0, 12, h);
 
   x.save();
   x.translate(w / 2, h / 2);
   x.rotate(Math.PI / 2);
-  x.fillStyle = '#00F0FF';
-  x.font = '900 42px Inter, sans-serif';
-  drawSpaced(x, 'TITAN PT COACHING', -h * 0.08, 14, 4);
-  x.fillStyle = '#FFFFFF';
-  x.font = '700 26px Inter, sans-serif';
+  x.fillStyle = "#00F0FF";
+  x.font = "900 42px Inter, sans-serif";
+  drawSpaced(x, "TITAN PT COACHING", -h * 0.08, 14, 4);
+  x.fillStyle = "#FFFFFF";
+  x.font = "700 26px Inter, sans-serif";
   drawSpaced(x, priceSpine, h * 0.34, 10, 3);
   x.restore();
 }
 
 const DEFAULT_SERVICE_TIERS = [
   {
-    id: 'pro-membership',
-    title: 'TITAN PRO',
-    author: 'ALL-ACCESS PASS',
-    monthlyPrice: '₹2,499 / mo',
-    yearlyPrice: '₹24,999 / yr',
+    id: "pro-membership",
+    title: "TITAN PRO",
+    author: "ALL-ACCESS PASS",
+    monthlyPrice: "₹2,499 / mo",
+    yearlyPrice: "₹24,999 / yr",
     monthlySavings: null,
-    yearlySavings: 'Save ₹5,000',
+    yearlySavings: "Save ₹5,000",
     stars: 5,
-    badge: 'MOST POPULAR',
-    ctaText: 'Claim Pro Pass',
-    desc: 'Unlimited access to all strength zones, cardio amphitheater, bio-hacking sauna lounge, & automated 3D body composition telemetry tracking.',
-    edge: '#FF2E4C',
-    backBg: '#0f1318',
-    backInk: '255, 46, 76',
-    spineBg: '#161b22',
-    spineInk: '#FFFFFF',
-    spineFont: '800 38px Inter, Arial, sans-serif',
+    badge: "MOST POPULAR",
+    ctaText: "Claim Pro Pass",
+    desc: "Unlimited access to all strength zones, cardio amphitheater, bio-hacking sauna lounge, & automated 3D body composition telemetry tracking.",
+    edge: "#FF2E4C",
+    backBg: "#0f1318",
+    backInk: "255, 46, 76",
+    spineBg: "#161b22",
+    spineInk: "#FFFFFF",
+    spineFont: "800 38px Inter, Arial, sans-serif",
     chapters: [
-      'All-Access Gym Floor & Cardio Zone',
-      'Biometric Smart Locker Activation',
-      '3D Body Composition Bio-Scan',
-      'Sauna & Recovery Lounge',
-      'Titan Companion App Access',
-      'Complimentary Towel Service'
+      "All-Access Gym Floor & Cardio Zone",
+      "Biometric Smart Locker Activation",
+      "3D Body Composition Bio-Scan",
+      "Sauna & Recovery Lounge",
+      "Titan Companion App Access",
+      "Complimentary Towel Service",
     ],
     front: paintProFront,
     back: paintProBack,
     spine: paintProSpine,
   },
   {
-    id: 'elite-membership',
-    title: 'TITAN ELITE',
-    author: 'VIP ATHLETE PASS',
-    monthlyPrice: '₹4,999 / mo',
-    yearlyPrice: '₹49,999 / yr',
+    id: "elite-membership",
+    title: "TITAN ELITE",
+    author: "VIP ATHLETE PASS",
+    monthlyPrice: "₹4,999 / mo",
+    yearlyPrice: "₹49,999 / yr",
     monthlySavings: null,
-    yearlySavings: 'Save ₹10,000',
+    yearlySavings: "Save ₹10,000",
     stars: 5,
-    badge: 'VIP ACCESS',
-    ctaText: 'Claim Elite VIP',
-    desc: 'VIP priority lounge, cryotherapy chambers, hydro-massage therapy, custom micro-nutrient bar access, and unlimited guest privileges.',
-    edge: '#D4AF37',
-    backBg: '#0a0d18',
-    backInk: '212, 175, 55',
-    spineBg: '#181d2e',
-    spineInk: '#FFD700',
-    spineFont: '800 38px Inter, Arial, sans-serif',
+    badge: "VIP ACCESS",
+    ctaText: "Claim Elite VIP",
+    desc: "VIP priority lounge, cryotherapy chambers, hydro-massage therapy, custom micro-nutrient bar access, and unlimited guest privileges.",
+    edge: "#D4AF37",
+    backBg: "#0a0d18",
+    backInk: "212, 175, 55",
+    spineBg: "#181d2e",
+    spineInk: "#FFD700",
+    spineFont: "800 38px Inter, Arial, sans-serif",
     chapters: [
-      'Everything in Pro Membership',
-      'Unlimited Cryotherapy Access',
-      'Hydro-Massage Therapy Suite',
-      'Private VIP Locker Lounge',
-      'Daily Micro-Nutrient Shake Bar',
-      'Unlimited Guest Privileges'
+      "Everything in Pro Membership",
+      "Unlimited Cryotherapy Access",
+      "Hydro-Massage Therapy Suite",
+      "Private VIP Locker Lounge",
+      "Daily Micro-Nutrient Shake Bar",
+      "Unlimited Guest Privileges",
     ],
     front: paintEliteFront,
     back: paintEliteBack,
     spine: paintEliteSpine,
   },
   {
-    id: 'pt-training',
-    title: 'PT VIP COACHING',
-    author: '1-ON-1 MASTER PT',
-    monthlyPrice: '₹9,999 / mo',
-    yearlyPrice: '₹99,999 / yr',
+    id: "pt-training",
+    title: "PT VIP COACHING",
+    author: "1-ON-1 MASTER PT",
+    monthlyPrice: "₹9,999 / mo",
+    yearlyPrice: "₹99,999 / yr",
     monthlySavings: null,
-    yearlySavings: 'Save ₹20,000',
+    yearlySavings: "Save ₹20,000",
     stars: 5,
-    badge: 'MAX RESULTS',
-    ctaText: 'Book PT Coach',
-    desc: 'Dedicated Master Personal Trainer, tailored meal plans, weekly 3D muscle bio-scans, dynamic heart-rate telemetry, and guaranteed target results.',
-    edge: '#00F0FF',
-    backBg: '#090e17',
-    backInk: '0, 240, 255',
-    spineBg: '#131c2e',
-    spineInk: '#00F0FF',
-    spineFont: '800 36px Inter, Arial, sans-serif',
+    badge: "MAX RESULTS",
+    ctaText: "Book PT Coach",
+    desc: "Dedicated Master Personal Trainer, tailored meal plans, weekly 3D muscle bio-scans, dynamic heart-rate telemetry, and guaranteed target results.",
+    edge: "#00F0FF",
+    backBg: "#090e17",
+    backInk: "0, 240, 255",
+    spineBg: "#131c2e",
+    spineInk: "#00F0FF",
+    spineFont: "800 36px Inter, Arial, sans-serif",
     chapters: [
-      'Dedicated Master Fitness Coach',
-      'Custom Macro & Meal Matrix',
-      'Weekly 3D Muscle Bio-Scans',
-      'Live Heart-Rate Telemetry',
-      'Private 1-on-1 Training Bay',
-      '100% Guaranteed Target Results'
+      "Dedicated Master Fitness Coach",
+      "Custom Macro & Meal Matrix",
+      "Weekly 3D Muscle Bio-Scans",
+      "Live Heart-Rate Telemetry",
+      "Private 1-on-1 Training Bay",
+      "100% Guaranteed Target Results",
     ],
     front: paintPTFront,
     back: paintPTBack,
@@ -556,14 +594,14 @@ const DEFAULT_SERVICE_TIERS = [
   },
 ];
 
-const OPEN_BTN_OFF = ['opacity-0', 'scale-[0.94]'];
-const OPEN_BTN_ON = ['opacity-100', 'scale-100'];
+const OPEN_BTN_OFF = ["opacity-0", "scale-[0.94]"];
+const OPEN_BTN_ON = ["opacity-100", "scale-100"];
 
 export function ServicesSection({
-  id = 'services-section',
+  id = "services-section",
   services: propServices,
-  heroTitle = 'SERVICES',
-  navTitle = 'MEMBERSHIPS & COACHING',
+  heroTitle = "SERVICES",
+  navTitle = "MEMBERSHIPS & COACHING",
   showNav = true,
   showDetailPanel = true,
   showCarousel = true,
@@ -576,15 +614,23 @@ export function ServicesSection({
   // Merge live cmsData.memberships with DEFAULT_SERVICE_TIERS configs
   const services = useMemo(() => {
     const cmsMemberships = cmsData?.memberships || [];
-    if (cmsMemberships.length === 0) return propServices || DEFAULT_SERVICE_TIERS;
+    if (cmsMemberships.length === 0)
+      return propServices || DEFAULT_SERVICE_TIERS;
 
     return (propServices || DEFAULT_SERVICE_TIERS).map((tier, idx) => {
-      const live = cmsMemberships[idx] || cmsMemberships.find(m => m.tierKey === tier.id.replace('-membership', '').replace('-training', ''));
+      const live =
+        cmsMemberships[idx] ||
+        cmsMemberships.find(
+          (m) =>
+            m.tierKey ===
+            tier.id.replace("-membership", "").replace("-training", ""),
+        );
       if (!live) return tier;
 
-      const activeChapters = (live.services && live.services.length > 0)
-        ? live.services.filter(s => s.included).map(s => s.name)
-        : tier.chapters;
+      const activeChapters =
+        live.services && live.services.length > 0
+          ? live.services.filter((s) => s.included).map((s) => s.name)
+          : tier.chapters;
 
       return {
         ...tier,
@@ -595,7 +641,7 @@ export function ServicesSection({
         desc: live.description || tier.desc,
         monthlyPrice: `₹${Number(live.price || 0).toLocaleString()} / mo`,
         yearlyPrice: `₹${Number(live.annualPrice || (live.price ? live.price * 10 : 0)).toLocaleString()} / yr`,
-        chapters: activeChapters
+        chapters: activeChapters,
       };
     });
   }, [cmsData?.memberships, propServices]);
@@ -607,8 +653,8 @@ export function ServicesSection({
   const dpRef = useRef(null);
   const shiftCarouselRef = useRef(() => {});
 
-  const [billingCycle, setBillingCycle] = useState('monthly'); // 'monthly' | 'yearly'
-  const isYearly = billingCycle === 'yearly';
+  const [billingCycle, setBillingCycle] = useState("monthly"); // 'monthly' | 'yearly'
+  const isYearly = billingCycle === "yearly";
 
   const onClaimPassRef = useRef(onClaimPass);
   useEffect(() => {
@@ -620,7 +666,7 @@ export function ServicesSection({
     onBookPTRef.current = onBookPT;
   }, [onBookPT]);
 
-  const [uiMode, setUiMode] = useState('hero');
+  const [uiMode, setUiMode] = useState("hero");
   const [selectedCfg, setSelectedCfg] = useState(null);
   const [mounted, setMounted] = useState(false);
 
@@ -646,7 +692,7 @@ export function ServicesSection({
       return id;
     };
 
-    const RM = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const RM = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
     class Spring {
@@ -672,7 +718,7 @@ export function ServicesSection({
     }
 
     function mkCanvas(w, h) {
-      const c = document.createElement('canvas');
+      const c = document.createElement("canvas");
       c.width = w;
       c.height = h;
       return c;
@@ -680,13 +726,18 @@ export function ServicesSection({
 
     let renderer;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas: canvasEl, antialias: true, alpha: true });
+      renderer = new THREE.WebGLRenderer({
+        canvas: canvasEl,
+        antialias: true,
+        alpha: true,
+      });
     } catch (err) {
-      console.warn('ServicesSection: WebGL renderer creation failed', err);
-      const fail = document.createElement('div');
+      console.warn("ServicesSection: WebGL renderer creation failed", err);
+      const fail = document.createElement("div");
       fail.className =
-        'absolute inset-0 z-50 flex items-center justify-center p-10 text-center text-lg leading-relaxed text-[#FF2E4C]';
-      fail.textContent = 'This 3D service showcase needs WebGL, which your browser blocked or does not support.';
+        "absolute inset-0 z-50 flex items-center justify-center p-10 text-center text-lg leading-relaxed text-[#FF2E4C]";
+      fail.textContent =
+        "This 3D service showcase needs WebGL, which your browser blocked or does not support.";
       root.appendChild(fail);
       return () => {
         fail.remove();
@@ -709,8 +760,8 @@ export function ServicesSection({
 
     function envBlob(x, cx, cy, r, rgb, a) {
       const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
-      g.addColorStop(0, 'rgba(' + rgb + ',' + a + ')');
-      g.addColorStop(1, 'rgba(' + rgb + ',0)');
+      g.addColorStop(0, "rgba(" + rgb + "," + a + ")");
+      g.addColorStop(1, "rgba(" + rgb + ",0)");
       x.fillStyle = g;
       x.beginPath();
       x.arc(cx, cy, r, 0, 6.2832);
@@ -719,16 +770,16 @@ export function ServicesSection({
 
     (function buildEnv() {
       const c = mkCanvas(512, 256),
-        x = c.getContext('2d');
+        x = c.getContext("2d");
       const g = x.createLinearGradient(0, 0, 0, 256);
-      g.addColorStop(0, '#1c080d');
-      g.addColorStop(0.55, '#0b0e14');
-      g.addColorStop(1, '#050608');
+      g.addColorStop(0, "#1c080d");
+      g.addColorStop(0.55, "#0b0e14");
+      g.addColorStop(1, "#050608");
       x.fillStyle = g;
       x.fillRect(0, 0, 512, 256);
-      envBlob(x, 140, 66, 95, '255,46,76', 0.85);
-      envBlob(x, 405, 84, 55, '212,175,55', 0.55);
-      envBlob(x, 256, 150, 120, '0,240,255', 0.35);
+      envBlob(x, 140, 66, 95, "255,46,76", 0.85);
+      envBlob(x, 405, 84, 55, "212,175,55", 0.55);
+      envBlob(x, 256, 150, 120, "0,240,255", 0.35);
       const tx = new THREE.CanvasTexture(c);
       tx.mapping = THREE.EquirectangularReflectionMapping;
       const pmrem = new THREE.PMREMGenerator(renderer);
@@ -775,7 +826,7 @@ export function ServicesSection({
       material.map = tex(paintFallback());
       material.needsUpdate = true;
       if (!imageURL) return;
-      new THREE.TextureLoader().setCrossOrigin('anonymous').load(
+      new THREE.TextureLoader().setCrossOrigin("anonymous").load(
         imageURL,
         (t) => {
           if (cancelled) return;
@@ -785,14 +836,18 @@ export function ServicesSection({
           material.needsUpdate = true;
         },
         undefined,
-        () => console.warn('Cover image failed to load, kept fallback canvas cover:', imageURL),
+        () =>
+          console.warn(
+            "Cover image failed to load, kept fallback canvas cover:",
+            imageURL,
+          ),
       );
     }
 
     function noiseTexture(base, amp, scratches) {
       const s = 256,
         c = mkCanvas(s, s),
-        x = c.getContext('2d');
+        x = c.getContext("2d");
       const img = x.createImageData(s, s),
         d = img.data;
       for (let i = 0; i < d.length; i += 4) {
@@ -802,7 +857,7 @@ export function ServicesSection({
       }
       x.putImageData(img, 0, 0);
       if (scratches) {
-        x.strokeStyle = 'rgba(255,255,255,.18)';
+        x.strokeStyle = "rgba(255,255,255,.18)";
         x.lineWidth = 1;
         for (let i = 0; i < 5; i++) {
           x.beginPath();
@@ -818,11 +873,11 @@ export function ServicesSection({
     const clothBump = (function () {
       const s = 128,
         c = mkCanvas(s, s),
-        x = c.getContext('2d');
-      x.fillStyle = '#202530';
+        x = c.getContext("2d");
+      x.fillStyle = "#202530";
       x.fillRect(0, 0, s, s);
       for (let i = 0; i < s; i += 2) {
-        x.fillStyle = i % 4 === 0 ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.35)';
+        x.fillStyle = i % 4 === 0 ? "rgba(255,255,255,.12)" : "rgba(0,0,0,.35)";
         x.fillRect(i, 0, 1, s);
         x.fillRect(0, i, s, 1);
       }
@@ -832,21 +887,26 @@ export function ServicesSection({
     function striationTexture(vertical) {
       const s = 512,
         c = mkCanvas(s, s),
-        x = c.getContext('2d');
-      x.fillStyle = '#1c202a';
+        x = c.getContext("2d");
+      x.fillStyle = "#1c202a";
       x.fillRect(0, 0, s, s);
       let p = 0;
       while (p < s) {
         const w = 1 + Math.random() * 2.4,
           tone = Math.random();
         x.fillStyle =
-          tone < 0.12 ? 'rgba(255,46,76,.25)' : tone < 0.5 ? 'rgba(0,240,255,.15)' : 'rgba(255,255,255,.08)';
+          tone < 0.12
+            ? "rgba(255,46,76,.25)"
+            : tone < 0.5
+              ? "rgba(0,240,255,.15)"
+              : "rgba(255,255,255,.08)";
         if (vertical) x.fillRect(p, 0, w, s);
         else x.fillRect(0, p, s, w);
         p += w + 0.6 + Math.random() * 1.6;
       }
       for (let i = 0; i < 2600; i++) {
-        x.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.05).toFixed(3) + ')';
+        x.fillStyle =
+          "rgba(255,255,255," + (Math.random() * 0.05).toFixed(3) + ")";
         x.fillRect(Math.random() * s, Math.random() * s, 1.2, 1.2);
       }
       return tex(c);
@@ -857,18 +917,19 @@ export function ServicesSection({
     const endpaperTex = (function () {
       const s = 512,
         c = mkCanvas(s, s),
-        x = c.getContext('2d');
-      x.fillStyle = '#12161f';
+        x = c.getContext("2d");
+      x.fillStyle = "#12161f";
       x.fillRect(0, 0, s, s);
       for (let i = 0; i < 1400; i++) {
-        x.fillStyle = 'rgba(255,46,76,' + (0.04 + Math.random() * 0.08).toFixed(3) + ')';
+        x.fillStyle =
+          "rgba(255,46,76," + (0.04 + Math.random() * 0.08).toFixed(3) + ")";
         x.fillRect(Math.random() * s, Math.random() * s, 1.4, 1.4);
       }
       const g = x.createLinearGradient(0, 0, s, 0);
-      g.addColorStop(0, 'rgba(0,0,0,.4)');
-      g.addColorStop(0.12, 'rgba(0,0,0,0)');
-      g.addColorStop(0.88, 'rgba(0,0,0,0)');
-      g.addColorStop(1, 'rgba(0,0,0,.4)');
+      g.addColorStop(0, "rgba(0,0,0,.4)");
+      g.addColorStop(0.12, "rgba(0,0,0,0)");
+      g.addColorStop(0.88, "rgba(0,0,0,0)");
+      g.addColorStop(1, "rgba(0,0,0,.4)");
       x.fillStyle = g;
       x.fillRect(0, 0, s, s);
       return tex(c);
@@ -877,10 +938,10 @@ export function ServicesSection({
     const blobTex = (function () {
       const s = 256,
         c = mkCanvas(s, s),
-        x = c.getContext('2d');
+        x = c.getContext("2d");
       const g = x.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
-      g.addColorStop(0, 'rgba(255,46,76,.35)');
-      g.addColorStop(1, 'rgba(0,0,0,0)');
+      g.addColorStop(0, "rgba(255,46,76,.35)");
+      g.addColorStop(1, "rgba(0,0,0,0)");
       x.fillStyle = g;
       x.fillRect(0, 0, s, s);
       return new THREE.CanvasTexture(c);
@@ -889,44 +950,54 @@ export function ServicesSection({
     function trimToWidth(x, text, maxW) {
       if (x.measureText(text).width <= maxW) return text;
       let t = text;
-      while (t.length > 1 && x.measureText(t + '...').width > maxW) t = t.slice(0, -1);
-      return t + '...';
+      while (t.length > 1 && x.measureText(t + "...").width > maxW)
+        t = t.slice(0, -1);
+      return t + "...";
     }
 
     function makeIndexPageTex(chapters) {
       const w = 1024,
         h = 1536,
         c = mkCanvas(w, h),
-        x = c.getContext('2d');
-      x.fillStyle = '#0f141d';
+        x = c.getContext("2d");
+      x.fillStyle = "#0f141d";
       x.fillRect(0, 0, w, h);
-      x.fillStyle = 'rgba(255,46,76,0.05)';
-      for (let i = 0; i < 1600; i++) x.fillRect(Math.random() * w, Math.random() * h, 1.1, 1.1);
+      x.fillStyle = "rgba(255,46,76,0.05)";
+      for (let i = 0; i < 1600; i++)
+        x.fillRect(Math.random() * w, Math.random() * h, 1.1, 1.1);
 
-      x.fillStyle = '#FFFFFF';
-      x.textAlign = 'center';
-      x.font = '900 76px Inter, sans-serif';
-      x.fillText('INCLUDED PERKS', w / 2, 190);
-      x.fillStyle = '#FF2E4C';
+      x.fillStyle = "#FFFFFF";
+      x.textAlign = "center";
+      x.font = "900 76px Inter, sans-serif";
+      x.fillText("INCLUDED PERKS", w / 2, 190);
+      x.fillStyle = "#FF2E4C";
       x.fillRect(220, 225, w - 440, 4);
 
-      const list = chapters && chapters.length
-        ? chapters
-        : ['All-Access Gym Floor', 'Biometric Smart Lockers', '3D Body Composition Bio-Scan', 'Sauna & Recovery Lounge', 'Titan Pulse App', 'Personal Fitness Plan'];
-      x.textAlign = 'left';
-      x.font = '700 42px Inter, sans-serif';
+      const list =
+        chapters && chapters.length
+          ? chapters
+          : [
+              "All-Access Gym Floor",
+              "Biometric Smart Lockers",
+              "3D Body Composition Bio-Scan",
+              "Sauna & Recovery Lounge",
+              "Titan Pulse App",
+              "Personal Fitness Plan",
+            ];
+      x.textAlign = "left";
+      x.font = "700 42px Inter, sans-serif";
       let y = 320;
       for (let i = 0; i < list.length; i++) {
-        const n = String(i + 1).padStart(2, '0');
-        const statusText = 'INCLUDED';
-        const left = n + '. ' + trimToWidth(x, list[i], 620);
-        x.fillStyle = '#FFFFFF';
+        const n = String(i + 1).padStart(2, "0");
+        const statusText = "INCLUDED";
+        const left = n + ". " + trimToWidth(x, list[i], 620);
+        x.fillStyle = "#FFFFFF";
         x.fillText(left, 120, y);
-        x.textAlign = 'right';
-        x.fillStyle = '#FF2E4C';
+        x.textAlign = "right";
+        x.fillStyle = "#FF2E4C";
         x.fillText(statusText, w - 120, y);
-        x.textAlign = 'left';
-        x.fillStyle = 'rgba(255,255,255,0.1)';
+        x.textAlign = "left";
+        x.fillStyle = "rgba(255,255,255,0.1)";
         x.fillRect(120, y + 20, w - 240, 2);
         y += 114;
       }
@@ -953,21 +1024,52 @@ export function ServicesSection({
     const coverGeo = new THREE.BoxGeometry(W + OV, H + OV * 2, CT);
     const blockGeo = new THREE.BoxGeometry(W - 0.015, H, BLOCK_D);
     const pageGeo = new THREE.PlaneGeometry(PW, PH);
-    const spineGeo = new THREE.BoxGeometry(0.028, H + OV * 2, T + CT * 2 + 0.006);
+    const spineGeo = new THREE.BoxGeometry(
+      0.028,
+      H + OV * 2,
+      T + CT * 2 + 0.006,
+    );
     const hitGeo = new THREE.BoxGeometry(1.8, 2.5, 1.15);
     const blobGeo = new THREE.PlaneGeometry(1, 1);
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
 
     function std(o) {
-      return new THREE.MeshStandardMaterial(Object.assign({ metalness: 0.2 }, o));
+      return new THREE.MeshStandardMaterial(
+        Object.assign({ metalness: 0.2 }, o),
+      );
     }
 
-    const paperFlat = std({ color: 0x181e29, roughness: 0.9, envMapIntensity: 0.3 });
-    const striMatV = std({ map: striV, bumpMap: striV, bumpScale: 0.003, roughness: 0.85, envMapIntensity: 0.3 });
-    const striMatH = std({ map: striH, bumpMap: striH, bumpScale: 0.003, roughness: 0.85, envMapIntensity: 0.3 });
-    const endpaperMat = std({ map: endpaperTex, roughness: 0.8, envMapIntensity: 0.35 });
+    const paperFlat = std({
+      color: 0x181e29,
+      roughness: 0.9,
+      envMapIntensity: 0.3,
+    });
+    const striMatV = std({
+      map: striV,
+      bumpMap: striV,
+      bumpScale: 0.003,
+      roughness: 0.85,
+      envMapIntensity: 0.3,
+    });
+    const striMatH = std({
+      map: striH,
+      bumpMap: striH,
+      bumpScale: 0.003,
+      roughness: 0.85,
+      envMapIntensity: 0.3,
+    });
+    const endpaperMat = std({
+      map: endpaperTex,
+      roughness: 0.8,
+      envMapIntensity: 0.35,
+    });
     const pageMats = [0x151b26, 0x1a2130, 0x121722].map((c) =>
-      std({ color: c, roughness: 0.88, envMapIntensity: 0.3, side: THREE.DoubleSide }),
+      std({
+        color: c,
+        roughness: 0.88,
+        envMapIntensity: 0.3,
+        side: THREE.DoubleSide,
+      }),
     );
 
     const bookInstances = [];
@@ -980,30 +1082,56 @@ export function ServicesSection({
       root.add(float);
       bookRoot.add(root);
 
-      const indexPageMat = std({ map: makeIndexPageTex(cfg.chapters), roughness: 0.88, envMapIntensity: 0.3, side: THREE.DoubleSide });
+      const indexPageMat = std({
+        map: makeIndexPageTex(cfg.chapters),
+        roughness: 0.88,
+        envMapIntensity: 0.3,
+        side: THREE.DoubleSide,
+      });
 
-      const edgeColor = cfg.edge ?? '#FF2E4C';
-      const mEdge = std({ color: edgeColor, bumpMap: laminateBump, bumpScale: 0.0035, roughness: 0.5, envMapIntensity: 0.4 });
-      const mFront = std({ bumpMap: laminateBump, bumpScale: 0.0035, roughness: 0.4, envMapIntensity: 0.45 });
-      const mBack = std({ bumpMap: laminateBump, bumpScale: 0.0035, roughness: 0.45, envMapIntensity: 0.4 });
-      const mSpine = std({ bumpMap: clothBump, bumpScale: 0.006, roughness: 0.6, envMapIntensity: 0.4 });
+      const edgeColor = cfg.edge ?? "#FF2E4C";
+      const mEdge = std({
+        color: edgeColor,
+        bumpMap: laminateBump,
+        bumpScale: 0.0035,
+        roughness: 0.5,
+        envMapIntensity: 0.4,
+      });
+      const mFront = std({
+        bumpMap: laminateBump,
+        bumpScale: 0.0035,
+        roughness: 0.4,
+        envMapIntensity: 0.45,
+      });
+      const mBack = std({
+        bumpMap: laminateBump,
+        bumpScale: 0.0035,
+        roughness: 0.45,
+        envMapIntensity: 0.4,
+      });
+      const mSpine = std({
+        bumpMap: clothBump,
+        bumpScale: 0.006,
+        roughness: 0.6,
+        envMapIntensity: 0.4,
+      });
 
       const updateTextures = (yearlyFlag) => {
         loadOrPaint(mFront, cfg.images?.front ?? null, () => {
           const c = mkCanvas(1024, 1536);
-          const ctx = c.getContext('2d');
+          const ctx = c.getContext("2d");
           if (cfg.front) cfg.front(ctx, 1024, 1536, yearlyFlag, cfg);
           return c;
         });
         loadOrPaint(mBack, cfg.images?.back ?? null, () => {
           const c = mkCanvas(1024, 1536);
-          const ctx = c.getContext('2d');
+          const ctx = c.getContext("2d");
           if (cfg.back) cfg.back(ctx, 1024, 1536, yearlyFlag, cfg);
           return c;
         });
         loadOrPaint(mSpine, cfg.images?.spine ?? null, () => {
           const c = mkCanvas(220, 1536);
-          const ctx = c.getContext('2d');
+          const ctx = c.getContext("2d");
           if (cfg.spine) cfg.spine(ctx, 220, 1536, yearlyFlag, cfg);
           return c;
         });
@@ -1013,7 +1141,14 @@ export function ServicesSection({
 
       const backPivot = new THREE.Group();
       backPivot.position.set(-W / 2 - HINGE_OVERLAP, 0, BPIVOT_Z);
-      const backMesh = new THREE.Mesh(coverGeo, [mEdge, mEdge, mEdge, mEdge, endpaperMat, mBack]);
+      const backMesh = new THREE.Mesh(coverGeo, [
+        mEdge,
+        mEdge,
+        mEdge,
+        mEdge,
+        endpaperMat,
+        mBack,
+      ]);
       backMesh.position.x = (W + OV) / 2;
       backMesh.castShadow = backMesh.receiveShadow = true;
       backPivot.add(backMesh);
@@ -1021,7 +1156,14 @@ export function ServicesSection({
 
       const pivot = new THREE.Group();
       pivot.position.set(-W / 2 - HINGE_OVERLAP, 0, PIVOT_Z);
-      const frontMesh = new THREE.Mesh(coverGeo, [mEdge, mEdge, mEdge, mEdge, mFront, endpaperMat]);
+      const frontMesh = new THREE.Mesh(coverGeo, [
+        mEdge,
+        mEdge,
+        mEdge,
+        mEdge,
+        mFront,
+        endpaperMat,
+      ]);
       frontMesh.position.x = (W + OV) / 2;
       frontMesh.castShadow = frontMesh.receiveShadow = true;
       pivot.add(frontMesh);
@@ -1032,16 +1174,31 @@ export function ServicesSection({
       spine.castShadow = true;
       float.add(spine);
 
-      const block = new THREE.Mesh(blockGeo, [striMatV, paperFlat, striMatH, striMatH, paperFlat, paperFlat]);
+      const block = new THREE.Mesh(blockGeo, [
+        striMatV,
+        paperFlat,
+        striMatH,
+        striMatH,
+        paperFlat,
+        paperFlat,
+      ]);
       block.position.set(-0.0075, 0, BLOCK_Z);
       block.castShadow = block.receiveShadow = true;
       float.add(block);
 
-      const pages = [], pageF = [];
+      const pages = [],
+        pageF = [];
       for (let i = 0; i < PAGE_N; i++) {
         const pp = new THREE.Group();
-        pp.position.set(-W / 2 + 0.01, (Math.random() - 0.5) * 0.006, 0.166 - i * 0.0042);
-        const pm = new THREE.Mesh(pageGeo, i === 0 ? indexPageMat : pageMats[i % 3]);
+        pp.position.set(
+          -W / 2 + 0.01,
+          (Math.random() - 0.5) * 0.006,
+          0.166 - i * 0.0042,
+        );
+        const pm = new THREE.Mesh(
+          pageGeo,
+          i === 0 ? indexPageMat : pageMats[i % 3],
+        );
         pm.position.x = PW / 2;
         pm.rotation.z = (Math.random() - 0.5) * 0.006;
         pp.add(pm);
@@ -1050,10 +1207,15 @@ export function ServicesSection({
         pageF.push(0.3 * Math.pow(1 - i / PAGE_N, 2.6));
       }
 
-      const pagesB = [], pageFB = [];
+      const pagesB = [],
+        pageFB = [];
       for (let i = 0; i < 6; i++) {
         const pp = new THREE.Group();
-        pp.position.set(-W / 2 + 0.01, (Math.random() - 0.5) * 0.006, -0.166 + i * 0.0042);
+        pp.position.set(
+          -W / 2 + 0.01,
+          (Math.random() - 0.5) * 0.006,
+          -0.166 + i * 0.0042,
+        );
         const pm = new THREE.Mesh(pageGeo, pageMats[i % 3]);
         pm.position.x = PW / 2;
         pm.rotation.z = (Math.random() - 0.5) * 0.006;
@@ -1065,7 +1227,12 @@ export function ServicesSection({
 
       const blob = new THREE.Mesh(
         blobGeo,
-        new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, opacity: 0.55, depthWrite: false }),
+        new THREE.MeshBasicMaterial({
+          map: blobTex,
+          transparent: true,
+          opacity: 0.55,
+          depthWrite: false,
+        }),
       );
       blob.scale.set(3.4, 4.2, 1);
       blob.position.set(0.1, -0.3, -0.85);
@@ -1113,7 +1280,7 @@ export function ServicesSection({
         scr: { x: 0, y: 0 },
         orbY: 0,
         orbYv: 0,
-        orbPhase: 'idle',
+        orbPhase: "idle",
         orbTarget: 0,
         orbXs: new Spring(0, 60, 12),
         exit: null,
@@ -1132,7 +1299,11 @@ export function ServicesSection({
       activate(book) {
         this.anchor = book;
         this.items.forEach((l) => {
-          l.kick.set(-l.hx + (Math.random() - 0.5) * 0.6, -l.hy + (Math.random() - 0.5) * 0.6, (Math.random() - 0.5) * 0.5);
+          l.kick.set(
+            -l.hx + (Math.random() - 0.5) * 0.6,
+            -l.hy + (Math.random() - 0.5) * 0.6,
+            (Math.random() - 0.5) * 0.5,
+          );
           l.s.t = l.size;
           l.mesh.visible = true;
         });
@@ -1157,7 +1328,10 @@ export function ServicesSection({
           l.kick.multiplyScalar(Math.exp(-1.15 * dt));
           l.mesh.position.set(
             ap.x + l.hx + Math.sin(t * l.sp + l.ph) * 0.4 * w + l.kick.x,
-            ap.y + l.hy + Math.cos(t * l.sp * 0.83 + l.ph * 1.3) * 0.3 * w + l.kick.y,
+            ap.y +
+              l.hy +
+              Math.cos(t * l.sp * 0.83 + l.ph * 1.3) * 0.3 * w +
+              l.kick.y,
             ap.z * 0.4 + l.hz + l.kick.z,
           );
           l.mesh.rotation.x += l.rv.x * dt * (0.3 + w);
@@ -1180,7 +1354,12 @@ export function ServicesSection({
       const geo = new THREE.ShapeGeometry(shape, 6);
       const cols = [0xff2e4c, 0xd4af37, 0x00f0ff, 0xff526b];
       for (let i = 0; i < 16; i++) {
-        const mat = std({ color: cols[i % 4], roughness: 0.3, envMapIntensity: 0.8, side: THREE.DoubleSide });
+        const mat = std({
+          color: cols[i % 4],
+          roughness: 0.3,
+          envMapIntensity: 0.8,
+          side: THREE.DoubleSide,
+        });
         const mesh = new THREE.Mesh(geo, mat);
         mesh.visible = false;
         bookRoot.add(mesh);
@@ -1193,7 +1372,11 @@ export function ServicesSection({
           hz: -0.5 + Math.random() * 1.5,
           sp: 0.25 + Math.random() * 0.5,
           ph: Math.random() * 6.28,
-          rv: new THREE.Vector3((Math.random() - 0.5) * 0.8, (Math.random() - 0.5) * 0.8, (Math.random() - 0.5) * 0.8),
+          rv: new THREE.Vector3(
+            (Math.random() - 0.5) * 0.8,
+            (Math.random() - 0.5) * 0.8,
+            (Math.random() - 0.5) * 0.8,
+          ),
           kick: new THREE.Vector3(),
           size: 0.12 + Math.random() * 0.14,
           s: new Spring(0, 60, 10),
@@ -1201,14 +1384,22 @@ export function ServicesSection({
       }
     })();
 
-    const state = { mode: 'hero', selected: null, hovered: null, pillLock: null, kbIndex: -1 };
+    const state = {
+      mode: "hero",
+      selected: null,
+      hovered: null,
+      pillLock: null,
+      kbIndex: -1,
+    };
 
     const SLOTS = { hero: [], detail: null, portrait: false };
 
     function computeSlots() {
       const a = dims.w / Math.max(1, dims.h);
       const portrait = a < 0.85;
-      const fit = portrait ? clamp(a / 1.08, 0.38, 0.74) : clamp(a / 1.62, 0.52, 1);
+      const fit = portrait
+        ? clamp(a / 1.08, 0.38, 0.74)
+        : clamp(a / 1.62, 0.52, 1);
       bookRoot.scale.setScalar(fit);
       bookRoot.position.y = -(1 - fit) * 0.28;
       SLOTS.portrait = portrait;
@@ -1226,13 +1417,18 @@ export function ServicesSection({
           ];
 
       if (!showDetailPanel) {
-        SLOTS.detail = { p: [0, -0.05, 0.75], r: [0.02, -0.34, 0.05], s: SLOTS.portrait ? 0.94 : 1.08 };
+        SLOTS.detail = {
+          p: [0, -0.05, 0.75],
+          r: [0.02, -0.34, 0.05],
+          s: SLOTS.portrait ? 0.94 : 1.08,
+        };
         return;
       }
 
       if (SLOTS.portrait) {
         const el = dpRef.current;
-        const panelH = el && el.offsetHeight > 40 ? el.offsetHeight : dims.h * 0.44;
+        const panelH =
+          el && el.offsetHeight > 40 ? el.offsetHeight : dims.h * 0.44;
         const gap = dims.h * 0.035,
           navB = dims.h * 0.1;
         const freeTop = navB;
@@ -1243,11 +1439,20 @@ export function ServicesSection({
           zw = 0.8 * fit,
           rootY = -(1 - fit) * 0.28;
         const yw = 0.1 + (1 - (2 * midPx) / dims.h) * T13 * (camZp - zw);
-        const availW = (((freeBot - freeTop) * 0.92) / dims.h) * 2 * T13 * (camZp - zw);
+        const availW =
+          (((freeBot - freeTop) * 0.92) / dims.h) * 2 * T13 * (camZp - zw);
         const s = clamp(availW / fit / 2.65, 0.42, 0.92);
-        SLOTS.detail = { p: [0, (yw - rootY) / fit, 0.8], r: [-0.02, -0.4, 0.06], s };
+        SLOTS.detail = {
+          p: [0, (yw - rootY) / fit, 0.8],
+          r: [-0.02, -0.4, 0.06],
+          s,
+        };
       } else {
-        SLOTS.detail = { p: [-1.68, 0.0, 0.85], r: [0.02, -0.44, 0.08], s: 1.06 };
+        SLOTS.detail = {
+          p: [-1.68, 0.0, 0.85],
+          r: [0.02, -0.44, 0.08],
+          s: 1.06,
+        };
       }
     }
 
@@ -1307,7 +1512,15 @@ export function ServicesSection({
       playY(b, [
         { d: delay, from: here, to: here, ease: EASE.hold },
         { d: 0.28, from: here, to: apex, ease: EASE.outQuad },
-        { d: 0.9, from: apex, to: y0 - CLEAR, ease: EASE.inOutSine, end: () => { b.root.visible = false; } },
+        {
+          d: 0.9,
+          from: apex,
+          to: y0 - CLEAR,
+          ease: EASE.inOutSine,
+          end: () => {
+            b.root.visible = false;
+          },
+        },
       ]);
     }
     function bringBack(b, i, delay) {
@@ -1335,7 +1548,7 @@ export function ServicesSection({
     }
 
     function applyMode() {
-      if (state.mode === 'hero' || state.mode === 'closing') {
+      if (state.mode === "hero" || state.mode === "closing") {
         currentWindow.forEach((bi, i) => {
           const slot = SLOTS.hero[i];
           if (slot) setTargets(bookInstances[bi], slot);
@@ -1346,7 +1559,7 @@ export function ServicesSection({
     }
 
     function shiftCarousel(dir) {
-      if (carouselBusy || state.mode !== 'hero' || N <= VISIBLE) return;
+      if (carouselBusy || state.mode !== "hero" || N <= VISIBLE) return;
       carouselBusy = true;
       const outgoing = currentWindow;
       carouselStart = (((carouselStart + dir) % N) + N) % N;
@@ -1360,7 +1573,13 @@ export function ServicesSection({
         const b = bookInstances[bi];
         if (slot) b.springs.px.t = slot.p[0] - dir * 6.5;
       });
-      setT(() => toHide.forEach((bi) => { bookInstances[bi].root.visible = false; }), 650);
+      setT(
+        () =>
+          toHide.forEach((bi) => {
+            bookInstances[bi].root.visible = false;
+          }),
+        650,
+      );
 
       incoming.forEach((bi, i) => {
         const slot = SLOTS.hero[i];
@@ -1382,7 +1601,9 @@ export function ServicesSection({
 
       currentWindow = incoming;
       rebuildHitMeshes();
-      setT(() => { carouselBusy = false; }, 700);
+      setT(() => {
+        carouselBusy = false;
+      }, 700);
     }
     shiftCarouselRef.current = shiftCarousel;
 
@@ -1395,7 +1616,7 @@ export function ServicesSection({
       parY = new Spring(0, 60, 10);
 
     function camTo(mode) {
-      if (mode === 'detail') {
+      if (mode === "detail") {
         camX.t = SLOTS.portrait ? 0 : -0.25;
         camZ.t = SLOTS.portrait ? 10.4 : 9.6;
         lookX.t = SLOTS.portrait ? 0 : -0.35;
@@ -1428,15 +1649,15 @@ export function ServicesSection({
     }
 
     function open(book) {
-      if (state.mode !== 'hero' || !book) return;
-      state.mode = 'opening';
-      setUiMode('opening');
+      if (state.mode !== "hero" || !book) return;
+      state.mode = "opening";
+      setUiMode("opening");
       state.selected = book;
       state.pillLock = null;
       state.kbIndex = -1;
       hidePill();
       book.exit = null;
-      root.classList.add('bs-transit');
+      root.classList.add("bs-transit");
       setSelectedCfg(book.cfg);
       computeSlots();
 
@@ -1447,18 +1668,18 @@ export function ServicesSection({
       });
 
       setT(() => {
-        if (state.mode !== 'opening' && state.mode !== 'detail') return;
+        if (state.mode !== "opening" && state.mode !== "detail") return;
         book.orbY = RM ? 0 : -6.2832;
         book.orbYv = RM ? 0 : 3;
-        book.orbPhase = 'return';
+        book.orbPhase = "return";
         book.orbTarget = 0;
         book.orbXs.set(0);
         applyMode();
-        camTo('detail');
+        camTo("detail");
       }, 760);
       setT(() => leaves.activate(book), 1000);
       setT(() => {
-        if (state.mode === 'opening') {
+        if (state.mode === "opening") {
           currentWindow.forEach((bi) => {
             const sibling = bookInstances[bi];
             if (sibling !== book) {
@@ -1466,31 +1687,31 @@ export function ServicesSection({
               sibling.root.visible = false;
             }
           });
-          root.classList.add('bs-detail-open');
-          state.mode = 'detail';
-          setUiMode('detail');
+          root.classList.add("bs-detail-open");
+          state.mode = "detail";
+          setUiMode("detail");
         }
       }, 1400);
     }
 
     function close() {
-      if (state.mode !== 'detail') return;
-      state.mode = 'closing';
-      setUiMode('closing');
-      root.classList.remove('bs-detail-open');
+      if (state.mode !== "detail") return;
+      state.mode = "closing";
+      setUiMode("closing");
+      root.classList.remove("bs-detail-open");
       leaves.deactivate();
       orbit.drag = false;
       const b = state.selected;
       if (b) {
         b.orbTarget = Math.round(b.orbY / 6.2832) * 6.2832 + 6.2832;
         b.orbYv = Math.max(b.orbYv, 3);
-        b.orbPhase = 'return';
+        b.orbPhase = "return";
         b.orbXs.t = 0;
       }
       setT(() => {
-        root.classList.remove('bs-transit');
+        root.classList.remove("bs-transit");
         applyMode();
-        camTo('hero');
+        camTo("hero");
         let back = 0;
         currentWindow.forEach((bi, i) => {
           const bk = bookInstances[bi];
@@ -1498,9 +1719,9 @@ export function ServicesSection({
         });
       }, 250);
       setT(() => {
-        if (state.mode === 'closing') {
-          state.mode = 'hero';
-          setUiMode('hero');
+        if (state.mode === "closing") {
+          state.mode = "hero";
+          setUiMode("hero");
           state.selected = null;
           setSelectedCfg(null);
         }
@@ -1508,7 +1729,7 @@ export function ServicesSection({
     }
 
     const onCloseClick = () => close();
-    closeBtnRef.current?.addEventListener('click', onCloseClick);
+    closeBtnRef.current?.addEventListener("click", onCloseClick);
 
     const ptr = {
       ndcX: 0,
@@ -1522,11 +1743,11 @@ export function ServicesSection({
       downY: 0,
       moved: 0,
       t0: 0,
-      type: 'mouse',
+      type: "mouse",
       seen: false,
       id: null,
     };
-    const isTouch = () => ptr.type === 'touch' || ptr.type === 'pen';
+    const isTouch = () => ptr.type === "touch" || ptr.type === "pen";
     let dragBook = null,
       rayBook = null;
     const orbit = { drag: false, dxAcc: 0, dyAcc: 0 };
@@ -1535,14 +1756,14 @@ export function ServicesSection({
 
     const canvas = canvasEl;
     const onContextMenu = (e) => e.preventDefault();
-    canvas.addEventListener('contextmenu', onContextMenu);
+    canvas.addEventListener("contextmenu", onContextMenu);
 
     const onPointerLeave = () => {
       rayBook = null;
       state.pillLock = null;
       state.kbIndex = -1;
     };
-    canvas.addEventListener('pointerleave', onPointerLeave);
+    canvas.addEventListener("pointerleave", onPointerLeave);
 
     const localXY = (e) => {
       const r = root.getBoundingClientRect();
@@ -1560,12 +1781,16 @@ export function ServicesSection({
       ptr.cy = cy;
       ptr.ndcX = (cx / dims.w) * 2 - 1;
       ptr.ndcY = -(cy / dims.h) * 2 + 1;
-      ptr.type = e.pointerType || 'mouse';
+      ptr.type = e.pointerType || "mouse";
       ptr.seen = true;
-      if (state.mode === 'detail') leaves.push(dxN, dyN);
+      if (state.mode === "detail") leaves.push(dxN, dyN);
       if (ptr.down && dragBook) {
         ptr.moved += Math.abs(dxN * dims.w) + Math.abs(dyN * dims.h);
-        dragBook.springs.drag.t = clamp(((ptr.downX - cx) / dims.w) * 3.4, 0, 1.0);
+        dragBook.springs.drag.t = clamp(
+          ((ptr.downX - cx) / dims.w) * 3.4,
+          0,
+          1.0,
+        );
       }
       if (ptr.down && orbit.drag) {
         orbit.dxAcc += dxN;
@@ -1573,7 +1798,7 @@ export function ServicesSection({
         ptr.moved += Math.abs(dxN * dims.w) + Math.abs(dyN * dims.h);
       }
     };
-    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener("pointermove", onPointerMove);
 
     const onPointerDown = (e) => {
       if (ptr.id !== null) return;
@@ -1586,10 +1811,10 @@ export function ServicesSection({
       ptr.lastY = cy;
       ptr.ndcX = (cx / dims.w) * 2 - 1;
       ptr.ndcY = -(cy / dims.h) * 2 + 1;
-      ptr.type = e.pointerType || 'mouse';
+      ptr.type = e.pointerType || "mouse";
       ptr.seen = true;
       castRay();
-      if (state.mode === 'hero' && rayBook) {
+      if (state.mode === "hero" && rayBook) {
         ptr.down = true;
         dragBook = rayBook;
         ptr.downX = cx;
@@ -1597,7 +1822,7 @@ export function ServicesSection({
         ptr.moved = 0;
         ptr.t0 = performance.now();
         canvas.setPointerCapture(e.pointerId);
-      } else if (state.mode === 'detail' && rayBook === state.selected) {
+      } else if (state.mode === "detail" && rayBook === state.selected) {
         ptr.down = true;
         orbit.drag = true;
         orbit.dxAcc = 0;
@@ -1610,7 +1835,7 @@ export function ServicesSection({
         state.kbIndex = -1;
       }
     };
-    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener("pointerdown", onPointerDown);
 
     const onPointerUp = (e) => {
       if (ptr.id !== null && e.pointerId !== ptr.id) return;
@@ -1621,13 +1846,18 @@ export function ServicesSection({
         const limit = isTouch() ? 650 : 450;
         const wasDrag = ptr.moved > slop;
         dragBook.springs.drag.t = 0;
-        if (!wasDrag && state.mode === 'hero' && performance.now() - ptr.t0 < limit) open(dragBook);
+        if (
+          !wasDrag &&
+          state.mode === "hero" &&
+          performance.now() - ptr.t0 < limit
+        )
+          open(dragBook);
         dragBook = null;
       }
       ptr.down = false;
       if (isTouch()) rayBook = null;
     };
-    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener("pointerup", onPointerUp);
 
     const cancelPointer = (e) => {
       if (e && ptr.id !== null && e.pointerId !== ptr.id) return;
@@ -1640,25 +1870,29 @@ export function ServicesSection({
       }
       if (isTouch()) rayBook = null;
     };
-    window.addEventListener('pointercancel', cancelPointer);
-    canvas.addEventListener('lostpointercapture', cancelPointer);
+    window.addEventListener("pointercancel", cancelPointer);
+    canvas.addEventListener("lostpointercapture", cancelPointer);
 
     const onKeydown = (e) => {
-      if (e.key === 'Escape') close();
-      if (state.mode !== 'hero') return;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      if (e.key === "Escape") close();
+      if (state.mode !== "hero") return;
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
         if (e.shiftKey) {
-          shiftCarousel(e.key === 'ArrowRight' ? 1 : -1);
+          shiftCarousel(e.key === "ArrowRight" ? 1 : -1);
         } else {
-          const d = e.key === 'ArrowRight' ? 1 : -1;
-          state.kbIndex = ((state.kbIndex < 0 ? (d > 0 ? -1 : 1) : state.kbIndex) + d + VISIBLE) % VISIBLE;
+          const d = e.key === "ArrowRight" ? 1 : -1;
+          state.kbIndex =
+            ((state.kbIndex < 0 ? (d > 0 ? -1 : 1) : state.kbIndex) +
+              d +
+              VISIBLE) %
+            VISIBLE;
           state.pillLock = null;
         }
         e.preventDefault();
       }
-      if (e.key === 'Enter' && state.hovered) open(state.hovered);
+      if (e.key === "Enter" && state.hovered) open(state.hovered);
     };
-    root.addEventListener('keydown', onKeydown);
+    root.addEventListener("keydown", onKeydown);
 
     function castRay() {
       ray.setFromCamera({ x: ptr.ndcX, y: ptr.ndcY }, camera);
@@ -1686,8 +1920,8 @@ export function ServicesSection({
     function tickBook(b, dt, t) {
       const s = b.springs;
       const isHov = state.hovered === b;
-      const inDetail = state.mode === 'detail' && state.selected === b;
-      const orbitActive = state.selected === b && state.mode !== 'hero';
+      const inDetail = state.mode === "detail" && state.selected === b;
+      const orbitActive = state.selected === b && state.mode !== "hero";
 
       let activity = 0;
       if (orbitActive) {
@@ -1695,50 +1929,69 @@ export function ServicesSection({
           const step = orbit.dxAcc * 6.5;
           orbit.dxAcc = 0;
           b.orbY += step;
-          b.orbYv = clamp(b.orbYv * 0.5 + (step / Math.max(dt, 0.001)) * 0.5, -14, 14);
+          b.orbYv = clamp(
+            b.orbYv * 0.5 + (step / Math.max(dt, 0.001)) * 0.5,
+            -14,
+            14,
+          );
           b.orbXs.t = clamp(b.orbXs.t + orbit.dyAcc * 3.2, -0.55, 0.55);
           orbit.dyAcc = 0;
-          b.orbPhase = 'drag';
+          b.orbPhase = "drag";
         } else {
           b.orbXs.t = 0;
-          if (b.orbPhase === 'drag') {
-            if (Math.abs(b.orbYv) > 0.6) b.orbPhase = 'spin';
+          if (b.orbPhase === "drag") {
+            if (Math.abs(b.orbYv) > 0.6) b.orbPhase = "spin";
             else {
-              b.orbPhase = 'return';
-              b.orbTarget = Math.round((b.orbY + b.orbYv * 1.2) / Math.PI) * Math.PI;
+              b.orbPhase = "return";
+              b.orbTarget =
+                Math.round((b.orbY + b.orbYv * 1.2) / Math.PI) * Math.PI;
             }
           }
-          if (b.orbPhase === 'spin') {
+          if (b.orbPhase === "spin") {
             b.orbYv *= Math.exp(-0.9 * dt);
             b.orbY += b.orbYv * dt;
             if (Math.abs(b.orbYv) < 0.5) {
-              b.orbPhase = 'return';
-              b.orbTarget = Math.round((b.orbY + b.orbYv * 1.2) / Math.PI) * Math.PI;
+              b.orbPhase = "return";
+              b.orbTarget =
+                Math.round((b.orbY + b.orbYv * 1.2) / Math.PI) * Math.PI;
             }
-          } else if (b.orbPhase === 'return') {
+          } else if (b.orbPhase === "return") {
             const acc = 16 * (b.orbTarget - b.orbY) - 8 * b.orbYv;
             b.orbYv += acc * dt;
             b.orbY += b.orbYv * dt;
-            if (Math.abs(b.orbTarget - b.orbY) < 0.002 && Math.abs(b.orbYv) < 0.01) {
+            if (
+              Math.abs(b.orbTarget - b.orbY) < 0.002 &&
+              Math.abs(b.orbYv) < 0.01
+            ) {
               b.orbY = b.orbTarget;
               b.orbYv = 0;
-              b.orbPhase = 'idle';
+              b.orbPhase = "idle";
             }
           }
         }
-        const distRest = Math.abs(b.orbY - Math.round(b.orbY / 6.2832) * 6.2832);
-        activity = clamp(Math.abs(b.orbYv) * 1.5 + (orbit.drag ? 1 : 0) + distRest * 2, 0, 1);
+        const distRest = Math.abs(
+          b.orbY - Math.round(b.orbY / 6.2832) * 6.2832,
+        );
+        activity = clamp(
+          Math.abs(b.orbYv) * 1.5 + (orbit.drag ? 1 : 0) + distRest * 2,
+          0,
+          1,
+        );
       }
       b.orbXs.update(dt);
 
       let coverBase = 0;
-      if (inDetail) coverBase = DETAIL_OPEN_ANGLE + Math.sin(t * 0.8 + b.phase) * DETAIL_OPEN_SWAY * idle;
+      if (inDetail)
+        coverBase =
+          DETAIL_OPEN_ANGLE +
+          Math.sin(t * 0.8 + b.phase) * DETAIL_OPEN_SWAY * idle;
       const fan = orbitActive ? clamp(b.orbYv * 0.16, 0, 0.75) : 0;
       const fanB = orbitActive ? clamp(-b.orbYv * 0.16, 0, 0.75) : 0;
       let coverBBase = 0;
-      if (inDetail) coverBBase = 0.2 + Math.sin(t * 0.8 + b.phase + 1.7) * 0.02 * idle;
+      if (inDetail)
+        coverBBase = 0.2 + Math.sin(t * 0.8 + b.phase + 1.7) * 0.02 * idle;
 
-      if (isHov && ptr.seen && state.mode === 'hero') {
+      if (isHov && ptr.seen && state.mode === "hero") {
         const dxN = (ptr.cx - b.scr.x) / (dims.w * 0.25);
         const dyN = (b.scr.y - ptr.cy) / (dims.h * 0.3);
         s.tiltY.t = clamp(dxN * 0.28, -0.15, 0.15);
@@ -1752,7 +2005,7 @@ export function ServicesSection({
       }
       s.cover.t = coverBase + fan;
       s.coverB.t = coverBBase + fanB;
-      s.sc.t = b.slotScale * (isHov && state.mode === 'hero' ? 1.09 : 1);
+      s.sc.t = b.slotScale * (isHov && state.mode === "hero" ? 1.09 : 1);
 
       s.px.update(dt);
       if (b.exit) stepY(b, dt);
@@ -1773,9 +2026,15 @@ export function ServicesSection({
       b.float.rotation.z = Math.sin(t * 0.9 + b.phase * 1.7) * 0.006 * idle;
 
       b.root.position.set(s.px.v, s.py.v, s.pz.v + s.lift.v);
-      const sway = inDetail ? Math.sin(t * 0.45 + b.phase) * 0.035 * idle * (1 - activity) : 0;
+      const sway = inDetail
+        ? Math.sin(t * 0.45 + b.phase) * 0.035 * idle * (1 - activity)
+        : 0;
       const swing = clamp(-s.px.vel * 0.12, -0.5, 0.5);
-      b.root.rotation.set(s.rx.v + s.tiltX.v + b.orbXs.v, s.ry.v + s.tiltY.v + b.orbY + sway + swing, s.rz.v);
+      b.root.rotation.set(
+        s.rx.v + s.tiltX.v + b.orbXs.v,
+        s.ry.v + s.tiltY.v + b.orbY + sway + swing,
+        s.rz.v,
+      );
       b.root.scale.setScalar(Math.max(s.sc.v, 0.001));
 
       const ang = Math.max(0, s.cover.v + s.drag.v);
@@ -1788,7 +2047,11 @@ export function ServicesSection({
       b.block.scale.z = 1 - (ang + angB) * 0.05;
       b.block.position.z = BLOCK_Z - ang * 0.006 + angB * 0.006;
       for (let i = 0; i < PAGE_N; i++) {
-        const fl = idle * Math.sin(t * 1.15 + b.phase + i * 0.6) * 0.006 * (1 - i / PAGE_N);
+        const fl =
+          idle *
+          Math.sin(t * 1.15 + b.phase + i * 0.6) *
+          0.006 *
+          (1 - i / PAGE_N);
         b.pages[i].rotation.y = -(ang * b.pageF[i] + Math.max(0, fl));
       }
       for (let i = 0; i < 6; i++) b.pagesB[i].rotation.y = angB * b.pageFB[i];
@@ -1805,20 +2068,23 @@ export function ServicesSection({
       const dt = Math.min(clock.getDelta(), 0.05);
       const t = clock.getElapsedTime();
 
-      if (ptr.seen && (ptr.type === 'mouse' || ptr.down)) castRay();
+      if (ptr.seen && (ptr.type === "mouse" || ptr.down)) castRay();
       let hov = null;
-      if (state.mode === 'hero') {
-        const kb = state.kbIndex >= 0 ? bookInstances[currentWindow[state.kbIndex]] : null;
+      if (state.mode === "hero") {
+        const kb =
+          state.kbIndex >= 0
+            ? bookInstances[currentWindow[state.kbIndex]]
+            : null;
         hov = rayBook || state.pillLock || kb || null;
-      } else if (state.mode === 'detail') {
+      } else if (state.mode === "detail") {
         hov = rayBook === state.selected ? rayBook : null;
       }
       state.hovered = hov;
-      let cur = 'default';
-      if (state.mode === 'hero' && hov) cur = 'pointer';
-      else if (state.mode === 'detail' && state.selected) {
-        if (orbit.drag) cur = 'grabbing';
-        else if (rayBook === state.selected) cur = 'grab';
+      let cur = "default";
+      if (state.mode === "hero" && hov) cur = "pointer";
+      else if (state.mode === "detail" && state.selected) {
+        if (orbit.drag) cur = "grabbing";
+        else if (rayBook === state.selected) cur = "grab";
       }
       canvas.style.cursor = cur;
 
@@ -1834,7 +2100,13 @@ export function ServicesSection({
       camera.position.set(camX.update(dt), camY.update(dt), camZ.update(dt));
       camera.lookAt(lookX.update(dt), lookY.update(dt), 0);
 
-      if (state.mode === 'hero' && state.hovered && ptr.seen && !isTouch() && !(ptr.down && ptr.moved > 14)) {
+      if (
+        state.mode === "hero" &&
+        state.hovered &&
+        ptr.seen &&
+        !isTouch() &&
+        !(ptr.down && ptr.moved > 14)
+      ) {
         const tx = ptr.cx,
           ty = ptr.cy + 34;
         if (!pillOn) {
@@ -1844,8 +2116,8 @@ export function ServicesSection({
         pillX.t = tx;
         pillY.t = ty;
         if (openBtnRef.current) {
-          openBtnRef.current.style.left = pillX.update(dt) + 'px';
-          openBtnRef.current.style.top = pillY.update(dt) + 'px';
+          openBtnRef.current.style.left = pillX.update(dt) + "px";
+          openBtnRef.current.style.top = pillY.update(dt) + "px";
         }
         if (!pillOn) showPill();
       } else {
@@ -1863,13 +2135,17 @@ export function ServicesSection({
       const r = root.getBoundingClientRect();
       dims.w = Math.max(1, Math.round(r.width));
       dims.h = Math.max(1, Math.round(r.height));
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, dims.w < 800 ? 1.5 : 2));
+      renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, dims.w < 800 ? 1.5 : 2),
+      );
       renderer.setSize(dims.w, dims.h);
       camera.aspect = dims.w / dims.h;
       camera.updateProjectionMatrix();
       computeSlots();
       applyMode();
-      camTo(state.mode === 'detail' || state.mode === 'opening' ? 'detail' : 'hero');
+      camTo(
+        state.mode === "detail" || state.mode === "opening" ? "detail" : "hero",
+      );
     }
 
     relayout();
@@ -1891,7 +2167,7 @@ export function ServicesSection({
       if (!currentWindow.includes(idx)) b.root.visible = false;
     });
     rebuildHitMeshes();
-    camTo('hero');
+    camTo("hero");
     animate();
 
     const visibilityObserver = new IntersectionObserver(
@@ -1903,7 +2179,7 @@ export function ServicesSection({
           rafId = 0;
         }
       },
-      { rootMargin: '160px' },
+      { rootMargin: "160px" },
     );
     visibilityObserver.observe(root);
 
@@ -1915,7 +2191,7 @@ export function ServicesSection({
         resumeAnimation();
       }
     };
-    document.addEventListener('visibilitychange', onVisibilityChange);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     const onWindowResize = () => relayout();
     let orientationTimeout = null;
@@ -1923,12 +2199,12 @@ export function ServicesSection({
       relayout();
       orientationTimeout = setT(relayout, 250);
     };
-    window.addEventListener('resize', onWindowResize);
-    window.addEventListener('orientationchange', onOrientation);
+    window.addEventListener("resize", onWindowResize);
+    window.addEventListener("orientationchange", onOrientation);
     let visualViewportHandler = null;
     if (window.visualViewport) {
       visualViewportHandler = () => relayout();
-      window.visualViewport.addEventListener('resize', visualViewportHandler);
+      window.visualViewport.addEventListener("resize", visualViewportHandler);
     }
     const ro = new ResizeObserver(() => relayout());
     ro.observe(root);
@@ -1940,27 +2216,32 @@ export function ServicesSection({
       if (orientationTimeout) clearTimeout(orientationTimeout);
 
       visibilityObserver.disconnect();
-      document.removeEventListener('visibilitychange', onVisibilityChange);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       ro.disconnect();
-      window.removeEventListener('resize', onWindowResize);
-      window.removeEventListener('orientationchange', onOrientation);
+      window.removeEventListener("resize", onWindowResize);
+      window.removeEventListener("orientationchange", onOrientation);
       if (visualViewportHandler && window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', visualViewportHandler);
+        window.visualViewport.removeEventListener(
+          "resize",
+          visualViewportHandler,
+        );
       }
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', cancelPointer);
-      root.removeEventListener('keydown', onKeydown);
-      canvas.removeEventListener('contextmenu', onContextMenu);
-      canvas.removeEventListener('pointerleave', onPointerLeave);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('lostpointercapture', cancelPointer);
-      closeBtnRef.current?.removeEventListener('click', onCloseClick);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", cancelPointer);
+      root.removeEventListener("keydown", onKeydown);
+      canvas.removeEventListener("contextmenu", onContextMenu);
+      canvas.removeEventListener("pointerleave", onPointerLeave);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("lostpointercapture", cancelPointer);
+      closeBtnRef.current?.removeEventListener("click", onCloseClick);
 
       scene.traverse((obj) => {
         if (obj.geometry) obj.geometry.dispose();
         if (obj.material) {
-          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          const mats = Array.isArray(obj.material)
+            ? obj.material
+            : [obj.material];
           mats.forEach((m) => {
             Object.values(m).forEach((v) => {
               if (v && v.isTexture) v.dispose();
@@ -1984,28 +2265,30 @@ export function ServicesSection({
     }
   }, [billingCycle, isYearly]);
 
-  const panelVisible = uiMode === 'detail';
-  const heroWordVisible = mounted && uiMode === 'hero';
+  const panelVisible = uiMode === "detail";
+  const heroWordVisible = mounted && uiMode === "hero";
   const canCarousel = showCarousel && services.length > 3;
 
   const delayMap = {
-    50: 'delay-[50ms]',
-    130: 'delay-[130ms]',
-    210: 'delay-[210ms]',
-    270: 'delay-[270ms]',
-    330: 'delay-[330ms]',
+    50: "delay-[50ms]",
+    130: "delay-[130ms]",
+    210: "delay-[210ms]",
+    270: "delay-[270ms]",
+    330: "delay-[330ms]",
   };
 
   const dpChild = (delayMs) =>
     panelVisible
-      ? `opacity-100 translate-y-0 transition-[opacity,transform] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${delayMap[delayMs] || ''}`
-      : 'opacity-0 translate-y-[28px] transition-[opacity,transform] duration-[280ms] ease-out';
+      ? `opacity-100 translate-y-0 transition-[opacity,transform] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${delayMap[delayMs] || ""}`
+      : "opacity-0 translate-y-[28px] transition-[opacity,transform] duration-[280ms] ease-out";
 
   const handleActionClick = () => {
     if (!selectedCfg) return;
-    const currentPrice = isYearly ? selectedCfg.yearlyPrice : selectedCfg.monthlyPrice;
+    const currentPrice = isYearly
+      ? selectedCfg.yearlyPrice
+      : selectedCfg.monthlyPrice;
     const fullPassTitle = `${selectedCfg.title} (${billingCycle.toUpperCase()} - ${currentPrice})`;
-    if (selectedCfg.id === 'pt-training') {
+    if (selectedCfg.id === "pt-training") {
       onBookPTRef.current?.(fullPassTitle);
     } else {
       onClaimPassRef.current?.(fullPassTitle);
@@ -2016,7 +2299,7 @@ export function ServicesSection({
     ? isYearly
       ? selectedCfg.yearlyPrice
       : selectedCfg.monthlyPrice
-    : '';
+    : "";
 
   const displaySavings = selectedCfg
     ? isYearly
@@ -2026,25 +2309,33 @@ export function ServicesSection({
 
   return (
     <section
-      id={id || 'services-section'}
+      id={id || "services-section"}
       ref={rootRef}
       tabIndex={0}
       role="region"
       aria-label="3D Gym Services & Membership Showcase"
       data-state={uiMode}
       className={cn(
-        'book-showcase relative isolate h-[88vh] min-h-[660px] max-h-[980px] w-full overflow-hidden font-sans outline-none [container-type:size] [-webkit-tap-highlight-color:transparent] my-12',
-        'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF2E4C]',
-        'transition-colors duration-500 ease-out bg-[#0B0B0B] text-white',
+        "book-showcase relative isolate h-[88vh] min-h-[660px] max-h-[980px] w-full overflow-hidden font-sans outline-none [container-type:size] [-webkit-tap-highlight-color:transparent] my-12",
+        "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF2E4C]",
+        "transition-colors duration-500 ease-out bg-[#0B0B0B] text-white",
         className,
       )}
     >
       {/* Anchor for backward compatibility */}
-      <span id="services-showcase" className="absolute top-0 left-0 pointer-events-none" aria-hidden="true" />
+      <span
+        id="services-showcase"
+        className="absolute top-0 left-0 pointer-events-none"
+        aria-hidden="true"
+      />
       {/* Background Section Title */}
       <div
         className={`pointer-events-none absolute left-1/2 top-[12%] z-[1] -translate-x-1/2 select-none transition-all duration-500 ease-out ${
-          heroWordVisible ? 'translate-y-0 opacity-100' : uiMode === 'hero' ? '-translate-y-0 translate-y-[60px] opacity-0' : '-translate-y-11 opacity-0'
+          heroWordVisible
+            ? "translate-y-0 opacity-100"
+            : uiMode === "hero"
+              ? "-translate-y-0 translate-y-[60px] opacity-0"
+              : "-translate-y-11 opacity-0"
         }`}
       >
         <span className="block whitespace-nowrap text-current text-[clamp(4.5rem,18cqw,14rem)] font-extrabold leading-[0.85] tracking-[-0.02em] opacity-10 text-transparent bg-clip-text bg-gradient-to-b from-white to-white/0">
@@ -2052,14 +2343,18 @@ export function ServicesSection({
         </span>
       </div>
 
-      <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 z-[2] block h-full w-full touch-none" />
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className="absolute inset-0 z-[2] block h-full w-full touch-none"
+      />
 
       {showNav && (
         <nav
-          aria-hidden={uiMode !== 'hero'}
+          aria-hidden={uiMode !== "hero"}
           className={cn(
-            'pointer-events-none absolute inset-x-0 top-4 z-40 flex flex-wrap items-center justify-between gap-4 px-[clamp(20px,4cqw,42px)] py-4 transition-opacity duration-300',
-            uiMode === 'hero' ? 'opacity-100' : 'opacity-0',
+            "pointer-events-none absolute inset-x-0 top-4 z-40 flex flex-wrap items-center justify-between gap-4 px-[clamp(20px,4cqw,42px)] py-4 transition-opacity duration-300",
+            uiMode === "hero" ? "opacity-100" : "opacity-0",
           )}
         >
           <div className="flex items-center gap-3 text-[clamp(18px,2cqw,26px)] font-black tracking-wider uppercase text-white">
@@ -2070,21 +2365,21 @@ export function ServicesSection({
           {/* Monthly / Yearly Package Selector Toggle */}
           <div className="pointer-events-auto flex items-center gap-1.5 bg-[#12161A]/90 p-1.5 rounded-full border border-white/15 backdrop-blur-md shadow-2xl">
             <button
-              onClick={() => setBillingCycle('monthly')}
+              onClick={() => setBillingCycle("monthly")}
               className={`px-5 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 ${
-                billingCycle === 'monthly'
-                  ? 'bg-gradient-to-r from-[#FF2E4C] to-[#FF526B] text-white shadow-[0_0_15px_rgba(255,46,76,0.6)] scale-[1.03]'
-                  : 'text-[#8A94A0] hover:text-white'
+                billingCycle === "monthly"
+                  ? "bg-gradient-to-r from-[#FF2E4C] to-[#FF526B] text-white shadow-[0_0_15px_rgba(255,46,76,0.6)] scale-[1.03]"
+                  : "text-[#8A94A0] hover:text-white"
               }`}
             >
               Monthly
             </button>
             <button
-              onClick={() => setBillingCycle('yearly')}
+              onClick={() => setBillingCycle("yearly")}
               className={`px-5 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-2 ${
-                billingCycle === 'yearly'
-                  ? 'bg-gradient-to-r from-[#FF2E4C] via-[#FF526B] to-[#D4AF37] text-white shadow-[0_0_20px_rgba(212,175,55,0.5)] scale-[1.03]'
-                  : 'text-[#8A94A0] hover:text-white'
+                billingCycle === "yearly"
+                  ? "bg-gradient-to-r from-[#FF2E4C] via-[#FF526B] to-[#D4AF37] text-white shadow-[0_0_20px_rgba(212,175,55,0.5)] scale-[1.03]"
+                  : "text-[#8A94A0] hover:text-white"
               }`}
             >
               <span>Yearly</span>
@@ -2103,7 +2398,9 @@ export function ServicesSection({
             aria-label="Previous service"
             onClick={() => shiftCarouselRef.current(-1)}
             className={`absolute left-4 top-1/2 z-30 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#12161A]/90 text-white border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-all duration-300 hover:scale-110 hover:border-[#FF2E4C] hover:text-[#FF2E4C] ${
-              uiMode === 'hero' ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+              uiMode === "hero"
+                ? "pointer-events-auto opacity-100"
+                : "pointer-events-none opacity-0"
             }`}
           >
             <ChevronLeft className="h-6 w-6" />
@@ -2113,7 +2410,9 @@ export function ServicesSection({
             aria-label="Next service"
             onClick={() => shiftCarouselRef.current(1)}
             className={`absolute right-4 top-1/2 z-30 -translate-y-1/2 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#12161A]/90 text-white border border-white/20 shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-all duration-300 hover:scale-110 hover:border-[#FF2E4C] hover:text-[#FF2E4C] ${
-              uiMode === 'hero' ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+              uiMode === "hero"
+                ? "pointer-events-auto opacity-100"
+                : "pointer-events-none opacity-0"
             }`}
           >
             <ChevronRight className="h-6 w-6" />
@@ -2127,13 +2426,13 @@ export function ServicesSection({
         tabIndex={-1}
         aria-hidden="true"
         className={
-          'absolute left-0 top-0 z-30 -translate-x-1/2 -translate-y-1/2 rotate-[-1.6deg] px-[36px] pb-[16px] pt-3.5 ' +
-          'text-[14px] font-black uppercase tracking-[0.14em] text-white pointer-events-none ' +
-          'transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[left,top,opacity,transform] ' +
-          '[clip-path:polygon(0%_0.9%,8.3%_0.8%,16.7%_6.3%,25%_3.8%,33.3%_5.5%,41.7%_2.7%,50%_5.2%,58.3%_0.4%,66.7%_5.9%,75%_6.5%,83.3%_1%,91.7%_6.4%,100%_0.7%,97.7%_20%,97%_40%,99.6%_60%,98.7%_80%,100%_96.5%,91.7%_99.8%,83.3%_95.6%,75%_94.9%,66.7%_96.6%,58.3%_93.5%,50%_97.9%,41.7%_99.5%,33.3%_93.2%,25%_93.6%,16.7%_93.2%,8.3%_93.1%,0%_93.5%,0.2%_80%,1.1%_60%,3.9%_40%,3.8%_20%)] ' +
-          '[background:linear-gradient(135deg,#FF2E4C_0%,#E50914_100%)] ' +
-          '[filter:drop-shadow(0_0_15px_rgba(255,46,76,0.6))] ' +
-          OPEN_BTN_OFF.join(' ')
+          "absolute left-0 top-0 z-30 -translate-x-1/2 -translate-y-1/2 rotate-[-1.6deg] px-[36px] pb-[16px] pt-3.5 " +
+          "text-[14px] font-black uppercase tracking-[0.14em] text-white pointer-events-none " +
+          "transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[left,top,opacity,transform] " +
+          "[clip-path:polygon(0%_0.9%,8.3%_0.8%,16.7%_6.3%,25%_3.8%,33.3%_5.5%,41.7%_2.7%,50%_5.2%,58.3%_0.4%,66.7%_5.9%,75%_6.5%,83.3%_1%,91.7%_6.4%,100%_0.7%,97.7%_20%,97%_40%,99.6%_60%,98.7%_80%,100%_96.5%,91.7%_99.8%,83.3%_95.6%,75%_94.9%,66.7%_96.6%,58.3%_93.5%,50%_97.9%,41.7%_99.5%,33.3%_93.2%,25%_93.6%,16.7%_93.2%,8.3%_93.1%,0%_93.5%,0.2%_80%,1.1%_60%,3.9%_40%,3.8%_20%)] " +
+          "[background:linear-gradient(135deg,#FF2E4C_0%,#E50914_100%)] " +
+          "[filter:drop-shadow(0_0_15px_rgba(255,46,76,0.6))] " +
+          OPEN_BTN_OFF.join(" ")
         }
       >
         EXPLORE TIER
@@ -2144,7 +2443,9 @@ export function ServicesSection({
         ref={closeBtnRef}
         aria-label="Close detail view"
         className={`absolute left-1/2 top-[24px] z-40 -translate-x-1/2 inline-flex h-[48px] w-[48px] items-center justify-center rounded-full border border-white/30 bg-[#12161A]/80 text-[18px] leading-none text-white shadow-xl transition-all duration-300 hover:border-[#FF2E4C] hover:text-[#FF2E4C] @max-[760px]:left-auto @max-[760px]:right-[18px] @max-[760px]:top-[18px] @max-[760px]:translate-x-0 ${
-          uiMode === 'detail' ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+          uiMode === "detail"
+            ? "pointer-events-auto opacity-100"
+            : "pointer-events-none opacity-0"
         }`}
       >
         &#10005;
@@ -2156,41 +2457,53 @@ export function ServicesSection({
           ref={dpRef}
           aria-live="polite"
           className={`absolute right-[6%] top-1/2 z-[15] w-[min(560px,44%)] -translate-y-1/2 pointer-events-none @max-[760px]:right-auto @max-[760px]:left-1/2 @max-[760px]:top-auto @max-[760px]:bottom-[3%] @max-[760px]:w-[min(560px,92cqw)] @max-[760px]:-translate-x-1/2 @max-[760px]:translate-y-0 ${
-            panelVisible ? 'visible' : 'invisible delay-[500ms]'
+            panelVisible ? "visible" : "invisible delay-[500ms]"
           }`}
         >
           <div className="flex items-center gap-2 mb-3">
-            <div className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black tracking-widest uppercase ${
-              selectedCfg?.id === 'elite-membership'
-                ? 'bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#FFD700]'
-                : selectedCfg?.id === 'pt-training'
-                ? 'bg-[#00F0FF]/20 border border-[#00F0FF]/40 text-[#00F0FF]'
-                : 'bg-[#FF2E4C]/20 border border-[#FF2E4C]/40 text-[#FF2E4C]'
-            } ${dpChild(50)}`}>
+            <div
+              className={`inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-black tracking-widest uppercase ${
+                selectedCfg?.id === "elite-membership"
+                  ? "bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#FFD700]"
+                  : selectedCfg?.id === "pt-training"
+                    ? "bg-[#00F0FF]/20 border border-[#00F0FF]/40 text-[#00F0FF]"
+                    : "bg-[#FF2E4C]/20 border border-[#FF2E4C]/40 text-[#FF2E4C]"
+              } ${dpChild(50)}`}
+            >
               <Crown size={14} />
-              <span>{selectedCfg?.badge || 'TITAN TIER'}</span>
+              <span>{selectedCfg?.badge || "TITAN TIER"}</span>
             </div>
 
             {displaySavings && (
-              <div className={`inline-flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 px-3 py-1 rounded-full text-xs font-mono font-bold ${dpChild(50)}`}>
+              <div
+                className={`inline-flex items-center gap-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 px-3 py-1 rounded-full text-xs font-mono font-bold ${dpChild(50)}`}
+              >
                 <Percent size={12} />
                 <span>{displaySavings}</span>
               </div>
             )}
           </div>
 
-          <h2 className={`m-0 text-[clamp(42px,5cqw,76px)] font-black leading-[0.95] tracking-tight text-white @max-[760px]:text-[clamp(32px,8cqw,48px)] ${dpChild(50)}`}>
+          <h2
+            className={`m-0 text-[clamp(42px,5cqw,76px)] font-black leading-[0.95] tracking-tight text-white @max-[760px]:text-[clamp(32px,8cqw,48px)] ${dpChild(50)}`}
+          >
             {selectedCfg?.title}
           </h2>
 
-          <p className={`mt-4 max-w-[50ch] text-[#A0AEC0] text-[clamp(15px,1.15cqw,18px)] leading-[1.6] @max-[760px]:mt-3 @max-[760px]:line-clamp-3 @max-[760px]:text-[14px] ${dpChild(130)}`}>
+          <p
+            className={`mt-4 max-w-[50ch] text-[#A0AEC0] text-[clamp(15px,1.15cqw,18px)] leading-[1.6] @max-[760px]:mt-3 @max-[760px]:line-clamp-3 @max-[760px]:text-[14px] ${dpChild(130)}`}
+          >
             {selectedCfg?.desc}
           </p>
 
           <div className={`mt-5 flex items-center gap-4 ${dpChild(210)}`}>
             <div className="flex gap-1 text-[#FFD700]">
               {[0, 1, 2, 3, 4].map((i) => (
-                <svg key={i} viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+                <svg
+                  key={i}
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5 fill-current"
+                >
                   <path d="M12 2.6l2.8 6 6.6.6-5 4.4 1.5 6.5L12 16.7 6.1 20.1l1.5-6.5-5-4.4 6.6-.6z" />
                 </svg>
               ))}
@@ -2199,15 +2512,22 @@ export function ServicesSection({
             <div className="text-sm font-semibold text-[#8A94A0]">
               {billingCycle.toUpperCase()} PACKAGE
             </div>
-            <div className="ml-auto text-2xl font-black text-white">{displayPrice}</div>
+            <div className="ml-auto text-2xl font-black text-white">
+              {displayPrice}
+            </div>
           </div>
 
           <div className={`mt-5 border-t border-white/10 ${dpChild(270)}`} />
 
           {/* Chapters / Features checklist */}
-          <div className={`mt-4 grid grid-cols-1 @min-[480px]:grid-cols-2 gap-2 text-xs font-medium text-white/90 ${dpChild(270)}`}>
+          <div
+            className={`mt-4 grid grid-cols-1 @min-[480px]:grid-cols-2 gap-2 text-xs font-medium text-white/90 ${dpChild(270)}`}
+          >
             {selectedCfg?.chapters?.map((feat, idx) => (
-              <div key={idx} className="flex items-center gap-2 bg-[#12161A]/60 border border-white/5 px-3 py-2 rounded-xl">
+              <div
+                key={idx}
+                className="flex items-center gap-2 bg-[#12161A]/60 border border-white/5 px-3 py-2 rounded-xl"
+              >
                 <Check size={14} className="text-[#FF2E4C] shrink-0" />
                 <span className="truncate">{feat}</span>
               </div>
@@ -2223,7 +2543,7 @@ export function ServicesSection({
               className="inline-flex h-[52px] items-center gap-2.5 rounded-full bg-gradient-to-r from-[#FF2E4C] to-[#FF526B] px-8 text-[15px] font-black uppercase tracking-wider text-white shadow-[0_0_25px_rgba(255,46,76,0.5)] transition-all duration-300 hover:scale-[1.04] hover:brightness-110 active:scale-[0.98]"
             >
               <Zap size={18} />
-              <span>{selectedCfg?.ctaText || 'Claim Pass'}</span>
+              <span>{selectedCfg?.ctaText || "Claim Pass"}</span>
             </button>
 
             <button

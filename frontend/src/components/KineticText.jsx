@@ -52,7 +52,10 @@ export function KineticText({
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className={cn("inline-flex flex-wrap perspective-1000 select-none", className)}
+      className={cn(
+        "inline-flex flex-wrap perspective-1000 select-none",
+        className,
+      )}
       {...props}
     >
       {letters.map((char, i) => (
