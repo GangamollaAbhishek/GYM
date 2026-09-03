@@ -108,13 +108,12 @@ export default function PreworkoutShowcaseSection({ onReserveSpot }) {
 
         gsap.set(item, { perspective: 1000 });
         gsap.set(imgWrap, { transformOrigin: '50% 100%' });
-        if (textBlock) gsap.set(textBlock, { transform: 'translate3d(0,0,80px)' });
 
         const ry = (index % 2 === 0 ? -1 : 1) * 0.35;
         const rz = (index % 2 === 0 ? 1 : -1) * 0.25;
         const initialRot = -50 + (index % 2) * 5;
 
-        // 3D Perspective Entrance Scroll Animation
+        // 3D Perspective Entrance Scroll Animation for Image Card
         gsap.fromTo(imgWrap, {
           rotateX: initialRot,
           rotateY: ry * 20,
@@ -150,14 +149,15 @@ export default function PreworkoutShowcaseSection({ onReserveSpot }) {
           }
         });
 
-        // Text reveal animation
+        // Smooth vertical entrance for text without horizontal clipping
         if (textBlock) {
           gsap.fromTo(textBlock, {
-            opacity: 0,
-            x: index % 2 === 0 ? 35 : -35
+            opacity: 0.3,
+            y: 25
           }, {
             opacity: 1,
-            x: 0,
+            y: 0,
+            ease: 'power2.out',
             scrollTrigger: {
               trigger: item,
               start: 'top 85%',

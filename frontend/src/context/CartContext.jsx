@@ -1,54 +1,78 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
+import { useAuth } from './AuthContext';
 
 const CartContext = createContext();
 
-const INITIAL_DEMO_CART = [
-  {
-    id: 'prod-iso',
-    name: 'PULSEFIT 100% HYDROLYZED WHEY ISOLATE',
-    category: 'ADVANCED PROTEIN FORMULA',
-    price: 4499,
-    rating: 4.98,
-    image: '/pulsefit-isolate.jpg',
-    tag: 'ULTRA FILTERED HYDROLYZED',
-    quantity: 1
-  },
-  {
-    id: 'prod-shaker',
-    name: 'PULSEFIT STAINLESS STEEL VACUUM SHAKER',
-    category: 'GEAR & DRINKWARE',
-    price: 1499,
-    rating: 4.96,
-    image: '/pulsefit-shaker.jpg',
-    tag: '24HR COLD THERMAL',
-    quantity: 1
-  }
-];
+const getUserCartKey = (user) => {
+  if (!user) return 'titan_pulse_cart_guest';
+  const id = user._id || user.id || user.email;
+  return `titan_pulse_cart_${id}`;
+};
 
 export function CartProvider({ children }) {
+  const { user } = useAuth();
+  const prevUserRef = useRef(user);
+
+  // Load initial cart for current user state
   const [cart, setCart] = useState(() => {
     try {
-      const saved = localStorage.getItem('titan_pulse_cart');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (user) {
+        const key = getUserCartKey(user);
+        const saved = localStorage.getItem(key);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
       }
     } catch (e) {
-      console.warn('Failed to load cart from localStorage:', e);
+      console.warn('Failed to load user cart:', e);
     }
-    return INITIAL_DEMO_CART;
+    return [];
   });
 
   const [toastMessage, setToastMessage] = useState(null);
 
-  // Sync to localStorage
+  // Switch/sync cart whenever the active user changes (login, logout, switch user)
   useEffect(() => {
-    try {
-      localStorage.setItem('titan_pulse_cart', JSON.stringify(cart));
-    } catch (e) {
-      console.warn('Failed to save cart to localStorage:', e);
+    prevUserRef.current = user;
+
+    if (!user) {
+      // User logged out: immediately reset cart in UI & memory
+      setCart([]);
+      try {
+        localStorage.removeItem('titan_pulse_cart_guest');
+      } catch (e) {}
+      return;
     }
-  }, [cart]);
+
+    // User logged in / changed: load this specific user's cart from localStorage
+    try {
+      const userKey = getUserCartKey(user);
+      const saved = localStorage.getItem(userKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setCart(parsed);
+          return;
+        }
+      }
+      setCart([]);
+    } catch (e) {
+      console.warn('Failed to load user cart on auth change:', e);
+      setCart([]);
+    }
+  }, [user]);
+
+  // Persist current cart changes to the active user's storage key
+  useEffect(() => {
+    if (!user) return;
+    try {
+      const userKey = getUserCartKey(user);
+      localStorage.setItem(userKey, JSON.stringify(cart));
+    } catch (e) {
+      console.warn('Failed to save user cart to localStorage:', e);
+    }
+  }, [cart, user]);
 
   const showCartToast = (msg) => {
     setToastMessage(msg);
@@ -94,9 +118,12 @@ export function CartProvider({ children }) {
 
   const clearCart = () => {
     setCart([]);
-    try {
-      localStorage.removeItem('titan_pulse_cart');
-    } catch (e) {}
+    if (user) {
+      try {
+        const userKey = getUserCartKey(user);
+        localStorage.removeItem(userKey);
+      } catch (e) {}
+    }
   };
 
   const totalItemsCount = useMemo(() => {
@@ -132,3 +159,4 @@ export function useCart() {
   }
   return context;
 }
+

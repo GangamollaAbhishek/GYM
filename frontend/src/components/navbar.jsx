@@ -43,8 +43,6 @@ export default function Navbar({ onOpenPassModal }) {
     { name: 'Programs', href: '#programs' },
     { name: 'Zones', href: '#zones' },
     { name: 'Equipment', href: '#equipment' },
-    { name: 'Transformations', href: '#transformations' },
-    { name: 'Locations', href: '#locations' },
   ];
 
   return (

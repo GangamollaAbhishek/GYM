@@ -456,3 +456,120 @@
     display: none;
   }
 }
+
+/* ===================================================
+   MORPHING AUTH SUBMIT BUTTON (SPIN & CHECK EFFECT)
+   =================================================== */
+.morph-auth-submit-btn {
+  position: relative;
+  width: 160px;
+  height: 46px;
+  background: transparent;
+  border: 3px solid #FF2E4C;
+  border-radius: 50px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.35s ease, 
+              background 0.35s ease, 
+              box-shadow 0.35s ease;
+  overflow: hidden;
+  margin-top: 10px;
+  outline: none;
+  box-shadow: 0 4px 20px rgba(255, 46, 76, 0.35);
+}
+
+.morph-auth-submit-btn:hover:not(.is-loading):not(.is-success) {
+  background: rgba(255, 46, 76, 0.15);
+  box-shadow: 0 0 25px rgba(255, 46, 76, 0.65);
+  border-color: #FF2E4C;
+  transform: translateY(-1px);
+}
+
+.morph-auth-submit-btn .btn-label {
+  position: absolute;
+  color: #ffffff;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 800;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  white-space: nowrap;
+}
+
+.morph-auth-submit-btn .btn-check-svg {
+  position: absolute;
+  fill: transparent;
+  width: 22px;
+  height: 22px;
+  transition: fill 0.35s ease, transform 0.35s ease;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0);
+}
+
+/* 1. Loading & Spin State */
+.morph-auth-submit-btn.is-loading {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid #FF2E4C;
+  border-bottom: 3px solid #FF2E4C;
+  animation: morphBtnSpin 0.9s linear infinite;
+  box-shadow: 0 0 20px rgba(255, 46, 76, 0.6);
+  cursor: wait;
+}
+
+.morph-auth-submit-btn.is-loading .btn-label {
+  opacity: 0;
+  transform: scale(0);
+}
+
+/* 2. Success Check State */
+.morph-auth-submit-btn.is-success {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 3px solid #17b978;
+  box-shadow: 0 0 25px rgba(23, 185, 120, 0.8);
+  animation: none;
+  background: rgba(23, 185, 120, 0.18);
+}
+
+.morph-auth-submit-btn.is-success .btn-label {
+  opacity: 0;
+  transform: scale(0);
+}
+
+.morph-auth-submit-btn.is-success .btn-check-svg {
+  fill: #17b978;
+  opacity: 1;
+  animation: morphBtnCheck 0.4s ease forwards;
+}
+
+@keyframes morphBtnSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes morphBtnCheck {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
