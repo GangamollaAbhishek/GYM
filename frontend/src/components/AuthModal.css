@@ -56,19 +56,19 @@
 }
 
 .auth-close-btn:hover {
-  background: #FF2E4C;
+  background: #ff2e4c;
   color: #ffffff;
-  border-color: #FF2E4C;
+  border-color: #ff2e4c;
   transform: scale(1.1) rotate(90deg);
   box-shadow: 0 0 20px rgba(255, 46, 76, 0.6);
 }
 
 /* Main Double-Slider Container Card (Fits Screen Perfectly) */
 .auth-container {
-  background: #12161A;
+  background: #12161a;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 24px;
-  box-shadow: 
+  box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.9),
     0 0 40px rgba(255, 46, 76, 0.2);
   position: relative;
@@ -87,7 +87,7 @@
 }
 
 .form-container form {
-  background-color: #12161A;
+  background-color: #12161a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -132,11 +132,13 @@
 }
 
 @keyframes authShow {
-  0%, 49.99% {
+  0%,
+  49.99% {
     opacity: 0;
     z-index: 1;
   }
-  50%, 100% {
+  50%,
+  100% {
     opacity: 1;
     z-index: 5;
   }
@@ -160,11 +162,11 @@
 
 /* Overlay Gradient Panel */
 .overlay {
-  background: linear-gradient(135deg, #E50914 0%, #8B0018 50%, #0B0B0B 100%);
+  background: linear-gradient(135deg, #e50914 0%, #8b0018 50%, #0b0b0b 100%);
   background-repeat: no-repeat;
   background-size: cover;
   background-position: 0 0;
-  color: #FFFFFF;
+  color: #ffffff;
   position: relative;
   left: -100%;
   height: 100%;
@@ -236,8 +238,8 @@
 
 .social-container button:hover,
 .social-container a:hover {
-  border-color: #FF4828;
-  color: #FF4828;
+  border-color: #ff4828;
+  color: #ff4828;
   background-color: rgba(255, 72, 40, 0.12);
   box-shadow: 0 4px 14px rgba(255, 72, 40, 0.35);
   transform: translateY(-2px) scale(1.08);
@@ -254,7 +256,7 @@
 
 .auth-container span {
   font-size: 0.72rem;
-  color: #8A94A0;
+  color: #8a94a0;
   margin-bottom: 10px;
 }
 
@@ -267,19 +269,21 @@
 
 .auth-input-group input {
   width: 100%;
-  background-color: #090C0E;
+  background-color: #090c0e;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
   padding: 10px 14px 10px 38px;
   font-size: 0.82rem;
   color: #ffffff;
   outline: none;
-  transition: border-color 0.25s, box-shadow 0.25s;
+  transition:
+    border-color 0.25s,
+    box-shadow 0.25s;
   box-sizing: border-box;
 }
 
 .auth-input-group input:focus {
-  border-color: #FF2E4C;
+  border-color: #ff2e4c;
   box-shadow: 0 0 12px rgba(255, 46, 76, 0.3);
 }
 
@@ -288,13 +292,13 @@
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #6B7280;
+  color: #6b7280;
   transition: color 0.25s;
 }
 
 .auth-input-group input:focus + .auth-input-icon,
 .auth-input-group:focus-within .auth-input-icon {
-  color: #FF2E4C;
+  color: #ff2e4c;
 }
 
 .auth-eye-toggle {
@@ -302,7 +306,7 @@
   right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: #6B7280;
+  color: #6b7280;
   background: none;
   border: none;
   cursor: pointer;
@@ -316,15 +320,17 @@
 /* Action Buttons */
 .auth-btn-primary {
   border-radius: 12px;
-  border: 1px solid #FF2E4C;
-  background: linear-gradient(135deg, #FF2E4C 0%, #E50914 100%);
+  border: 1px solid #ff2e4c;
+  background: linear-gradient(135deg, #ff2e4c 0%, #e50914 100%);
   color: #ffffff;
   font-size: 0.78rem;
   font-weight: 800;
   padding: 10px 32px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  transition: transform 80ms ease-in, box-shadow 0.2s;
+  transition:
+    transform 80ms ease-in,
+    box-shadow 0.2s;
   cursor: pointer;
   margin-top: 8px;
   box-shadow: 0 4px 20px rgba(255, 46, 76, 0.4);
@@ -355,13 +361,13 @@
 
 .auth-btn-ghost:hover {
   background-color: #ffffff;
-  color: #E50914;
+  color: #e50914;
   box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3);
 }
 
 /* Forgot Password link */
 .forgot-pass-link {
-  color: #8A94A0;
+  color: #8a94a0;
   font-size: 0.72rem;
   text-decoration: none;
   margin: 4px 0 8px;
@@ -369,7 +375,7 @@
 }
 
 .forgot-pass-link:hover {
-  color: #FF2E4C;
+  color: #ff2e4c;
   text-decoration: underline;
 }
 
@@ -438,13 +444,13 @@
     gap: 8px;
     margin-top: 12px;
     font-size: 0.78rem;
-    color: #8A94A0;
+    color: #8a94a0;
   }
 
   .mobile-auth-switch button {
     background: none;
     border: none;
-    color: #FF2E4C;
+    color: #ff2e4c;
     font-weight: 700;
     cursor: pointer;
     text-decoration: underline;
@@ -465,16 +471,17 @@
   width: 160px;
   height: 46px;
   background: transparent;
-  border: 3px solid #FF2E4C;
+  border: 3px solid #ff2e4c;
   border-radius: 50px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
-              border-color 0.35s ease, 
-              background 0.35s ease, 
-              box-shadow 0.35s ease;
+  transition:
+    width 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.35s ease,
+    background 0.35s ease,
+    box-shadow 0.35s ease;
   overflow: hidden;
   margin-top: 10px;
   outline: none;
@@ -484,7 +491,7 @@
 .morph-auth-submit-btn:hover:not(.is-loading):not(.is-success) {
   background: rgba(255, 46, 76, 0.15);
   box-shadow: 0 0 25px rgba(255, 46, 76, 0.65);
-  border-color: #FF2E4C;
+  border-color: #ff2e4c;
   transform: translateY(-1px);
 }
 
@@ -495,7 +502,9 @@
   text-transform: uppercase;
   letter-spacing: 2px;
   font-weight: 800;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
   white-space: nowrap;
 }
 
@@ -504,7 +513,9 @@
   fill: transparent;
   width: 22px;
   height: 22px;
-  transition: fill 0.35s ease, transform 0.35s ease;
+  transition:
+    fill 0.35s ease,
+    transform 0.35s ease;
   pointer-events: none;
   opacity: 0;
   transform: scale(0);
@@ -516,8 +527,8 @@
   height: 46px;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.12);
-  border-left: 3px solid #FF2E4C;
-  border-bottom: 3px solid #FF2E4C;
+  border-left: 3px solid #ff2e4c;
+  border-bottom: 3px solid #ff2e4c;
   animation: morphBtnSpin 0.9s linear infinite;
   box-shadow: 0 0 20px rgba(255, 46, 76, 0.6);
   cursor: wait;
@@ -572,4 +583,3 @@
     opacity: 1;
   }
 }
-

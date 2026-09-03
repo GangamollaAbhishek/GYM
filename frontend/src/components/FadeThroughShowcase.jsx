@@ -8,14 +8,14 @@ export default function FadeThroughShowcase({ onExploreClick }) {
     "SCULPT ELITE PHYSIQUES.",
     "SHATTER EVERY CEILING.",
     "DOMINATE EVERY ARENA.",
-    "IGNITE PEAK METABOLIC POWER."
+    "IGNITE PEAK METABOLIC POWER.",
   ];
 
   const subPhrases = [
     "Biometric 3D Telemetry & Real-Time Load Optimization.",
     "IFBB Pro Coaches & Olympic Strength Faculty.",
     "24/7 Smart Turnstiles & Cryo-Recovery Hydro Suites.",
-    "Precision Macronutrient Science & High-Density Fuel."
+    "Precision Macronutrient Science & High-Density Fuel.",
   ];
 
   const handleAction = () => {
@@ -31,16 +31,15 @@ export default function FadeThroughShowcase({ onExploreClick }) {
     <section className="py-20 sm:py-28 bg-[#090C0E] border-y border-white/10 relative overflow-hidden text-center">
       {/* Background Ambient Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[360px] bg-[radial-gradient(ellipse_at_center,_rgba(229,9,20,0.2)_0%,_transparent_70%)] blur-[100px] pointer-events-none" />
-      <div 
+      <div
         className="absolute inset-0 opacity-[0.08] pointer-events-none"
         style={{
           backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.3) 1px, transparent 0)`,
-          backgroundSize: '32px 32px'
+          backgroundSize: "32px 32px",
         }}
       />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col items-center justify-center gap-8">
-        
         {/* Badge Header */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#151722] border border-[#E50914]/40 text-[#E50914] text-xs font-mono font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(229,9,20,0.3)]">
           <Zap size={14} className="fill-[#E50914] animate-pulse" />
@@ -94,9 +93,11 @@ export default function FadeThroughShowcase({ onExploreClick }) {
           className="mt-2 px-7 py-3 rounded-full bg-gradient-to-r from-[#E50914] to-[#FF2B35] hover:brightness-110 text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider shadow-[0_0_25px_rgba(229,9,20,0.5)] transition-all cursor-pointer flex items-center gap-2 group"
         >
           <span>Explore Training Matrix</span>
-          <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+          <ArrowRight
+            size={16}
+            className="group-hover:translate-x-1 transition-transform"
+          />
         </button>
-
       </div>
     </section>
   );

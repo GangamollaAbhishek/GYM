@@ -1,6 +1,6 @@
-import React from 'react';
-import DepthParallaxWords from './smoothui/components/depth-parallax-words';
-import { Sparkles, Shield, Zap } from 'lucide-react';
+import React from "react";
+import DepthParallaxWords from "./smoothui/components/depth-parallax-words";
+import { Sparkles, Shield, Zap } from "lucide-react";
 
 export default function DepthParallaxShowcase() {
   return (
@@ -10,10 +10,13 @@ export default function DepthParallaxShowcase() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.05)_1px,transparent_0)] [background-size:32px_32px] pointer-events-none" />
 
       <div className="relative z-10 max-w-5xl mx-auto px-6 text-center space-y-8">
-        
         {/* Top Floating Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FF1E27]/10 border border-[#FF1E27]/30 text-[#FF1E27] text-xs font-mono font-bold uppercase tracking-widest shadow-[0_0_20px_rgba(255,30,39,0.2)]">
-          <Sparkles size={14} className="animate-spin" style={{ animationDuration: '6s' }} />
+          <Sparkles
+            size={14}
+            className="animate-spin"
+            style={{ animationDuration: "6s" }}
+          />
           <span>3D Depth Parallax Engine</span>
         </div>
 
@@ -35,7 +38,8 @@ export default function DepthParallaxShowcase() {
             perspective={800}
             className="text-base sm:text-xl md:text-2xl text-slate-400 font-medium max-w-3xl mx-auto leading-relaxed"
           >
-            Move your cursor across this matrix to feel per-word spatial depth and kinetic telemetry in real time.
+            Move your cursor across this matrix to feel per-word spatial depth
+            and kinetic telemetry in real time.
           </DepthParallaxWords>
         </div>
 
@@ -50,7 +54,6 @@ export default function DepthParallaxShowcase() {
             <span>GPU-Accelerated Spatial Physics</span>
           </div>
         </div>
-
       </div>
     </section>
   );

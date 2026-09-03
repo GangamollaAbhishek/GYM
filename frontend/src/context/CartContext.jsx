@@ -1,10 +1,17 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
-import { useAuth } from './AuthContext';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
+import { useAuth } from "./AuthContext";
 
 const CartContext = createContext();
 
 const getUserCartKey = (user) => {
-  if (!user) return 'titan_pulse_cart_guest';
+  if (!user) return "titan_pulse_cart_guest";
   const id = user._id || user.id || user.email;
   return `titan_pulse_cart_${id}`;
 };
@@ -25,7 +32,7 @@ export function CartProvider({ children }) {
         }
       }
     } catch (e) {
-      console.warn('Failed to load user cart:', e);
+      console.warn("Failed to load user cart:", e);
     }
     return [];
   });
@@ -40,7 +47,7 @@ export function CartProvider({ children }) {
       // User logged out: immediately reset cart in UI & memory
       setCart([]);
       try {
-        localStorage.removeItem('titan_pulse_cart_guest');
+        localStorage.removeItem("titan_pulse_cart_guest");
       } catch (e) {}
       return;
     }
@@ -58,7 +65,7 @@ export function CartProvider({ children }) {
       }
       setCart([]);
     } catch (e) {
-      console.warn('Failed to load user cart on auth change:', e);
+      console.warn("Failed to load user cart on auth change:", e);
       setCart([]);
     }
   }, [user]);
@@ -70,7 +77,7 @@ export function CartProvider({ children }) {
       const userKey = getUserCartKey(user);
       localStorage.setItem(userKey, JSON.stringify(cart));
     } catch (e) {
-      console.warn('Failed to save user cart to localStorage:', e);
+      console.warn("Failed to save user cart to localStorage:", e);
     }
   }, [cart, user]);
 
@@ -88,7 +95,7 @@ export function CartProvider({ children }) {
         const updated = [...prev];
         updated[existingIndex] = {
           ...updated[existingIndex],
-          quantity: updated[existingIndex].quantity + quantity
+          quantity: updated[existingIndex].quantity + quantity,
         };
         return updated;
       }
@@ -99,7 +106,7 @@ export function CartProvider({ children }) {
 
   const removeFromCart = (productId) => {
     setCart((prev) => prev.filter((item) => item.id !== productId));
-    showCartToast('🗑️ Item removed from cart');
+    showCartToast("🗑️ Item removed from cart");
   };
 
   const updateQuantity = (productId, delta) => {
@@ -131,7 +138,10 @@ export function CartProvider({ children }) {
   }, [cart]);
 
   const totalPrice = useMemo(() => {
-    return cart.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0);
+    return cart.reduce(
+      (sum, item) => sum + item.price * (item.quantity || 1),
+      0,
+    );
   }, [cart]);
 
   return (
@@ -144,7 +154,7 @@ export function CartProvider({ children }) {
         clearCart,
         totalItemsCount,
         totalPrice,
-        toastMessage
+        toastMessage,
       }}
     >
       {children}
@@ -155,8 +165,7 @@ export function CartProvider({ children }) {
 export function useCart() {
   const context = useContext(CartContext);
   if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
+    throw new Error("useCart must be used within a CartProvider");
   }
   return context;
 }
-

@@ -56,9 +56,19 @@ const getResultTransition = (index) => ({
 function SearchSvgIcon({ isUnsupported }) {
   return (
     <motion.svg
-      initial={{ opacity: 0, scale: 0.8, x: -4, filter: isUnsupported ? "none" : "blur(5px)" }}
+      initial={{
+        opacity: 0,
+        scale: 0.8,
+        x: -4,
+        filter: isUnsupported ? "none" : "blur(5px)",
+      }}
       animate={{ opacity: 1, scale: 1, x: 0, filter: "blur(0px)" }}
-      exit={{ opacity: 0, scale: 0.8, x: -4, filter: isUnsupported ? "none" : "blur(5px)" }}
+      exit={{
+        opacity: 0,
+        scale: 0.8,
+        x: -4,
+        filter: isUnsupported ? "none" : "blur(5px)",
+      }}
       transition={{ delay: 0.1, duration: 1, type: "spring", bounce: 0.15 }}
       width="15"
       height="15"
@@ -100,7 +110,10 @@ function LoadingSvgIcon() {
       {lines.map(([x1, y1, x2, y2], i) => (
         <line
           key={i}
-          x1={x1} y1={y1} x2={x2} y2={y2}
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
           stroke="currentColor"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -122,7 +135,13 @@ function InfoSvgIcon({ index }) {
       viewBox="0 0 15 15"
       fill="none"
       aria-hidden="true"
-      style={{ width: 16, height: 16, position: "relative", top: 1, flexShrink: 0 }}
+      style={{
+        width: 16,
+        height: 16,
+        position: "relative",
+        top: 1,
+        flexShrink: 0,
+      }}
     >
       <path
         d="M7.49991 0.876892C3.84222 0.876892 0.877075 3.84204 0.877075 7.49972C0.877075 11.1574 3.84222 14.1226 7.49991 14.1226C11.1576 14.1226 14.1227 11.1574 14.1227 7.49972C14.1227 3.84204 11.1576 0.876892 7.49991 0.876892ZM1.82707 7.49972C1.82707 4.36671 4.36689 1.82689 7.49991 1.82689C10.6329 1.82689 13.1727 4.36671 13.1727 7.49972C13.1727 10.6327 10.6329 13.1726 7.49991 13.1726C4.36689 13.1726 1.82707 10.6327 1.82707 7.49972ZM8.24992 4.49999C8.24992 4.9142 7.91413 5.24999 7.49992 5.24999C7.08571 5.24999 6.74992 4.9142 6.74992 4.49999C6.74992 4.08577 7.08571 3.74999 7.49992 3.74999C7.91413 3.74999 8.24992 4.08577 8.24992 4.49999ZM6.00003 5.99999H6.50003H7.50003C7.77618 5.99999 8.00003 6.22384 8.00003 6.49999V9.99999H8.50003H9.00003V11H8.50003H7.50003H6.50003H6.00003V9.99999H6.50003H7.00003V6.99999H6.50003H6.00003V5.99999Z"
@@ -202,7 +221,7 @@ export function GooeySearch({
           data = items.filter((item) =>
             (typeof item === "string" ? item : item.label || "")
               .toLowerCase()
-              .includes(debouncedQuery.trim().toLowerCase())
+              .includes(debouncedQuery.trim().toLowerCase()),
           );
         }
         if (!cancelled) setResults(data.slice(0, maxResults));
@@ -232,7 +251,13 @@ export function GooeySearch({
   const resultPadding = isUnsupported ? "8px 14px" : "10px 18px";
 
   return (
-    <div ref={containerRef} className={cn("relative inline-flex items-center justify-center z-40", className)}>
+    <div
+      ref={containerRef}
+      className={cn(
+        "relative inline-flex items-center justify-center z-40",
+        className,
+      )}
+    >
       {/* Keyframe injection for loading spinner */}
       <style>{`
         .gooey-search-loading {
@@ -244,7 +269,15 @@ export function GooeySearch({
       `}</style>
 
       {/* SVG gooey filter — zero size, no layout impact */}
-      <svg aria-hidden="true" style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}>
+      <svg
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          width: 0,
+          height: 0,
+          overflow: "hidden",
+        }}
+      >
         <defs>
           <filter id={filterId}>
             <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
@@ -280,14 +313,17 @@ export function GooeySearch({
           >
             <AnimatePresence mode="popLayout">
               {results.map((item, index) => {
-                const label = typeof item === "string" ? item : item.label || "";
+                const label =
+                  typeof item === "string" ? item : item.label || "";
                 return (
                   <motion.div
                     key={label + index}
                     role="option"
                     tabIndex={0}
                     onClick={() => handleItemSelect(item)}
-                    onKeyDown={(e) => e.key === "Enter" && handleItemSelect(item)}
+                    onKeyDown={(e) =>
+                      e.key === "Enter" && handleItemSelect(item)
+                    }
                     whileHover={{ scale: 1.02, transition: { duration: 0.2 } }}
                     variants={getResultVariants(index, isUnsupported)}
                     initial="initial"
@@ -308,13 +344,21 @@ export function GooeySearch({
                       boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 6 }}
+                    >
                       <InfoSvgIcon index={index} />
                       <motion.span
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: index * 0.12 + 0.3 }}
-                        style={{ position: "relative", top: -0.35, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                        style={{
+                          position: "relative",
+                          top: -0.35,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
                       >
                         {label}
                       </motion.span>
@@ -342,7 +386,10 @@ export function GooeySearch({
             color: textColor,
             cursor: "pointer",
             outline: "none",
-            border: step === 2 ? "1px solid rgba(255, 46, 76, 0.4)" : "1px solid rgba(255, 255, 255, 0.1)",
+            border:
+              step === 2
+                ? "1px solid rgba(255, 46, 76, 0.4)"
+                : "1px solid rgba(255, 255, 255, 0.1)",
             borderRadius: 9999,
             padding: btnPadding,
             boxShadow: step === 2 ? "0 0 20px rgba(255, 46, 76, 0.25)" : "none",
@@ -402,7 +449,12 @@ export function GooeySearch({
               animate="visible"
               exit="hidden"
               variants={iconMotionVariants}
-              transition={{ delay: 0.1, duration: 0.85, type: "spring", bounce: 0.15 }}
+              transition={{
+                delay: 0.1,
+                duration: 0.85,
+                type: "spring",
+                bounce: 0.15,
+              }}
               style={{
                 position: "absolute",
                 backgroundColor: accentColor,
@@ -418,7 +470,11 @@ export function GooeySearch({
                 boxShadow: "0 0 15px rgba(255, 46, 76, 0.6)",
               }}
             >
-              {isLoading ? <LoadingSvgIcon /> : <SearchSvgIcon isUnsupported={isUnsupported} />}
+              {isLoading ? (
+                <LoadingSvgIcon />
+              ) : (
+                <SearchSvgIcon isUnsupported={isUnsupported} />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

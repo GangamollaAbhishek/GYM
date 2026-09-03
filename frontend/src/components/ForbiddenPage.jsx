@@ -1,8 +1,15 @@
-import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { useLandingPageCMS } from '../context/LandingPageCMSContext';
-import { ShieldAlert, ArrowLeft, Home, UserCheck, LogOut, Lock } from 'lucide-react';
+import React from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useLandingPageCMS } from "../context/LandingPageCMSContext";
+import {
+  ShieldAlert,
+  ArrowLeft,
+  Home,
+  UserCheck,
+  LogOut,
+  Lock,
+} from "lucide-react";
 
 export default function ForbiddenPage() {
   const { user, logout } = useAuth();
@@ -11,24 +18,24 @@ export default function ForbiddenPage() {
 
   const handleGoToPortal = () => {
     if (!user) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
-    const role = (user.role || '').toLowerCase().trim();
-    if (role === 'admin') {
-      navigate('/admin');
-    } else if (role === 'receptionist') {
-      navigate('/receptionist');
-    } else if (role === 'trainer') {
-      navigate('/trainer');
+    const role = (user.role || "").toLowerCase().trim();
+    if (role === "admin") {
+      navigate("/admin");
+    } else if (role === "receptionist") {
+      navigate("/receptionist");
+    } else if (role === "trainer") {
+      navigate("/trainer");
     } else {
-      navigate('/');
+      navigate("/");
     }
   };
 
   const handleSwitchAccount = () => {
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   return (
@@ -42,7 +49,11 @@ export default function ForbiddenPage() {
         <Link to="/" className="flex items-center gap-3 min-w-0">
           {cmsData?.brand?.logo ? (
             <div className="w-10 h-10 rounded-xl bg-[#121217] border border-white/15 p-1.5 flex items-center justify-center shadow-[0_0_20px_rgba(229,9,20,0.4)] shrink-0">
-              <img src={cmsData.brand.logo} alt={cmsData?.brand?.name || 'Logo'} className="w-full h-full object-contain" />
+              <img
+                src={cmsData.brand.logo}
+                alt={cmsData?.brand?.name || "Logo"}
+                className="w-full h-full object-contain"
+              />
             </div>
           ) : (
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.4)] shrink-0">
@@ -51,10 +62,10 @@ export default function ForbiddenPage() {
           )}
           <div className="flex flex-col min-w-0">
             <span className="font-bebas text-2xl text-white tracking-wider leading-none truncate">
-              {cmsData?.brand?.name || 'TITAN•PULSE'}
+              {cmsData?.brand?.name || "TITAN•PULSE"}
             </span>
             <span className="text-[9px] uppercase tracking-[0.25em] text-[#8A94A0] font-mono leading-tight truncate">
-              {cmsData?.brand?.subname || 'SECURITY PROTOCOL'}
+              {cmsData?.brand?.subname || "SECURITY PROTOCOL"}
             </span>
           </div>
         </Link>
@@ -70,7 +81,6 @@ export default function ForbiddenPage() {
 
       {/* Main 403 Card */}
       <div className="relative z-10 w-full max-w-lg bg-[#12161A]/90 backdrop-blur-xl border border-red-500/30 rounded-3xl p-8 sm:p-10 shadow-[0_0_50px_rgba(229,9,20,0.15)] text-center flex flex-col items-center">
-        
         {/* Shield Icon Badge */}
         <div className="w-20 h-20 rounded-3xl bg-red-950/60 border border-red-500/50 flex items-center justify-center text-[#FF2E4C] mb-6 shadow-[0_0_25px_rgba(255,46,76,0.3)] animate-pulse">
           <ShieldAlert size={40} className="stroke-[2.5]" />
@@ -86,7 +96,8 @@ export default function ForbiddenPage() {
         </h1>
 
         <p className="text-sm text-[#8A94A0] leading-relaxed mb-6 max-w-sm">
-          You do not have the required administrative or role authorization to view this secure partition of the TITAN PULSE system.
+          You do not have the required administrative or role authorization to
+          view this secure partition of the TITAN PULSE system.
         </p>
 
         {/* Current User Role Diagnostic Card */}
@@ -103,7 +114,7 @@ export default function ForbiddenPage() {
             <div className="flex justify-between items-center text-[#8A94A0]">
               <span>ASSIGNED ROLE:</span>
               <span className="px-2 py-0.5 rounded bg-red-950/60 border border-red-800 text-[#FF2E4C] uppercase font-bold text-[10px]">
-                {user.role || 'customer'}
+                {user.role || "customer"}
               </span>
             </div>
           </div>
@@ -134,7 +145,6 @@ export default function ForbiddenPage() {
         >
           <ArrowLeft size={14} /> Back to Public Showcase
         </Link>
-
       </div>
     </div>
   );

@@ -6,7 +6,8 @@
     opacity: 0;
     filter: blur(6px);
   }
-  45%, 55% {
+  45%,
+  55% {
     transform: translate3d(0, 0, 0px);
     opacity: 1;
     filter: blur(0px);
@@ -21,7 +22,7 @@
 .flythrough-container {
   position: relative;
   height: 380vh;
-  background: #08090D;
+  background: #08090d;
   color: #ffffff;
 }
 
@@ -43,7 +44,7 @@
   position: sticky;
   top: 0;
   overflow: hidden;
-  background: radial-gradient(circle at center, #0F121A 0%, #08090D 100%);
+  background: radial-gradient(circle at center, #0f121a 0%, #08090d 100%);
 }
 
 .stuck-grid .grid-item {
@@ -54,24 +55,24 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   white-space: nowrap;
-  color: #8A94A0;
+  color: #8a94a0;
   transition: color 0.3s ease;
   user-select: none;
   will-change: transform, opacity, filter;
 }
 
 .stuck-grid .grid-item:hover {
-  color: #00F0FF;
+  color: #00f0ff;
   text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
 }
 
 .stuck-grid .grid-item.highlight-red {
-  color: #FF2E4C;
+  color: #ff2e4c;
   text-shadow: 0 0 15px rgba(255, 46, 76, 0.5);
 }
 
 .stuck-grid .grid-item.highlight-cyan {
-  color: #00F0FF;
+  color: #00f0ff;
   text-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
 }
 
@@ -93,7 +94,7 @@
   font-weight: 900;
   line-height: 0.85;
   letter-spacing: 0.04em;
-  background: linear-gradient(135deg, #FFFFFF 0%, #FF2E4C 55%, #E50914 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #ff2e4c 55%, #e50914 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 35px rgba(255, 46, 76, 0.65));
@@ -103,7 +104,7 @@
   font-size: clamp(0.65rem, 1.6vmin, 0.95rem);
   font-family: monospace;
   letter-spacing: 0.35em;
-  color: #00F0FF;
+  color: #00f0ff;
   text-transform: uppercase;
   margin-top: 0.5rem;
   text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
@@ -117,7 +118,11 @@
   transform: translate(-50%, -50%);
   width: 650px;
   height: 400px;
-  background: radial-gradient(ellipse at center, rgba(255, 46, 76, 0.2) 0%, transparent 70%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 46, 76, 0.2) 0%,
+    transparent 70%
+  );
   filter: blur(90px);
   pointer-events: none;
   z-index: 0;

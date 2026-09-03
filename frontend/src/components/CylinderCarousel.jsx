@@ -12,7 +12,7 @@ export const CylinderCarousel = React.forwardRef(
       cardWidth = 240,
       ...props
     },
-    ref
+    ref,
   ) => {
     const N = images.length || 1;
 
@@ -33,19 +33,21 @@ export const CylinderCarousel = React.forwardRef(
         ref={ref}
         className={cn(
           "w-full h-full min-h-[430px] sm:min-h-[500px] grid place-items-center overflow-hidden relative",
-          className
+          className,
         )}
         style={{
           perspective: "40em",
-          maskImage: "linear-gradient(90deg, transparent, #000 15% 85%, transparent)",
-          WebkitMaskImage: "linear-gradient(90deg, transparent, #000 15% 85%, transparent)",
+          maskImage:
+            "linear-gradient(90deg, transparent, #000 15% 85%, transparent)",
+          WebkitMaskImage:
+            "linear-gradient(90deg, transparent, #000 15% 85%, transparent)",
         }}
         {...props}
       >
         <div
           className={cn(
             "grid place-items-center [transform-style:preserve-3d]",
-            containerClassName
+            containerClassName,
           )}
           style={{
             ...customStyle,
@@ -68,7 +70,7 @@ export const CylinderCarousel = React.forwardRef(
                 key={i}
                 className={cn(
                   "[grid-area:1/1] overflow-hidden rounded-2xl border border-white/15 bg-[#151515] shadow-[0_12px_32px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-[#E50914] group cursor-pointer",
-                  cardClassName
+                  cardClassName,
                 )}
                 style={{
                   width: "var(--w)",
@@ -83,9 +85,13 @@ export const CylinderCarousel = React.forwardRef(
                 />
                 {img.title && (
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-4 flex flex-col justify-end">
-                    <span className="font-bebas text-xl leading-tight text-white tracking-wider">{img.title}</span>
+                    <span className="font-bebas text-xl leading-tight text-white tracking-wider">
+                      {img.title}
+                    </span>
                     {img.subtitle && (
-                      <span className="text-[10px] uppercase font-mono text-[#E50914] tracking-widest leading-tight">{img.subtitle}</span>
+                      <span className="text-[10px] uppercase font-mono text-[#E50914] tracking-widest leading-tight">
+                        {img.subtitle}
+                      </span>
                     )}
                   </div>
                 )}
@@ -94,11 +100,8 @@ export const CylinderCarousel = React.forwardRef(
           })}
         </div>
       </div>
-
-
-
     );
-  }
+  },
 );
 
 CylinderCarousel.displayName = "CylinderCarousel";

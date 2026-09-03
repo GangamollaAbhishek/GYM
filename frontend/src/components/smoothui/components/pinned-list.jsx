@@ -1,11 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {
-  motion,
-  AnimatePresence,
-  LayoutGroup,
-} from "framer-motion";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { Pin } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,12 +21,7 @@ const itemVariants = {
   },
 };
 
-function ItemCard({
-  item,
-  pinned,
-  onToggle,
-  onItemClick,
-}) {
+function ItemCard({ item, pinned, onToggle, onItemClick }) {
   return (
     <motion.div
       layoutId={item.id}
@@ -44,7 +35,8 @@ function ItemCard({
         "flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors cursor-pointer group",
         "bg-[#13151F] text-slate-300 hover:bg-[#181B28]",
         "border border-white/[0.06] hover:border-purple-500/30",
-        pinned && "bg-purple-950/30 border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.12)]",
+        pinned &&
+          "bg-purple-950/30 border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.12)]",
       )}
     >
       <div
@@ -52,7 +44,7 @@ function ItemCard({
           "flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl",
           "bg-[#0A0B10] border border-white/10",
           "text-purple-400 group-hover:scale-105 transition-transform",
-          pinned && "border-purple-500/40 text-purple-300"
+          pinned && "border-purple-500/40 text-purple-300",
         )}
       >
         {item.icon}
@@ -165,7 +157,9 @@ export function PinnedList({ items, className, onItemClick }) {
                 className="px-1 pb-0.5 pt-1 text-[11px] font-bold uppercase tracking-wider text-purple-400 font-mono flex items-center justify-between"
               >
                 <span>📌 Pinned Alerts</span>
-                <span className="text-[10px] text-slate-500 font-normal">{pinned.length}</span>
+                <span className="text-[10px] text-slate-500 font-normal">
+                  {pinned.length}
+                </span>
               </motion.p>
               <AnimatePresence
                 mode="popLayout"
@@ -203,11 +197,15 @@ export function PinnedList({ items, className, onItemClick }) {
                 layout="position"
                 className={cn(
                   "px-1 pb-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center justify-between",
-                  pinned.length > 0 ? "pt-3 border-t border-white/[0.06]" : "pt-1",
+                  pinned.length > 0
+                    ? "pt-3 border-t border-white/[0.06]"
+                    : "pt-1",
                 )}
               >
                 <span>Recent Notifications</span>
-                <span className="text-[10px] text-slate-500 font-normal">{unpinned.length}</span>
+                <span className="text-[10px] text-slate-500 font-normal">
+                  {unpinned.length}
+                </span>
               </motion.p>
               <AnimatePresence
                 mode="popLayout"

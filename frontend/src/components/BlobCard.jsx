@@ -50,7 +50,7 @@ export function BlobCard({
           />
           {/* Subtle gradient vignette to blend header cleanly into card body */}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0D0F15]/30 to-[#0D0F15] pointer-events-none" />
-          
+
           {header && <div className="relative z-10 p-6 pb-0">{header}</div>}
         </div>
 

@@ -1,21 +1,21 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { FrameLoader } from './frameLoader';
-import { Flame, ArrowRight, ArrowDown } from 'lucide-react';
-import './scrollFrameAnimation.css';
+import React, { useEffect, useRef, useState } from "react";
+import { FrameLoader } from "./frameLoader";
+import { Flame, ArrowRight, ArrowDown } from "lucide-react";
+import "./scrollFrameAnimation.css";
 
 export default function ScrollFrameAnimation({
-  framePath = '/frames/ezgif-frame-',
+  framePath = "/frames/ezgif-frame-",
   frameCount = 300,
-  frameExtension = 'jpg',
+  frameExtension = "jpg",
   digits = 3,
   onPrimaryCtaClick = null,
-  children
+  children,
 }) {
   const scrollContainerRef = useRef(null);
   const canvasRef = useRef(null);
   const frameLoaderRef = useRef(null);
   const animationFrameRef = useRef(null);
-  
+
   const [scrollProgress, setScrollProgress] = useState(0);
   const [loadProgress, setLoadProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -32,7 +32,7 @@ export default function ScrollFrameAnimation({
       },
       onComplete: () => {
         setIsLoaded(true);
-      }
+      },
     });
 
     frameLoaderRef.current = loader;
@@ -49,14 +49,14 @@ export default function ScrollFrameAnimation({
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
 
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const ctx = canvas.getContext("2d", { alpha: false });
     let lastProgress = -1;
 
     const render = () => {
       // 1. Measure Scroll Position
       const rect = container.getBoundingClientRect();
       const totalScrollableHeight = rect.height - window.innerHeight;
-      
+
       let progress = 0;
       if (totalScrollableHeight > 0) {
         progress = Math.min(1, Math.max(0, -rect.top / totalScrollableHeight));
@@ -80,12 +80,12 @@ export default function ScrollFrameAnimation({
       // 3. Frame Selection & Drawing
       ctx.save();
       ctx.scale(dpr, dpr);
-      ctx.fillStyle = '#080a0c';
+      ctx.fillStyle = "#080a0c";
       ctx.fillRect(0, 0, width, height);
 
       const targetIndex = Math.min(
         frameCount - 1,
-        Math.max(0, Math.floor(progress * (frameCount - 1)))
+        Math.max(0, Math.floor(progress * (frameCount - 1))),
       );
 
       const loader = frameLoaderRef.current;
@@ -114,7 +114,7 @@ export default function ScrollFrameAnimation({
         // Dark Radial Vignette - deepens as video scrub finishes and text reveals
         const textProgress = Math.max(0, Math.min(1, (progress - 0.65) / 0.25));
         const vignetteInner = 0.15 + textProgress * 0.25;
-        const vignetteOuter = 0.65 + textProgress * 0.30;
+        const vignetteOuter = 0.65 + textProgress * 0.3;
 
         const vignette = ctx.createRadialGradient(
           width / 2,
@@ -122,7 +122,7 @@ export default function ScrollFrameAnimation({
           Math.min(width, height) * 0.25,
           width / 2,
           height / 2,
-          Math.max(width, height) * 0.75
+          Math.max(width, height) * 0.75,
         );
         vignette.addColorStop(0, `rgba(8, 10, 12, ${vignetteInner})`);
         vignette.addColorStop(0.75, `rgba(8, 10, 12, ${vignetteOuter})`);
@@ -132,9 +132,9 @@ export default function ScrollFrameAnimation({
       } else {
         // Fallback smooth gradient prior to frame load
         const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, '#080a0c');
-        gradient.addColorStop(0.5, '#12161a');
-        gradient.addColorStop(1, '#080a0c');
+        gradient.addColorStop(0, "#080a0c");
+        gradient.addColorStop(0.5, "#12161a");
+        gradient.addColorStop(1, "#080a0c");
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, width, height);
       }
@@ -154,16 +154,19 @@ export default function ScrollFrameAnimation({
   }, [frameCount]);
 
   // Text Reveal Logic: Text reveals smoothly when scrollProgress >= 0.70 (reaching video end)
-  const textRevealProgress = Math.max(0, Math.min(1, (scrollProgress - 0.68) / 0.22));
+  const textRevealProgress = Math.max(
+    0,
+    Math.min(1, (scrollProgress - 0.68) / 0.22),
+  );
   const isVideoCompleted = scrollProgress >= 0.88;
 
   const handleCtaClick = () => {
     if (onPrimaryCtaClick) {
-      onPrimaryCtaClick('START YOUR JOURNEY');
+      onPrimaryCtaClick("START YOUR JOURNEY");
     } else {
-      const nextSection = document.getElementById('programs-section');
+      const nextSection = document.getElementById("programs-section");
       if (nextSection) {
-        nextSection.scrollIntoView({ behavior: 'smooth' });
+        nextSection.scrollIntoView({ behavior: "smooth" });
       }
     }
   };
@@ -171,7 +174,6 @@ export default function ScrollFrameAnimation({
   return (
     <div ref={scrollContainerRef} className="sfa-scroll-container">
       <div className="sfa-sticky-viewport">
-        
         {/* Canvas Background Engine */}
         <canvas ref={canvasRef} className="sfa-canvas" />
 
@@ -180,15 +182,14 @@ export default function ScrollFrameAnimation({
 
         {/* Main Interactive Stage Overlay */}
         <div className="sfa-content-layer">
-          
           {/* Main Hero Text Stage — Only reveals as video sequence completes */}
-          <div 
+          <div
             className="sfa-stage-container"
             style={{
               opacity: textRevealProgress,
               transform: `translate(-50%, calc(-50% + ${(1 - textRevealProgress) * 40}px))`,
-              pointerEvents: textRevealProgress > 0.5 ? 'auto' : 'none',
-              transition: 'opacity 0.15s ease-out, transform 0.15s ease-out'
+              pointerEvents: textRevealProgress > 0.5 ? "auto" : "none",
+              transition: "opacity 0.15s ease-out, transform 0.15s ease-out",
             }}
           >
             {/* Badge */}
@@ -204,14 +205,13 @@ export default function ScrollFrameAnimation({
 
             {/* Subheading */}
             <p className="sfa-stage-subheading">
-              Experience high-intensity performance training powered by state-of-the-art facilities, elite coaching, and real-time biomechanics.
+              Experience high-intensity performance training powered by
+              state-of-the-art facilities, elite coaching, and real-time
+              biomechanics.
             </p>
 
             {/* CTA Button */}
-            <button 
-              onClick={handleCtaClick}
-              className="sfa-btn-primary"
-            >
+            <button onClick={handleCtaClick} className="sfa-btn-primary">
               <span>START YOUR JOURNEY</span>
               <ArrowRight size={16} />
             </button>
@@ -219,13 +219,13 @@ export default function ScrollFrameAnimation({
 
           {/* Optional Children (e.g. Search Widget) — Fades in with final reveal */}
           {children && (
-            <div 
+            <div
               className="relative z-30 w-full max-w-4xl mx-auto"
               style={{
                 opacity: textRevealProgress,
                 transform: `translateY(${(1 - textRevealProgress) * 30}px)`,
-                pointerEvents: textRevealProgress > 0.5 ? 'auto' : 'none',
-                transition: 'opacity 0.15s ease-out, transform 0.15s ease-out'
+                pointerEvents: textRevealProgress > 0.5 ? "auto" : "none",
+                transition: "opacity 0.15s ease-out, transform 0.15s ease-out",
               }}
             >
               {children}
@@ -235,27 +235,36 @@ export default function ScrollFrameAnimation({
           {/* Bottom Scroll Indicator Bar */}
           <div className="sfa-progress-bar-container">
             <div className="sfa-progress-track">
-              <div 
-                className="sfa-progress-fill" 
-                style={{ width: `${Math.round(scrollProgress * 100)}%` }} 
+              <div
+                className="sfa-progress-fill"
+                style={{ width: `${Math.round(scrollProgress * 100)}%` }}
               />
             </div>
             <div className="sfa-progress-text flex items-center gap-1.5">
               {isVideoCompleted ? (
-                <span className="text-[#00F0FF] font-bold">VIDEO COMPLETED — REVEALING TITAN PULSE</span>
+                <span className="text-[#00F0FF] font-bold">
+                  VIDEO COMPLETED — REVEALING TITAN PULSE
+                </span>
               ) : (
                 <>
-                  <span>SCROLL TO PLAY VIDEO • FRAME {Math.min(frameCount, Math.floor(scrollProgress * frameCount) + 1)} / {frameCount}</span>
-                  <ArrowDown size={12} className="text-[#FF2E4C] animate-bounce" />
+                  <span>
+                    SCROLL TO PLAY VIDEO • FRAME{" "}
+                    {Math.min(
+                      frameCount,
+                      Math.floor(scrollProgress * frameCount) + 1,
+                    )}{" "}
+                    / {frameCount}
+                  </span>
+                  <ArrowDown
+                    size={12}
+                    className="text-[#FF2E4C] animate-bounce"
+                  />
                 </>
               )}
             </div>
           </div>
-
         </div>
-
       </div>
     </div>
   );
 }
-

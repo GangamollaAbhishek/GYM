@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { Dumbbell, Shield, ChevronRight, Menu, X } from 'lucide-react';
-import { useLandingPageCMS } from '../context/LandingPageCMSContext';
+import React, { useState, useRef } from "react";
+import { Dumbbell, Shield, ChevronRight, Menu, X } from "lucide-react";
+import { useLandingPageCMS } from "../context/LandingPageCMSContext";
 
 // Magnetic Button Helper Component
 function MagneticButton({ children, onClick, className }) {
@@ -40,20 +40,23 @@ export default function Navbar({ onOpenPassModal }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navLinks = [
-    { name: 'Programs', href: '#programs' },
-    { name: 'Zones', href: '#zones' },
-    { name: 'Equipment', href: '#equipment' },
+    { name: "Programs", href: "#programs" },
+    { name: "Zones", href: "#zones" },
+    { name: "Equipment", href: "#equipment" },
   ];
 
   return (
     <header className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-6xl">
       <nav className="relative flex items-center justify-between px-6 py-3.5 rounded-full bg-[#151515]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.8)] transition-all duration-300 hover:border-[#E50914]/40">
-        
         {/* Brand Logo */}
         <a href="#" className="flex items-center gap-3 group">
           {brandData.logo ? (
             <div className="w-10 h-10 rounded-full bg-[#0B0B0B] border border-white/15 overflow-hidden flex items-center justify-center p-1.5 shadow-[0_0_15px_rgba(229,9,20,0.4)] group-hover:scale-105 transition-transform duration-300">
-              <img src={brandData.logo} alt={brandData.name || 'Logo'} className="w-full h-full object-contain" />
+              <img
+                src={brandData.logo}
+                alt={brandData.name || "Logo"}
+                className="w-full h-full object-contain"
+              />
             </div>
           ) : (
             <div className="relative w-10 h-10 rounded-full bg-gradient-to-tr from-[#E50914] to-[#FF2B35] p-[1px] flex items-center justify-center">
@@ -66,10 +69,10 @@ export default function Navbar({ onOpenPassModal }) {
           )}
           <div className="flex flex-col">
             <span className="font-heading font-extrabold text-lg tracking-wider text-white flex items-center gap-1">
-              {brandData.name || 'TITAN•PULSE'}
+              {brandData.name || "TITAN•PULSE"}
             </span>
             <span className="text-[9px] font-mono uppercase tracking-widest text-[#A0A0A0] -mt-1">
-              {brandData.subname || 'HIGH-PERFORMANCE SYSTEM'}
+              {brandData.subname || "HIGH-PERFORMANCE SYSTEM"}
             </span>
           </div>
         </a>
@@ -78,7 +81,7 @@ export default function Navbar({ onOpenPassModal }) {
         <ul className="hidden md:flex items-center gap-7">
           {navLinks.map((link) => (
             <li key={link.name}>
-              <a 
+              <a
                 href={link.href}
                 className="relative text-xs font-bold font-mono tracking-wider uppercase text-[#A0A0A0] hover:text-white transition-colors py-2 group"
               >
@@ -101,9 +104,8 @@ export default function Navbar({ onOpenPassModal }) {
           </MagneticButton>
         </div>
 
-
         {/* Mobile Toggle Button */}
-        <button 
+        <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="md:hidden text-[#8A94A0] hover:text-white p-2"
         >
@@ -115,7 +117,7 @@ export default function Navbar({ onOpenPassModal }) {
       {mobileOpen && (
         <div className="md:hidden mt-3 p-6 rounded-2xl bg-[#12161A]/95 backdrop-blur-2xl border border-white/10 flex flex-col gap-4 shadow-2xl">
           {navLinks.map((link) => (
-            <a 
+            <a
               key={link.name}
               href={link.href}
               onClick={() => setMobileOpen(false)}
@@ -124,8 +126,11 @@ export default function Navbar({ onOpenPassModal }) {
               {link.name}
             </a>
           ))}
-          <button 
-            onClick={() => { setMobileOpen(false); if (onOpenPassModal) onOpenPassModal(); }}
+          <button
+            onClick={() => {
+              setMobileOpen(false);
+              if (onOpenPassModal) onOpenPassModal();
+            }}
             className="w-full mt-2 py-3 rounded-xl bg-[#FF2E4C] hover:bg-[#FF526B] text-white font-extrabold text-xs uppercase tracking-wider shadow-lg transition-colors"
           >
             Free Trial Pass

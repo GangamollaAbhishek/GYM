@@ -1,44 +1,44 @@
-import React, { useState } from 'react';
-import { 
-  X, 
-  User, 
-  Mail, 
-  Phone, 
-  Lock, 
-  Dumbbell, 
-  Clock, 
-  Terminal, 
-  Sparkles, 
-  ShieldCheck, 
-  Award, 
-  UserCheck 
-} from 'lucide-react';
-import api from '../lib/api';
-import './AuthModal.css';
+import React, { useState } from "react";
+import {
+  X,
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Dumbbell,
+  Clock,
+  Terminal,
+  Sparkles,
+  ShieldCheck,
+  Award,
+  UserCheck,
+} from "lucide-react";
+import api from "../lib/api";
+import "./AuthModal.css";
 
 export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
   const [isRightPanelActive, setIsRightPanelActive] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState("");
 
   // Trainer Form State
   const [trainerData, setTrainerData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    spec: 'Hypertrophy & Powerlifting',
-    shift: '06:00 AM - 02:00 PM'
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    spec: "Hypertrophy & Powerlifting",
+    shift: "06:00 AM - 02:00 PM",
   });
 
   // Receptionist Form State
   const [receptionistData, setReceptionistData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: '',
-    terminal: 'Gate Terminal A1',
-    shift: 'Morning (06:00 - 14:00)'
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    terminal: "Gate Terminal A1",
+    shift: "Morning (06:00 - 14:00)",
   });
 
   if (!isOpen) return null;
@@ -46,77 +46,83 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
   const handleAddTrainer = async (e) => {
     e.preventDefault();
     if (!trainerData.name || !trainerData.email) {
-      setErrorMsg('Please provide name and email for the trainer.');
+      setErrorMsg("Please provide name and email for the trainer.");
       return;
     }
-    setErrorMsg('');
+    setErrorMsg("");
     setLoading(true);
 
     try {
-      const res = await api.post('/api/users', {
+      const res = await api.post("/api/users", {
         name: trainerData.name,
         email: trainerData.email,
         phone: trainerData.phone,
-        password: trainerData.password || 'Trainer@123',
-        role: 'trainer'
+        password: trainerData.password || "Trainer@123",
+        role: "trainer",
       });
 
       setLoading(false);
 
-      if (res.data?.status === 'success' && res.data?.data) {
-        if (onUserCreated) onUserCreated(res.data.data, 'trainer');
+      if (res.data?.status === "success" && res.data?.data) {
+        if (onUserCreated) onUserCreated(res.data.data, "trainer");
         onClose();
       } else {
-        setErrorMsg(res.data?.message || 'Failed to create trainer.');
+        setErrorMsg(res.data?.message || "Failed to create trainer.");
       }
     } catch (err) {
       setLoading(false);
-      setErrorMsg(err.response?.data?.message || 'Backend connection error. Please try again.');
+      setErrorMsg(
+        err.response?.data?.message ||
+          "Backend connection error. Please try again.",
+      );
     }
   };
 
   const handleAddReceptionist = async (e) => {
     e.preventDefault();
     if (!receptionistData.name || !receptionistData.email) {
-      setErrorMsg('Please provide name and email for the receptionist.');
+      setErrorMsg("Please provide name and email for the receptionist.");
       return;
     }
-    setErrorMsg('');
+    setErrorMsg("");
     setLoading(true);
 
     try {
-      const res = await api.post('/api/users', {
+      const res = await api.post("/api/users", {
         name: receptionistData.name,
         email: receptionistData.email,
         phone: receptionistData.phone,
-        password: receptionistData.password || 'Receptionist@123',
-        role: 'receptionist'
+        password: receptionistData.password || "Receptionist@123",
+        role: "receptionist",
       });
 
       setLoading(false);
 
-      if (res.data?.status === 'success' && res.data?.data) {
-        if (onUserCreated) onUserCreated(res.data.data, 'receptionist');
+      if (res.data?.status === "success" && res.data?.data) {
+        if (onUserCreated) onUserCreated(res.data.data, "receptionist");
         onClose();
       } else {
-        setErrorMsg(res.data?.message || 'Failed to create receptionist.');
+        setErrorMsg(res.data?.message || "Failed to create receptionist.");
       }
     } catch (err) {
       setLoading(false);
-      setErrorMsg(err.response?.data?.message || 'Backend connection error. Please try again.');
+      setErrorMsg(
+        err.response?.data?.message ||
+          "Backend connection error. Please try again.",
+      );
     }
   };
 
   return (
     <div className="auth-modal-overlay" onClick={onClose}>
-      <div 
-        className="auth-wrapper" 
+      <div
+        className="auth-wrapper"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: '840px' }}
+        style={{ maxWidth: "840px" }}
       >
         {/* Close Button */}
-        <button 
-          onClick={onClose} 
+        <button
+          onClick={onClose}
           className="auth-close-btn"
           aria-label="Close Modal"
         >
@@ -124,11 +130,10 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
         </button>
 
         {/* Double Sliding Container */}
-        <div 
-          className={`auth-container ${isRightPanelActive ? 'right-panel-active' : ''}`}
-          style={{ height: '520px', maxHeight: '85vh' }}
+        <div
+          className={`auth-container ${isRightPanelActive ? "right-panel-active" : ""}`}
+          style={{ height: "520px", maxHeight: "85vh" }}
         >
-          
           {/* PANEL 1: ADD TRAINER (Sign In Slot) */}
           <div className="form-container sign-in-container">
             <form onSubmit={handleAddTrainer} className="p-6 text-left">
@@ -154,11 +159,13 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
 
               {/* Name */}
               <div className="auth-input-group !mb-2">
-                <input 
-                  type="text" 
-                  placeholder="Trainer Full Name" 
+                <input
+                  type="text"
+                  placeholder="Trainer Full Name"
                   value={trainerData.name}
-                  onChange={(e) => setTrainerData({ ...trainerData, name: e.target.value })}
+                  onChange={(e) =>
+                    setTrainerData({ ...trainerData, name: e.target.value })
+                  }
                   required
                 />
                 <User className="auth-input-icon" size={15} />
@@ -166,11 +173,13 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
 
               {/* Email */}
               <div className="auth-input-group !mb-2">
-                <input 
-                  type="email" 
-                  placeholder="Coach Email (trainer@...)" 
+                <input
+                  type="email"
+                  placeholder="Coach Email (trainer@...)"
                   value={trainerData.email}
-                  onChange={(e) => setTrainerData({ ...trainerData, email: e.target.value })}
+                  onChange={(e) =>
+                    setTrainerData({ ...trainerData, email: e.target.value })
+                  }
                   required
                 />
                 <Mail className="auth-input-icon" size={15} />
@@ -178,50 +187,63 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
 
               {/* Phone */}
               <div className="auth-input-group !mb-2">
-                <input 
-                  type="tel" 
-                  placeholder="Phone (+91 98765 43210)" 
+                <input
+                  type="tel"
+                  placeholder="Phone (+91 98765 43210)"
                   value={trainerData.phone}
-                  onChange={(e) => setTrainerData({ ...trainerData, phone: e.target.value })}
+                  onChange={(e) =>
+                    setTrainerData({ ...trainerData, phone: e.target.value })
+                  }
                 />
                 <Phone className="auth-input-icon" size={15} />
               </div>
 
               {/* Password */}
               <div className="auth-input-group !mb-2">
-                <input 
-                  type="password" 
-                  placeholder="Temporary Password (e.g. Trainer@123)" 
+                <input
+                  type="password"
+                  placeholder="Temporary Password (e.g. Trainer@123)"
                   value={trainerData.password}
-                  onChange={(e) => setTrainerData({ ...trainerData, password: e.target.value })}
+                  onChange={(e) =>
+                    setTrainerData({ ...trainerData, password: e.target.value })
+                  }
                 />
                 <Lock className="auth-input-icon" size={15} />
               </div>
 
               {/* Specialization */}
               <div className="auth-input-group !mb-3">
-                <input 
-                  type="text" 
-                  placeholder="Specialization (e.g. Hypertrophy, CrossFit)" 
+                <input
+                  type="text"
+                  placeholder="Specialization (e.g. Hypertrophy, CrossFit)"
                   value={trainerData.spec}
-                  onChange={(e) => setTrainerData({ ...trainerData, spec: e.target.value })}
+                  onChange={(e) =>
+                    setTrainerData({ ...trainerData, spec: e.target.value })
+                  }
                 />
                 <Award className="auth-input-icon text-purple-400" size={15} />
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={loading}
                 className="auth-btn-primary w-full flex items-center justify-center gap-2 !py-2.5 font-semibold text-xs rounded-xl"
-                style={{ background: 'linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)', borderColor: '#8B5CF6' }}
+                style={{
+                  background:
+                    "linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%)",
+                  borderColor: "#8B5CF6",
+                }}
               >
                 <UserCheck size={16} />
-                {loading ? 'Saving to Database...' : 'Register Trainer'}
+                {loading ? "Saving to Database..." : "Register Trainer"}
               </button>
 
               <div className="mobile-auth-switch">
                 <span>Need to add receptionist?</span>
-                <button type="button" onClick={() => setIsRightPanelActive(true)}>
+                <button
+                  type="button"
+                  onClick={() => setIsRightPanelActive(true)}
+                >
                   Add Receptionist
                 </button>
               </div>
@@ -253,11 +275,16 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
 
               {/* Name */}
               <div className="auth-input-group !mb-2">
-                <input 
-                  type="text" 
-                  placeholder="Receptionist Name" 
+                <input
+                  type="text"
+                  placeholder="Receptionist Name"
                   value={receptionistData.name}
-                  onChange={(e) => setReceptionistData({ ...receptionistData, name: e.target.value })}
+                  onChange={(e) =>
+                    setReceptionistData({
+                      ...receptionistData,
+                      name: e.target.value,
+                    })
+                  }
                   required
                 />
                 <User className="auth-input-icon" size={15} />
@@ -265,11 +292,16 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
 
               {/* Email */}
               <div className="auth-input-group !mb-2">
-                <input 
-                  type="email" 
-                  placeholder="Desk Email (receptionist@...)" 
+                <input
+                  type="email"
+                  placeholder="Desk Email (receptionist@...)"
                   value={receptionistData.email}
-                  onChange={(e) => setReceptionistData({ ...receptionistData, email: e.target.value })}
+                  onChange={(e) =>
+                    setReceptionistData({
+                      ...receptionistData,
+                      email: e.target.value,
+                    })
+                  }
                   required
                 />
                 <Mail className="auth-input-icon" size={15} />
@@ -277,50 +309,75 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
 
               {/* Phone */}
               <div className="auth-input-group !mb-2">
-                <input 
-                  type="tel" 
-                  placeholder="Contact Phone" 
+                <input
+                  type="tel"
+                  placeholder="Contact Phone"
                   value={receptionistData.phone}
-                  onChange={(e) => setReceptionistData({ ...receptionistData, phone: e.target.value })}
+                  onChange={(e) =>
+                    setReceptionistData({
+                      ...receptionistData,
+                      phone: e.target.value,
+                    })
+                  }
                 />
                 <Phone className="auth-input-icon" size={15} />
               </div>
 
               {/* Password */}
               <div className="auth-input-group !mb-2">
-                <input 
-                  type="password" 
-                  placeholder="Temporary Password (e.g. Desk@123)" 
+                <input
+                  type="password"
+                  placeholder="Temporary Password (e.g. Desk@123)"
                   value={receptionistData.password}
-                  onChange={(e) => setReceptionistData({ ...receptionistData, password: e.target.value })}
+                  onChange={(e) =>
+                    setReceptionistData({
+                      ...receptionistData,
+                      password: e.target.value,
+                    })
+                  }
                 />
                 <Lock className="auth-input-icon" size={15} />
               </div>
 
               {/* Terminal Slot */}
               <div className="auth-input-group !mb-3">
-                <input 
-                  type="text" 
-                  placeholder="Assigned Gate (e.g. Gate Terminal A1)" 
+                <input
+                  type="text"
+                  placeholder="Assigned Gate (e.g. Gate Terminal A1)"
                   value={receptionistData.terminal}
-                  onChange={(e) => setReceptionistData({ ...receptionistData, terminal: e.target.value })}
+                  onChange={(e) =>
+                    setReceptionistData({
+                      ...receptionistData,
+                      terminal: e.target.value,
+                    })
+                  }
                 />
-                <Terminal className="auth-input-icon text-amber-400" size={15} />
+                <Terminal
+                  className="auth-input-icon text-amber-400"
+                  size={15}
+                />
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={loading}
                 className="auth-btn-primary w-full flex items-center justify-center gap-2 !py-2.5 font-semibold text-xs rounded-xl"
-                style={{ background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)', borderColor: '#F59E0B' }}
+                style={{
+                  background:
+                    "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+                  borderColor: "#F59E0B",
+                }}
               >
                 <ShieldCheck size={16} />
-                {loading ? 'Saving to Database...' : 'Register Receptionist'}
+                {loading ? "Saving to Database..." : "Register Receptionist"}
               </button>
 
               <div className="mobile-auth-switch">
                 <span>Need to add trainer?</span>
-                <button type="button" onClick={() => setIsRightPanelActive(false)}>
+                <button
+                  type="button"
+                  onClick={() => setIsRightPanelActive(false)}
+                >
                   Add Trainer
                 </button>
               </div>
@@ -329,8 +386,13 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
 
           {/* SLIDING OVERLAY CONTAINER */}
           <div className="overlay-container">
-            <div className="overlay" style={{ background: 'linear-gradient(135deg, #E50914 0%, #7F1D1D 50%, #090C0E 100%)' }}>
-              
+            <div
+              className="overlay"
+              style={{
+                background:
+                  "linear-gradient(135deg, #E50914 0%, #7F1D1D 50%, #090C0E 100%)",
+              }}
+            >
               {/* Overlay Left (Shown when adding Receptionist) */}
               <div className="overlay-panel overlay-left">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-purple-300 mb-1">
@@ -340,10 +402,11 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
                   Need a <span className="text-[#FF2E4C]">Trainer?</span>
                 </h2>
                 <p className="text-xs text-slate-200 leading-relaxed mb-4 max-w-[260px]">
-                  Switch to coach onboarding to assign athletes, specialization tags, and training programs.
+                  Switch to coach onboarding to assign athletes, specialization
+                  tags, and training programs.
                 </p>
-                <button 
-                  onClick={() => setIsRightPanelActive(false)} 
+                <button
+                  onClick={() => setIsRightPanelActive(false)}
                   className="auth-btn-ghost flex items-center gap-2 font-semibold text-xs rounded-xl"
                 >
                   <Dumbbell size={15} />
@@ -360,20 +423,19 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
                   Add <span className="text-amber-400">Receptionist?</span>
                 </h2>
                 <p className="text-xs text-slate-200 leading-relaxed mb-4 max-w-[260px]">
-                  Assign front desk personnel for visitor badges, RFID gate control, and attendance logging.
+                  Assign front desk personnel for visitor badges, RFID gate
+                  control, and attendance logging.
                 </p>
-                <button 
-                  onClick={() => setIsRightPanelActive(true)} 
+                <button
+                  onClick={() => setIsRightPanelActive(true)}
                   className="auth-btn-ghost flex items-center gap-2 font-semibold text-xs rounded-xl"
                 >
                   <Terminal size={15} />
                   <span>Add Receptionist</span>
                 </button>
               </div>
-
             </div>
           </div>
-
         </div>
       </div>
     </div>

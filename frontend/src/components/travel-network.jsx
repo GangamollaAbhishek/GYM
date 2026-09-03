@@ -1,6 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { Globe, Users, Dumbbell, Activity, Radio, MapPin, Zap, Pause, Play, Compass, ShieldCheck } from 'lucide-react';
-import { cn } from '../lib/utils';
+import React, { useEffect, useState } from "react";
+import {
+  Globe,
+  Users,
+  Dumbbell,
+  Activity,
+  Radio,
+  MapPin,
+  Zap,
+  Pause,
+  Play,
+  Compass,
+  ShieldCheck,
+} from "lucide-react";
+import { cn } from "../lib/utils";
 
 /**
  * ============================================================================
@@ -24,7 +36,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "4,820 Active",
         color: "#FF2E4C",
         badge: "FLAGSHIP",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
       {
         id: "delhi",
@@ -34,7 +46,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "5,150 Active",
         color: "#00F0FF",
         badge: "MEGA HUB",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
       {
         id: "bengaluru",
@@ -44,7 +56,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "6,200 Active",
         color: "#FFB800",
         badge: "TECH HUB",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
       {
         id: "hyderabad",
@@ -54,7 +66,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "3,940 Active",
         color: "#A855F7",
         badge: "24/7 SYNC",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
     ],
   },
@@ -72,7 +84,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "3,410 Active",
         color: "#3B82F6",
         badge: "OCEAN FIT",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
       {
         id: "kolkata",
@@ -82,7 +94,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "2,980 Active",
         color: "#EC4899",
         badge: "EAST HQ",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
       {
         id: "pune",
@@ -92,7 +104,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "3,120 Active",
         color: "#00F5D4",
         badge: "HIGH ALT",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
     ],
   },
@@ -110,7 +122,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "2,450 Active",
         color: "#EAB308",
         badge: "POWER ZONE",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
       {
         id: "jaipur",
@@ -120,7 +132,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "2,100 Active",
         color: "#FF6F30",
         badge: "ROYAL FIT",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
       {
         id: "chandigarh",
@@ -130,7 +142,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "2,630 Active",
         color: "#10B981",
         badge: "CROSSFIT",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
       {
         id: "kochi",
@@ -140,7 +152,7 @@ const DEFAULT_INDIA_ORBITS = [
         members: "1,980 Active",
         color: "#06B6D4",
         badge: "HYDRO FIT",
-        icon: <MapPin className="w-4 h-4" />
+        icon: <MapPin className="w-4 h-4" />,
       },
     ],
   },
@@ -155,7 +167,7 @@ function IndiaBranchesSolarSystem({
   speedMultiplier = 1,
   onSelectBranch,
   selectedBranch,
-  className
+  className,
 }) {
   const [hoveredId, setHoveredId] = useState(null);
 
@@ -174,10 +186,12 @@ function IndiaBranchesSolarSystem({
     <div
       className={cn(
         "relative flex items-center justify-center w-full max-w-[940px] h-[360px] md:h-[480px] perspective-[1200px] select-none overflow-visible",
-        className
+        className,
       )}
     >
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         :root {
           --radius-inner: 165px;
           --radius-mid: 275px;
@@ -276,10 +290,12 @@ function IndiaBranchesSolarSystem({
         .orbit-branch-card:hover {
           background: rgba(18, 24, 30, 0.95);
         }
-      `}} />
+      `,
+        }}
+      />
 
       {/* Tiltable Orbit Container */}
-      <div 
+      <div
         className="absolute w-[360px] h-[360px] md:w-[940px] md:h-[940px] flex items-center justify-center"
         style={{
           transform: "rotateX(65deg) rotateY(-10deg)",
@@ -287,7 +303,7 @@ function IndiaBranchesSolarSystem({
         }}
       >
         {/* Central Core Sun Node - TITAN INDIA HQ */}
-        <div 
+        <div
           className="absolute w-[110px] h-[110px] md:w-[140px] md:h-[140px] flex items-center justify-center z-20 pointer-events-none"
           style={{
             transform: "rotateY(10deg) rotateX(-65deg)",
@@ -296,7 +312,7 @@ function IndiaBranchesSolarSystem({
         >
           {/* Glowing Aura */}
           <div className="absolute w-[95px] h-[95px] md:w-[125px] md:h-[125px] rounded-full filter blur-lg animate-india-sun-pulse z-10 bg-gradient-to-r from-[#FF2E4C]/30 to-[#00F0FF]/30" />
-          
+
           {/* Central India HQ Core */}
           <div className="w-16 h-16 md:w-22 md:h-22 rounded-full border-2 border-[#FF2E4C]/60 shadow-[0_0_35px_rgba(255,46,76,0.4)] z-20 bg-[#090C0E] flex flex-col items-center justify-center p-2 relative">
             <Globe className="w-7 h-7 md:w-9 md:h-9 text-[#FF2E4C] animate-spin-slow" />
@@ -338,7 +354,8 @@ function IndiaBranchesSolarSystem({
                 style={{
                   width: `calc(2 * ${orbit.radiusClass})`,
                   height: `calc(2 * ${orbit.radiusClass})`,
-                  boxShadow: "inset 0 0 30px rgba(255, 46, 76, 0.03), 0 0 30px rgba(0, 240, 255, 0.03)",
+                  boxShadow:
+                    "inset 0 0 30px rgba(255, 46, 76, 0.03), 0 0 30px rgba(0, 240, 255, 0.03)",
                   ["--orbit-radius"]: orbit.radiusClass,
                 }}
               />
@@ -391,20 +408,23 @@ function IndiaBranchesSolarSystem({
                         animationDelay: `${delayValue}s`,
                         animationDuration: `${durationValue}s`,
                         animationPlayState: isPaused ? "paused" : "running",
-                        borderColor: isHovered || isSelected ? item.color : undefined,
-                        boxShadow: isHovered || isSelected 
-                          ? `0 0 25px rgba(0, 0, 0, 0.8), 0 0 18px ${item.color}50`
-                          : undefined,
+                        borderColor:
+                          isHovered || isSelected ? item.color : undefined,
+                        boxShadow:
+                          isHovered || isSelected
+                            ? `0 0 25px rgba(0, 0, 0, 0.8), 0 0 18px ${item.color}50`
+                            : undefined,
                         scale: isHovered || isSelected ? 1.12 : 1,
                         ["--orbit-duration"]: `${durationValue}s`,
                         ["--orbit-play-state"]: isPaused ? "paused" : "running",
                       }}
                     >
                       {/* Icon */}
-                      <div 
+                      <div
                         className="transition-transform duration-300 flex items-center justify-center"
                         style={{
-                          transform: isHovered || isSelected ? "scale(1.2)" : "scale(1)",
+                          transform:
+                            isHovered || isSelected ? "scale(1.2)" : "scale(1)",
                           color: item.color,
                         }}
                       >
@@ -417,9 +437,12 @@ function IndiaBranchesSolarSystem({
                       </span>
 
                       {/* Badge */}
-                      <span 
+                      <span
                         className="text-[9px] px-1.5 py-0.2 rounded-full font-mono uppercase text-white/90"
-                        style={{ backgroundColor: `${item.color}25`, border: `1px solid ${item.color}50` }}
+                        style={{
+                          backgroundColor: `${item.color}25`,
+                          border: `1px solid ${item.color}50`,
+                        }}
                       >
                         {item.badge}
                       </span>
@@ -443,7 +466,9 @@ export default function TravelNetwork() {
   const [liftedKg, setLiftedKg] = useState(24500);
   const [isPaused, setIsPaused] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
-  const [selectedBranch, setSelectedBranch] = useState(DEFAULT_INDIA_ORBITS[0].items[0]);
+  const [selectedBranch, setSelectedBranch] = useState(
+    DEFAULT_INDIA_ORBITS[0].items[0],
+  );
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -455,43 +480,52 @@ export default function TravelNetwork() {
   }, []);
 
   return (
-    <section id="locations" className="py-24 px-4 md:px-12 bg-[#090C0E] relative overflow-hidden">
-      
+    <section
+      id="locations"
+      className="py-24 px-4 md:px-12 bg-[#090C0E] relative overflow-hidden"
+    >
       {/* Background Ambient Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-radial from-[#FF2E4C]/10 via-[#00F0FF]/5 to-transparent blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto relative z-10">
-        
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-12">
           <span className="text-xs font-mono tracking-widest text-[#00F0FF] uppercase flex items-center justify-center gap-2">
-            <Radio size={14} className="animate-pulse text-[#FF2E4C]" /> INDIA TELEMETRY RADAR
+            <Radio size={14} className="animate-pulse text-[#FF2E4C]" /> INDIA
+            TELEMETRY RADAR
           </span>
           <h2 className="text-4xl md:text-6xl font-black font-heading text-white uppercase mt-2">
-            INDIA NETWORK <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF2E4C] via-[#FFB800] to-[#00F0FF]">SYNCED ACROSS 12+ METROS</span>
+            INDIA NETWORK{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF2E4C] via-[#FFB800] to-[#00F0FF]">
+              SYNCED ACROSS 12+ METROS
+            </span>
           </h2>
           <p className="text-xs md:text-sm text-[#8A94A0] font-mono mt-3 max-w-xl mx-auto">
-            Seamless access to any TITAN PULSE facility across India with single-pass biometric authentication. Hover over any branch orbit node to inspect live telemetry.
+            Seamless access to any TITAN PULSE facility across India with
+            single-pass biometric authentication. Hover over any branch orbit
+            node to inspect live telemetry.
           </p>
         </div>
 
         {/* Live Active Check-Ins Ticker Banner */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-          
           <div className="bg-[#12161A]/80 backdrop-blur-xl rounded-3xl p-6 border border-white/10 flex items-center justify-between shadow-2xl">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-[#FF2E4C]/10 border border-[#FF2E4C]/30 flex items-center justify-center text-[#FF2E4C]">
                 <Users size={24} />
               </div>
               <div>
-                <span className="text-[10px] font-mono text-[#8A94A0] block uppercase">LIVE INDIA MEMBERS TRAINING</span>
+                <span className="text-[10px] font-mono text-[#8A94A0] block uppercase">
+                  LIVE INDIA MEMBERS TRAINING
+                </span>
                 <span className="text-2xl md:text-3xl font-extrabold font-heading text-white">
                   {liveCheckIns.toLocaleString()} Active Right Now
                 </span>
               </div>
             </div>
             <span className="flex items-center gap-1.5 text-xs font-mono text-[#FF2E4C] bg-[#FF2E4C]/10 border border-[#FF2E4C]/30 px-3 py-1 rounded-full">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#FF2E4C] animate-ping" /> LIVE
+              <span className="w-2.5 h-2.5 rounded-full bg-[#FF2E4C] animate-ping" />{" "}
+              LIVE
             </span>
           </div>
 
@@ -501,7 +535,9 @@ export default function TravelNetwork() {
                 <Dumbbell size={24} />
               </div>
               <div>
-                <span className="text-[10px] font-mono text-[#8A94A0] block uppercase">DAILY TONNAGE MOVED IN INDIA</span>
+                <span className="text-[10px] font-mono text-[#8A94A0] block uppercase">
+                  DAILY TONNAGE MOVED IN INDIA
+                </span>
                 <span className="text-2xl md:text-3xl font-extrabold font-heading text-[#00F0FF]">
                   {liftedKg.toLocaleString()} KG
                 </span>
@@ -509,12 +545,10 @@ export default function TravelNetwork() {
             </div>
             <Activity size={20} className="text-[#FF2E4C] animate-pulse" />
           </div>
-
         </div>
 
         {/* Interactive 3D Solar System Orbit Arena for Indian Cities */}
         <div className="relative bg-[#12161A]/90 backdrop-blur-2xl rounded-3xl border border-white/10 overflow-hidden flex flex-col items-center justify-center p-4 md:p-10 shadow-[0_0_50px_rgba(0,0,0,0.8)]">
-          
           {/* Subtle Grid Pattern Overlay */}
           <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#00F0FF_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
@@ -524,14 +558,22 @@ export default function TravelNetwork() {
               onClick={() => setIsPaused(!isPaused)}
               className="text-[#8A94A0] hover:text-white transition-colors flex items-center gap-1 text-[11px] font-mono uppercase"
             >
-              {isPaused ? <Play size={14} className="text-[#00F0FF]" /> : <Pause size={14} className="text-[#FF2E4C]" />}
+              {isPaused ? (
+                <Play size={14} className="text-[#00F0FF]" />
+              ) : (
+                <Pause size={14} className="text-[#FF2E4C]" />
+              )}
               <span>{isPaused ? "Resume Orbit" : "Pause Orbit"}</span>
             </button>
 
             <span className="w-px h-4 bg-white/20" />
 
             <button
-              onClick={() => setSpeedMultiplier(prev => (prev === 1 ? 1.75 : prev === 1.75 ? 0.5 : 1))}
+              onClick={() =>
+                setSpeedMultiplier((prev) =>
+                  prev === 1 ? 1.75 : prev === 1.75 ? 0.5 : 1,
+                )
+              }
               className="text-[#8A94A0] hover:text-white transition-colors text-[11px] font-mono uppercase"
             >
               Speed: <span className="text-[#FFB800]">{speedMultiplier}x</span>
@@ -539,7 +581,7 @@ export default function TravelNetwork() {
           </div>
 
           {/* 3D Solar System Orbit Display */}
-          <IndiaBranchesSolarSystem 
+          <IndiaBranchesSolarSystem
             orbits={DEFAULT_INDIA_ORBITS}
             isPaused={isPaused}
             speedMultiplier={speedMultiplier}
@@ -551,37 +593,44 @@ export default function TravelNetwork() {
           {selectedBranch && (
             <div className="relative z-20 mt-4 md:mt-6 w-full max-w-xl bg-[#090C0E]/90 border border-white/10 backdrop-blur-xl rounded-2xl p-4 flex items-center justify-between gap-4 animate-fadeIn">
               <div className="flex items-center gap-3">
-                <div 
+                <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold"
-                  style={{ backgroundColor: `${selectedBranch.color}20`, border: `1px solid ${selectedBranch.color}` }}
+                  style={{
+                    backgroundColor: `${selectedBranch.color}20`,
+                    border: `1px solid ${selectedBranch.color}`,
+                  }}
                 >
                   <MapPin size={20} style={{ color: selectedBranch.color }} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h4 className="text-white font-extrabold font-heading text-lg">{selectedBranch.branchName}</h4>
-                    <span 
+                    <h4 className="text-white font-extrabold font-heading text-lg">
+                      {selectedBranch.branchName}
+                    </h4>
+                    <span
                       className="text-[9px] px-2 py-0.5 rounded-full font-mono uppercase font-bold text-white"
                       style={{ backgroundColor: selectedBranch.color }}
                     >
                       {selectedBranch.badge}
                     </span>
                   </div>
-                  <p className="text-xs text-[#8A94A0] font-mono">{selectedBranch.region}</p>
+                  <p className="text-xs text-[#8A94A0] font-mono">
+                    {selectedBranch.region}
+                  </p>
                 </div>
               </div>
 
               <div className="text-right">
-                <span className="text-sm font-extrabold font-mono text-white block">{selectedBranch.members}</span>
+                <span className="text-sm font-extrabold font-mono text-white block">
+                  {selectedBranch.members}
+                </span>
                 <span className="text-[10px] font-mono text-[#00F0FF] flex items-center justify-end gap-1">
                   <ShieldCheck size={12} /> Biometric Synced
                 </span>
               </div>
             </div>
           )}
-
         </div>
-
       </div>
     </section>
   );

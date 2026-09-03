@@ -25,16 +25,28 @@ export default function ParallaxFeatureZoom() {
   const bgBlur = useTransform(
     smoothProgress,
     [0, 0.35, 0.85],
-    ["blur(0px)", "blur(3px)", "blur(8px)"]
+    ["blur(0px)", "blur(3px)", "blur(8px)"],
   );
 
   // 3. Dynamic Darkening & Color Tint Overlay
-  const overlayOpacity = useTransform(smoothProgress, [0, 0.5, 0.9], [0.35, 0.65, 0.85]);
-  const glowOpacity = useTransform(smoothProgress, [0, 0.5, 1], [0.4, 0.85, 0.5]);
+  const overlayOpacity = useTransform(
+    smoothProgress,
+    [0, 0.5, 0.9],
+    [0.35, 0.65, 0.85],
+  );
+  const glowOpacity = useTransform(
+    smoothProgress,
+    [0, 0.5, 1],
+    [0.4, 0.85, 0.5],
+  );
 
   // 4. Content Parallax: floats up gracefully and fades in with crisp hierarchy
   const contentY = useTransform(smoothProgress, [0.1, 0.6, 1], [140, 0, -80]);
-  const contentOpacity = useTransform(smoothProgress, [0.08, 0.25, 0.8, 0.98], [0, 1, 1, 0.2]);
+  const contentOpacity = useTransform(
+    smoothProgress,
+    [0.08, 0.25, 0.8, 0.98],
+    [0, 1, 1, 0.2],
+  );
   const statsScale = useTransform(smoothProgress, [0.2, 0.55], [0.9, 1]);
 
   return (
@@ -44,7 +56,6 @@ export default function ParallaxFeatureZoom() {
     >
       {/* STICKY FULLSCREEN VIEWPORT */}
       <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center">
-        
         {/* A. DYNAMIC PARALLAX ZOOM FEATURE BACKGROUND */}
         <motion.div
           style={{
@@ -103,7 +114,9 @@ export default function ParallaxFeatureZoom() {
 
           {/* Subtitle Description */}
           <p className="text-slate-300 text-sm sm:text-base md:text-lg max-w-2xl mx-auto font-normal leading-relaxed mb-10 drop-shadow-md">
-            Engineered from ground-up biomechanical telemetry. Every barbell knurl, velocity sensor, and air-damped plate is synchronized to shatter human performance barriers.
+            Engineered from ground-up biomechanical telemetry. Every barbell
+            knurl, velocity sensor, and air-damped plate is synchronized to
+            shatter human performance barriers.
           </p>
 
           {/* 3 Interactive Floating Glass Telemetry Cards */}
@@ -114,40 +127,69 @@ export default function ParallaxFeatureZoom() {
             {/* Stat Card 1 */}
             <div className="p-5 rounded-2xl bg-[#0F121A]/80 border border-white/15 backdrop-blur-xl hover:border-[#E50914]/60 transition-all group shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Peak Velocity</span>
-                <Zap size={16} className="text-[#FF2E4C] group-hover:scale-110 transition-transform" />
+                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  Peak Velocity
+                </span>
+                <Zap
+                  size={16}
+                  className="text-[#FF2E4C] group-hover:scale-110 transition-transform"
+                />
               </div>
               <div className="text-2xl sm:text-3xl font-bebas text-white tracking-wider">
-                0.04<span className="text-sm font-sans text-[#FF2E4C] font-bold">s</span>
+                0.04
+                <span className="text-sm font-sans text-[#FF2E4C] font-bold">
+                  s
+                </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-sans mt-1">Real-time force capture response speed</p>
+              <p className="text-[11px] text-slate-400 font-sans mt-1">
+                Real-time force capture response speed
+              </p>
             </div>
 
             {/* Stat Card 2 */}
             <div className="p-5 rounded-2xl bg-[#0F121A]/80 border border-white/15 backdrop-blur-xl hover:border-[#E50914]/60 transition-all group shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Biometric Sync</span>
-                <Activity size={16} className="text-[#00F2FE] group-hover:scale-110 transition-transform" />
+                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  Biometric Sync
+                </span>
+                <Activity
+                  size={16}
+                  className="text-[#00F2FE] group-hover:scale-110 transition-transform"
+                />
               </div>
               <div className="text-2xl sm:text-3xl font-bebas text-white tracking-wider">
-                99.8<span className="text-sm font-sans text-[#00F2FE] font-bold">%</span>
+                99.8
+                <span className="text-sm font-sans text-[#00F2FE] font-bold">
+                  %
+                </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-sans mt-1">Continuous heart-rate & lactate tracking</p>
+              <p className="text-[11px] text-slate-400 font-sans mt-1">
+                Continuous heart-rate & lactate tracking
+              </p>
             </div>
 
             {/* Stat Card 3 */}
             <div className="p-5 rounded-2xl bg-[#0F121A]/80 border border-white/15 backdrop-blur-xl hover:border-[#E50914]/60 transition-all group shadow-[0_10px_30px_rgba(0,0,0,0.6)]">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">Recorded PRs</span>
-                <Award size={16} className="text-amber-400 group-hover:scale-110 transition-transform" />
+                <span className="text-[11px] font-mono uppercase tracking-wider text-slate-400">
+                  Recorded PRs
+                </span>
+                <Award
+                  size={16}
+                  className="text-amber-400 group-hover:scale-110 transition-transform"
+                />
               </div>
               <div className="text-2xl sm:text-3xl font-bebas text-white tracking-wider">
-                14,200<span className="text-sm font-sans text-amber-400 font-bold">+</span>
+                14,200
+                <span className="text-sm font-sans text-amber-400 font-bold">
+                  +
+                </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-sans mt-1">Athlete personal records logged this season</p>
+              <p className="text-[11px] text-slate-400 font-sans mt-1">
+                Athlete personal records logged this season
+              </p>
             </div>
           </motion.div>
-
         </motion.div>
 
         {/* Subtle Scroll Indicator at bottom */}
@@ -155,16 +197,21 @@ export default function ParallaxFeatureZoom() {
           style={{ opacity: useTransform(smoothProgress, [0, 0.25], [1, 0]) }}
           className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none text-slate-400"
         >
-          <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-slate-400">Scroll to Explore Depth</span>
+          <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-slate-400">
+            Scroll to Explore Depth
+          </span>
           <div className="w-5 h-8 rounded-full border-2 border-white/20 flex items-start justify-center p-1">
             <motion.div
               animate={{ y: [0, 12, 0] }}
-              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+              transition={{
+                repeat: Infinity,
+                duration: 1.5,
+                ease: "easeInOut",
+              }}
               className="w-1.5 h-1.5 rounded-full bg-[#FF2E4C]"
             />
           </div>
         </motion.div>
-
       </div>
     </section>
   );

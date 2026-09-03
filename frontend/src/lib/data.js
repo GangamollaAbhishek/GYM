@@ -3,7 +3,7 @@ export const ANIMATION_CONFIG = {
     scale: 1,
     durationIn: 0.8,
     durationOut: 1.5,
-    strokeWidthStart: '2%',
-    strokeWidthMax: '150%',
-  }
+    strokeWidthStart: "2%",
+    strokeWidthMax: "150%",
+  },
 };

@@ -3,7 +3,7 @@
 .naked-city-wrapper {
   position: relative;
   width: 100%;
-  background-color: #0B0B0B;
+  background-color: #0b0b0b;
   color: #ffffff;
 }
 
@@ -40,9 +40,11 @@
   width: 50%;
   min-width: 680px;
   aspect-ratio: 16/9;
-  background-color: #0B0B0B;
+  background-color: #0b0b0b;
   border: 1px solid rgba(229, 9, 20, 0.5);
-  box-shadow: 0 0 60px rgba(229, 9, 20, 0.35), 0 20px 60px rgba(0, 0, 0, 0.95);
+  box-shadow:
+    0 0 60px rgba(229, 9, 20, 0.35),
+    0 20px 60px rgba(0, 0, 0, 0.95);
   border-radius: 1.5rem;
   pointer-events: none;
   z-index: 2;

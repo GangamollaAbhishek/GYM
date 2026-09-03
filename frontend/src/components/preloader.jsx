@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
-import gsap from 'gsap';
-import LightLines from './LightLines';
+import React, { useEffect, useState, useRef } from "react";
+import gsap from "gsap";
+import LightLines from "./LightLines";
 
 export default function Preloader({ onComplete }) {
   const [count, setCount] = useState(0);
@@ -36,20 +36,31 @@ export default function Preloader({ onComplete }) {
   useEffect(() => {
     if (count === 100 && !hasCompletedRef.current) {
       hasCompletedRef.current = true;
-      
+
       const tl = gsap.timeline({
         onComplete: () => {
           if (onComplete) onComplete();
-        }
+        },
       });
 
-      tl.to('.preloader-content', { opacity: 0, scale: 0.95, duration: 0.3, ease: 'power2.inOut' })
-        .to(preloaderRef.current, { opacity: 0, duration: 0.3, ease: 'power2.inOut' });
+      tl.to(".preloader-content", {
+        opacity: 0,
+        scale: 0.95,
+        duration: 0.3,
+        ease: "power2.inOut",
+      }).to(preloaderRef.current, {
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.inOut",
+      });
     }
   }, [count, onComplete]);
 
   return (
-    <div ref={preloaderRef} className="fixed inset-0 z-[9999] bg-[#0B0B0B] flex items-center justify-center overflow-hidden pointer-events-auto">
+    <div
+      ref={preloaderRef}
+      className="fixed inset-0 z-[9999] bg-[#0B0B0B] flex items-center justify-center overflow-hidden pointer-events-auto"
+    >
       <LightLines
         linesOpacity={0.25}
         lightsOpacity={0.9}
@@ -72,7 +83,7 @@ export default function Preloader({ onComplete }) {
               {count}%
             </div>
             <div className="w-48 sm:w-64 h-1.5 bg-white/10 rounded-full overflow-hidden border border-white/10 shadow-[0_0_15px_rgba(229,9,20,0.3)]">
-              <div 
+              <div
                 className="h-full bg-gradient-to-r from-[#E50914] via-[#FF2B35] to-[#E50914] transition-all duration-75"
                 style={{ width: `${count}%` }}
               />

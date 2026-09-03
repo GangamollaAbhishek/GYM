@@ -11,7 +11,6 @@ export default function LineByLineShowcase() {
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-[radial-gradient(ellipse_at_center,_rgba(229,9,20,0.16)_0%,_transparent_65%)] blur-[120px] pointer-events-none" />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col items-center text-center space-y-12">
-        
         {/* Top Tag */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#12141C] border border-white/10 text-slate-300 text-xs font-mono font-semibold tracking-widest uppercase shadow-sm">
           <Sparkles size={14} className="text-[#FF2B35]" />
@@ -59,13 +58,12 @@ export default function LineByLineShowcase() {
           staggerDelay={160}
           lines={[
             "Where elite biomechanical engineering meets minimalist aesthetic refinement.",
-            "Designed for humans who refuse to accept physiological boundaries."
+            "Designed for humans who refuse to accept physiological boundaries.",
           ]}
         />
 
         {/* 3. Three BlobCards with Fluid Lava Blobs & Rotating Glow Borders */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full pt-6 text-left">
-          
           {/* Card 1: Precision Sensor Telemetry */}
           <BlobCard
             headerHeight={100}
@@ -88,7 +86,8 @@ export default function LineByLineShowcase() {
                 PRECISION SENSOR TELEMETRY
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-sans">
-                Real-time velocity tracking and force curve sensors embedded across all kinetic rack stations.
+                Real-time velocity tracking and force curve sensors embedded
+                across all kinetic rack stations.
               </p>
             </div>
           </BlobCard>
@@ -115,7 +114,8 @@ export default function LineByLineShowcase() {
                 BIOMETRIC GATE SPEEDPASS
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-sans">
-                13.56 MHz high-frequency turnstile RFID key providing seamless instant access with live attendance telemetry.
+                13.56 MHz high-frequency turnstile RFID key providing seamless
+                instant access with live attendance telemetry.
               </p>
             </div>
           </BlobCard>
@@ -142,15 +142,13 @@ export default function LineByLineShowcase() {
                 CRYO LONGEVITY SUITE
               </h3>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-sans">
-                Sub-zero full-body cryotherapy and hydro-sauna pods engineered to accelerate cellular ATP recovery by 300%.
+                Sub-zero full-body cryotherapy and hydro-sauna pods engineered
+                to accelerate cellular ATP recovery by 300%.
               </p>
             </div>
           </BlobCard>
-
         </div>
-
       </div>
     </section>
   );
 }
-

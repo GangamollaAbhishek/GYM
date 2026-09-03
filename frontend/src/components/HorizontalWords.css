@@ -2,7 +2,7 @@
   position: relative;
   width: 100%;
   min-height: 100vh;
-  background-color: #0B0B0B;
+  background-color: #0b0b0b;
   color: #ffffff;
   overflow: hidden;
   box-sizing: border-box;
@@ -42,7 +42,7 @@
 .horizontal-words__arrow-end-svg {
   width: 200px;
   height: auto;
-  color: #E50914;
+  color: #e50914;
   flex-shrink: 0;
 }
 
@@ -55,7 +55,7 @@
 }
 
 .horizontal-words__h2 {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: clamp(4rem, 11vw, 10rem);
   line-height: 1;
   letter-spacing: 0.03em;
@@ -82,7 +82,7 @@
 }
 
 .horizontal-words__h2 .letter:hover {
-  color: #E50914;
+  color: #e50914;
 }
 
 .horizontal-words__bottom-text {
@@ -94,10 +94,10 @@
 .horizontal-words__bottom-text-l {
   font-size: clamp(1rem, 1.8vw, 1.25rem);
   line-height: 1.6;
-  color: #A0A0A0;
-  border-left: 3px solid #E50914;
+  color: #a0a0a0;
+  border-left: 3px solid #e50914;
   padding-left: 1.5rem;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 
 .horizontal-words__bottom-text-l em {
@@ -105,5 +105,5 @@
   font-style: normal;
   font-weight: 700;
   text-decoration: underline;
-  text-decoration-color: #E50914;
+  text-decoration-color: #e50914;
 }

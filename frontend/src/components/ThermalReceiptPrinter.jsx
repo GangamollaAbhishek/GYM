@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import './ThermalReceiptPrinter.css';
-import { useLandingPageCMS } from '../context/LandingPageCMSContext';
+import React, { useState, useEffect, useRef } from "react";
+import "./ThermalReceiptPrinter.css";
+import { useLandingPageCMS } from "../context/LandingPageCMSContext";
 import {
   Printer,
   Scissors,
@@ -13,19 +13,19 @@ import {
   Crown,
   ShoppingBag,
   CreditCard,
-  CheckCircle2
-} from 'lucide-react';
+  CheckCircle2,
+} from "lucide-react";
 
 export default function ThermalReceiptPrinter({
   orderDetails,
   onClose = () => {},
-  onViewOrders = () => {}
+  onViewOrders = () => {},
 }) {
   const { cmsData } = useLandingPageCMS();
-  const [state, setState] = useState('idle'); // 'idle' | 'printing' | 'printed' | 'tearing'
-  const [currentMode, setCurrentMode] = useState('smooth'); // 'smooth' | 'classic'
+  const [state, setState] = useState("idle"); // 'idle' | 'printing' | 'printed' | 'tearing'
+  const [currentMode, setCurrentMode] = useState("smooth"); // 'smooth' | 'classic'
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [dockSide, setDockSide] = useState('right'); // 'right' | 'left'
+  const [dockSide, setDockSide] = useState("right"); // 'right' | 'left'
   const [isVideoMode, setIsVideoMode] = useState(false);
 
   const audioCtxRef = useRef(null);
@@ -38,56 +38,79 @@ export default function ThermalReceiptPrinter({
   const particlesRef = useRef([]);
 
   // Extract authentic transaction data
-  const baseOrder = orderDetails?.orderDetails || orderDetails?.rawOrder || orderDetails || {};
+  const baseOrder =
+    orderDetails?.orderDetails || orderDetails?.rawOrder || orderDetails || {};
 
   const isMembership = Boolean(
-    baseOrder?.category?.toLowerCase()?.includes('member') ||
-    baseOrder?.category?.toLowerCase()?.includes('pass') ||
+    baseOrder?.category?.toLowerCase()?.includes("member") ||
+    baseOrder?.category?.toLowerCase()?.includes("pass") ||
     baseOrder?.plan ||
     baseOrder?.planDetails ||
-    baseOrder?.title?.toLowerCase()?.includes('pass') ||
-    baseOrder?.title?.toLowerCase()?.includes('membership')
+    baseOrder?.title?.toLowerCase()?.includes("pass") ||
+    baseOrder?.title?.toLowerCase()?.includes("membership"),
   );
 
-  const rawAmountNum = typeof baseOrder?.amount === 'number'
-    ? baseOrder.amount
-    : parseFloat(String(baseOrder?.amount || baseOrder?.rawAmount || '0').replace(/[^\d.]/g, '')) || 0;
+  const rawAmountNum =
+    typeof baseOrder?.amount === "number"
+      ? baseOrder.amount
+      : parseFloat(
+          String(baseOrder?.amount || baseOrder?.rawAmount || "0").replace(
+            /[^\d.]/g,
+            "",
+          ),
+        ) || 0;
 
   const discount = baseOrder?.discount || 0;
-  const subtotal = baseOrder?.subtotal || (rawAmountNum + discount);
-  const totalAmount = rawAmountNum || (subtotal - discount) || 0;
-  const orderId = baseOrder?.id || `ORD-TP-${Math.floor(100000 + Math.random() * 900000)}`;
-  const orderDate = baseOrder?.date || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const paymentMethod = baseOrder?.paymentMethod || baseOrder?.paymentStatus || baseOrder?.method || 'Paid (Online)';
-  const customerName = baseOrder?.customerName || orderDetails?.customerName || 'Athlete Member';
+  const subtotal = baseOrder?.subtotal || rawAmountNum + discount;
+  const totalAmount = rawAmountNum || subtotal - discount || 0;
+  const orderId =
+    baseOrder?.id || `ORD-TP-${Math.floor(100000 + Math.random() * 900000)}`;
+  const orderDate =
+    baseOrder?.date ||
+    new Date().toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  const paymentMethod =
+    baseOrder?.paymentMethod ||
+    baseOrder?.paymentStatus ||
+    baseOrder?.method ||
+    "Paid (Online)";
+  const customerName =
+    baseOrder?.customerName || orderDetails?.customerName || "Athlete Member";
 
-  const items = Array.isArray(baseOrder?.items) && baseOrder.items.length > 0
-    ? baseOrder.items
-    : isMembership
-    ? [
-        {
-          name: `${baseOrder?.plan || baseOrder?.title || 'Annual All-Access Biometric Pass'}`,
-          price: subtotal || totalAmount || 2499,
-          quantity: 1
-        },
-        {
-          name: '24/7 Smart Biometric Turnstile NFC Gate Key',
-          price: 0,
-          quantity: 1
-        },
-        {
-          name: '3D Telemetry Audit & Bio-Hacking Sauna Lounge',
-          price: 0,
-          quantity: 1
-        }
-      ]
-    : [
-        {
-          name: baseOrder?.title || baseOrder?.item || 'Nutritional Supplement & Training Gear',
-          price: subtotal || totalAmount || 0,
-          quantity: 1
-        }
-      ];
+  const items =
+    Array.isArray(baseOrder?.items) && baseOrder.items.length > 0
+      ? baseOrder.items
+      : isMembership
+        ? [
+            {
+              name: `${baseOrder?.plan || baseOrder?.title || "Annual All-Access Biometric Pass"}`,
+              price: subtotal || totalAmount || 2499,
+              quantity: 1,
+            },
+            {
+              name: "24/7 Smart Biometric Turnstile NFC Gate Key",
+              price: 0,
+              quantity: 1,
+            },
+            {
+              name: "3D Telemetry Audit & Bio-Hacking Sauna Lounge",
+              price: 0,
+              quantity: 1,
+            },
+          ]
+        : [
+            {
+              name:
+                baseOrder?.title ||
+                baseOrder?.item ||
+                "Nutritional Supplement & Training Gear",
+              price: subtotal || totalAmount || 0,
+              quantity: 1,
+            },
+          ];
 
   // ==========================================
   // WEB AUDIO SYNTHESIZER
@@ -100,15 +123,15 @@ export default function ThermalReceiptPrinter({
           audioCtxRef.current = new AudioContext();
         }
       }
-      if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
         audioCtxRef.current.resume();
       }
     } catch (e) {
-      console.warn('AudioContext not supported or blocked:', e);
+      console.warn("AudioContext not supported or blocked:", e);
     }
   };
 
-  const playPrintAudio = (mode = 'smooth', durationMs = 2500) => {
+  const playPrintAudio = (mode = "smooth", durationMs = 2500) => {
     if (!soundEnabled) return;
     initAudio();
     const ctx = audioCtxRef.current;
@@ -118,14 +141,14 @@ export default function ThermalReceiptPrinter({
       const now = ctx.currentTime;
       const durSec = durationMs / 1000;
 
-      if (mode === 'classic') {
+      if (mode === "classic") {
         const stepCount = 16;
         const stepInterval = durSec / stepCount;
         for (let i = 0; i < stepCount; i++) {
           const t = now + i * stepInterval;
           const osc = ctx.createOscillator();
           const g = ctx.createGain();
-          osc.type = 'sawtooth';
+          osc.type = "sawtooth";
           osc.frequency.setValueAtTime(190 + (i % 4) * 18, t);
 
           g.gain.setValueAtTime(0.06, t);
@@ -139,7 +162,7 @@ export default function ThermalReceiptPrinter({
       } else {
         const osc = ctx.createOscillator();
         const g = ctx.createGain();
-        osc.type = 'triangle';
+        osc.type = "triangle";
         osc.frequency.setValueAtTime(220, now);
         osc.frequency.linearRampToValueAtTime(280, now + durSec);
 
@@ -153,7 +176,7 @@ export default function ThermalReceiptPrinter({
         noise.buffer = buffer;
 
         const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
+        filter.type = "bandpass";
         filter.frequency.value = 2400;
         filter.Q.value = 2.5;
 
@@ -186,7 +209,7 @@ export default function ThermalReceiptPrinter({
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
-      osc.type = 'sine';
+      osc.type = "sine";
       osc.frequency.setValueAtTime(1400, now);
       osc.frequency.exponentialRampToValueAtTime(450, now + 0.12);
 
@@ -219,7 +242,7 @@ export default function ThermalReceiptPrinter({
       noise.buffer = buffer;
 
       const filter = ctx.createBiquadFilter();
-      filter.type = 'highpass';
+      filter.type = "highpass";
       filter.frequency.setValueAtTime(2400, now);
       filter.frequency.exponentialRampToValueAtTime(900, now + duration);
 
@@ -241,13 +264,21 @@ export default function ThermalReceiptPrinter({
   const launchConfetti = () => {
     const canvas = confettiCanvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
-    const colors = ['#ff1e27', '#e50914', '#00f0ff', '#10b981', '#fbbf24', '#ffffff', '#a855f7'];
+    const colors = [
+      "#ff1e27",
+      "#e50914",
+      "#00f0ff",
+      "#10b981",
+      "#fbbf24",
+      "#ffffff",
+      "#a855f7",
+    ];
     particlesRef.current = [];
 
     const createParticle = (x, y) => {
@@ -260,12 +291,17 @@ export default function ThermalReceiptPrinter({
         vy: -(6 + Math.random() * 10),
         gravity: 0.24 + Math.random() * 0.12,
         color: colors[Math.floor(Math.random() * colors.length)],
-        shape: Math.random() > 0.4 ? 'rect' : Math.random() > 0.5 ? 'circle' : 'triangle',
+        shape:
+          Math.random() > 0.4
+            ? "rect"
+            : Math.random() > 0.5
+              ? "circle"
+              : "triangle",
         size: 5 + Math.random() * 8,
         rotation: Math.random() * 360,
         rotationSpeed: (Math.random() - 0.5) * 8,
         opacity: 1,
-        decay: 0.012 + Math.random() * 0.008
+        decay: 0.012 + Math.random() * 0.008,
       };
     };
 
@@ -273,13 +309,15 @@ export default function ThermalReceiptPrinter({
     const H = canvas.height;
     const burstOrigins = [
       { x: W * 0.35, y: H * 0.35, count: 50 },
-      { x: W * 0.5, y: H * 0.30, count: 80 },
-      { x: W * 0.65, y: H * 0.35, count: 50 }
+      { x: W * 0.5, y: H * 0.3, count: 80 },
+      { x: W * 0.65, y: H * 0.35, count: 50 },
     ];
 
     burstOrigins.forEach((origin) => {
       for (let i = 0; i < origin.count; i++) {
-        particlesRef.current.push(createParticle(origin.x + (Math.random() - 0.5) * 40, origin.y));
+        particlesRef.current.push(
+          createParticle(origin.x + (Math.random() - 0.5) * 40, origin.y),
+        );
       }
     });
 
@@ -290,11 +328,11 @@ export default function ThermalReceiptPrinter({
       ctx.rotate((p.rotation * Math.PI) / 180);
       ctx.fillStyle = p.color;
 
-      if (p.shape === 'circle') {
+      if (p.shape === "circle") {
         ctx.beginPath();
         ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
         ctx.fill();
-      } else if (p.shape === 'rect') {
+      } else if (p.shape === "rect") {
         ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size / 1.5);
       } else {
         ctx.beginPath();
@@ -309,7 +347,9 @@ export default function ThermalReceiptPrinter({
 
     const render = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      particlesRef.current = particlesRef.current.filter((p) => p.opacity > 0 && p.y < canvas.height + 50);
+      particlesRef.current = particlesRef.current.filter(
+        (p) => p.opacity > 0 && p.y < canvas.height + 50,
+      );
 
       particlesRef.current.forEach((p) => {
         p.x += p.vx;
@@ -335,48 +375,55 @@ export default function ThermalReceiptPrinter({
   const triggerBladeFlash = () => {
     const flash = cutterBladeFlashRef.current;
     if (!flash) return;
-    flash.classList.remove('active');
+    flash.classList.remove("active");
     void flash.offsetWidth;
-    flash.classList.add('active');
+    flash.classList.add("active");
     setTimeout(() => {
-      if (flash) flash.classList.remove('active');
+      if (flash) flash.classList.remove("active");
     }, 380);
   };
 
   const startPrintSequence = () => {
-    if (state === 'printing') return;
-    setState('printing');
+    if (state === "printing") return;
+    setState("printing");
 
     const duration = 2500;
     const card = ticketCardRef.current;
     const glow = slitGlowRef.current;
     const led = hoodLedRef.current;
 
-    if (led) led.classList.add('printing');
-    if (glow) glow.classList.add('active');
+    if (led) led.classList.add("printing");
+    if (glow) glow.classList.add("active");
 
     triggerBladeFlash();
     playPrintAudio(currentMode, duration);
 
     if (card) {
-      card.classList.remove('retracted', 'printed', 'tearing', 'printing-smooth', 'printing-classic');
-      const animClass = currentMode === 'classic' ? 'printing-classic' : 'printing-smooth';
+      card.classList.remove(
+        "retracted",
+        "printed",
+        "tearing",
+        "printing-smooth",
+        "printing-classic",
+      );
+      const animClass =
+        currentMode === "classic" ? "printing-classic" : "printing-smooth";
       card.style.animationDuration = `${duration}ms`;
       card.classList.add(animClass);
     }
 
     setTimeout(() => {
       if (card) {
-        card.classList.remove('printing-smooth', 'printing-classic');
-        card.classList.add('printed');
+        card.classList.remove("printing-smooth", "printing-classic");
+        card.classList.add("printed");
       }
-      if (glow) glow.classList.remove('active');
-      if (led) led.classList.remove('printing');
+      if (glow) glow.classList.remove("active");
+      if (led) led.classList.remove("printing");
 
       triggerBladeFlash();
       playBladeCutAudio();
 
-      setState('printed');
+      setState("printed");
 
       // Trigger Confetti Celebration!
       setTimeout(() => {
@@ -386,24 +433,24 @@ export default function ThermalReceiptPrinter({
   };
 
   const tearReceipt = () => {
-    if (state !== 'printed') return;
-    setState('tearing');
+    if (state !== "printed") return;
+    setState("tearing");
 
     triggerBladeFlash();
     playTearAudio();
 
     const card = ticketCardRef.current;
     if (card) {
-      card.classList.remove('printed');
-      card.classList.add('tearing');
+      card.classList.remove("printed");
+      card.classList.add("tearing");
     }
 
     setTimeout(() => {
       if (card) {
-        card.classList.remove('tearing');
-        card.classList.add('retracted');
+        card.classList.remove("tearing");
+        card.classList.add("retracted");
       }
-      setState('idle');
+      setState("idle");
     }, 560);
   };
 
@@ -414,25 +461,27 @@ export default function ThermalReceiptPrinter({
     }, 450);
     return () => {
       clearTimeout(timer);
-      if (confettiAnimRef.current) cancelAnimationFrame(confettiAnimRef.current);
+      if (confettiAnimRef.current)
+        cancelAnimationFrame(confettiAnimRef.current);
     };
   }, []);
 
   // Keyboard shortcut: Escape to close
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         if (isVideoMode) setIsVideoMode(false);
         else onClose();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isVideoMode, onClose]);
 
   return (
-    <div className={`thermal-receipt-modal-backdrop ${isVideoMode ? 'video-mode' : ''}`}>
-      
+    <div
+      className={`thermal-receipt-modal-backdrop ${isVideoMode ? "video-mode" : ""}`}
+    >
       {/* Confetti Celebration Canvas */}
       <canvas ref={confettiCanvasRef} className="receipt-confetti-canvas" />
 
@@ -440,34 +489,34 @@ export default function ThermalReceiptPrinter({
       <div className="receipt-ambient-glow" />
 
       <div className="receipt-app-viewport">
-        
         {/* ========================================================= */}
         {/* SIDE FLOATING STRAIGHT-LINE DOCK (UNBLOCKS CENTER)        */}
         {/* ========================================================= */}
         <aside className={`controls-dock dock-${dockSide}`}>
           <div className="dock-pill-bar">
-            
             {/* Primary Print / Re-Print Button */}
             <button
               onClick={() => {
                 initAudio();
-                if (state === 'printed') {
+                if (state === "printed") {
                   tearReceipt();
                   setTimeout(() => startPrintSequence(), 620);
-                } else if (state === 'idle') {
+                } else if (state === "idle") {
                   startPrintSequence();
                 }
               }}
-              disabled={state === 'printing'}
-              className={`primary-print-btn ${state === 'printing' ? 'printing' : ''}`}
+              disabled={state === "printing"}
+              className={`primary-print-btn ${state === "printing" ? "printing" : ""}`}
               title="Print / Re-Print Ticket"
             >
               <Printer size={16} className="btn-print-icon" />
-              <span className="btn-label">{state === 'printing' ? '…' : 'Print'}</span>
+              <span className="btn-label">
+                {state === "printing" ? "…" : "Print"}
+              </span>
             </button>
 
             {/* Secondary Tear Action Button */}
-            {state === 'printed' && (
+            {state === "printed" && (
               <button
                 onClick={() => {
                   initAudio();
@@ -488,13 +537,13 @@ export default function ThermalReceiptPrinter({
               <button
                 onClick={() => {
                   initAudio();
-                  setCurrentMode('smooth');
-                  if (state === 'printed') {
+                  setCurrentMode("smooth");
+                  if (state === "printed") {
                     tearReceipt();
                     setTimeout(() => startPrintSequence(), 620);
                   }
                 }}
-                className={`mode-icon-btn ${currentMode === 'smooth' ? 'active' : ''}`}
+                className={`mode-icon-btn ${currentMode === "smooth" ? "active" : ""}`}
                 title="Smooth Fluid Motion"
               >
                 <span className="mode-dot" />
@@ -503,13 +552,13 @@ export default function ThermalReceiptPrinter({
               <button
                 onClick={() => {
                   initAudio();
-                  setCurrentMode('classic');
-                  if (state === 'printed') {
+                  setCurrentMode("classic");
+                  if (state === "printed") {
                     tearReceipt();
                     setTimeout(() => startPrintSequence(), 620);
                   }
                 }}
-                className={`mode-icon-btn ${currentMode === 'classic' ? 'active' : ''}`}
+                className={`mode-icon-btn ${currentMode === "classic" ? "active" : ""}`}
                 title="Mechanical Stepper Pulse"
               >
                 <span className="mode-dot" />
@@ -526,7 +575,7 @@ export default function ThermalReceiptPrinter({
                 setSoundEnabled(!soundEnabled);
               }}
               className="icon-tool-btn"
-              title={soundEnabled ? 'Mute Sound' : 'Enable Sound'}
+              title={soundEnabled ? "Mute Sound" : "Enable Sound"}
             >
               {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
             </button>
@@ -542,7 +591,9 @@ export default function ThermalReceiptPrinter({
 
             {/* Dock Side Flip (Right <-> Left) */}
             <button
-              onClick={() => setDockSide(dockSide === 'right' ? 'left' : 'right')}
+              onClick={() =>
+                setDockSide(dockSide === "right" ? "left" : "right")
+              }
               className="icon-tool-btn"
               title="Switch Dock Side (Left / Right)"
             >
@@ -568,7 +619,6 @@ export default function ThermalReceiptPrinter({
             >
               <X size={16} />
             </button>
-
           </div>
         </aside>
 
@@ -578,7 +628,8 @@ export default function ThermalReceiptPrinter({
             onClick={() => setIsVideoMode(false)}
             className="video-mode-exit-hint cursor-pointer"
           >
-            Clean Video Mode Active • Click or Press <strong>Esc</strong> to restore controls
+            Clean Video Mode Active • Click or Press <strong>Esc</strong> to
+            restore controls
           </div>
         )}
 
@@ -586,16 +637,20 @@ export default function ThermalReceiptPrinter({
         {/* MAIN PRINTER STAGE (100% UNBLOCKED & PERFECTLY CENTERED)  */}
         {/* ========================================================= */}
         <main className="printer-stage">
-          
           {/* Metallic 3D Dispenser Machine */}
           <div className="machine-unit">
-            
             {/* Top 3D Metallic Crimson Hood */}
             <div className="machine-hood-top">
               <div className="hood-bevel-top" />
               <div className="hood-highlight" />
-              <div className="hood-title">{cmsData?.brand?.name || 'TITAN PULSE'} POS 3D</div>
-              <div ref={hoodLedRef} className="hood-status-led" title="Dispenser Status" />
+              <div className="hood-title">
+                {cmsData?.brand?.name || "TITAN PULSE"} POS 3D
+              </div>
+              <div
+                ref={hoodLedRef}
+                className="hood-status-led"
+                title="Dispenser Status"
+              />
             </div>
 
             {/* Dark Slit Mouth */}
@@ -617,29 +672,39 @@ export default function ThermalReceiptPrinter({
 
             {/* Paper Viewport Container */}
             <div className="paper-viewport">
-              
               {/* 3D Ticket & Receipt Card */}
               <article
                 ref={ticketCardRef}
                 onClick={() => {
                   initAudio();
-                  if (state === 'printed') tearReceipt();
+                  if (state === "printed") tearReceipt();
                 }}
                 className="ticket-card retracted"
                 title="Click to tear receipt"
               >
                 <div className="ticket-content">
-                  
                   {/* 1. Header: Vector Badge & Gym Branding */}
                   <header className="ticket-header">
                     <div className="status-badge-wrap">
-                      <div className={`status-badge ${isMembership ? 'badge-membership' : 'badge-supplements'}`}>
-                        {isMembership ? <Crown size={24} /> : <ShoppingBag size={24} />}
+                      <div
+                        className={`status-badge ${isMembership ? "badge-membership" : "badge-supplements"}`}
+                      >
+                        {isMembership ? (
+                          <Crown size={24} />
+                        ) : (
+                          <ShoppingBag size={24} />
+                        )}
                       </div>
                     </div>
-                    <h2 className="ticket-title">{cmsData?.brand?.name || 'TITAN PULSE 3D'}</h2>
+                    <h2 className="ticket-title">
+                      {cmsData?.brand?.name || "TITAN PULSE 3D"}
+                    </h2>
                     <p className="ticket-sub">
-                      {isMembership ? (cmsData?.brand?.subname ? `${cmsData.brand.subname} • Membership Pass` : 'Official Biometric Membership Tax Invoice') : 'Official Merch & Supplement Receipt'}
+                      {isMembership
+                        ? cmsData?.brand?.subname
+                          ? `${cmsData.brand.subname} • Membership Pass`
+                          : "Official Biometric Membership Tax Invoice"
+                        : "Official Merch & Supplement Receipt"}
                     </p>
                   </header>
 
@@ -652,16 +717,17 @@ export default function ThermalReceiptPrinter({
 
                   {/* 3. Ticket Data Details */}
                   <section className="ticket-details">
-                    
                     <div className="detail-row">
                       <div className="detail-col">
                         <span className="detail-label">TRANSACTION ID</span>
-                        <span className="detail-val mono text-[#ff1e27] font-bold">{orderId}</span>
+                        <span className="detail-val mono text-[#ff1e27] font-bold">
+                          {orderId}
+                        </span>
                       </div>
                       <div className="detail-col align-right">
                         <span className="detail-label">TOTAL PAID</span>
                         <span className="detail-val amount-val font-mono text-emerald-600">
-                          ₹{Number(totalAmount).toLocaleString('en-IN')}
+                          ₹{Number(totalAmount).toLocaleString("en-IN")}
                         </span>
                       </div>
                     </div>
@@ -673,7 +739,9 @@ export default function ThermalReceiptPrinter({
                       </div>
                       <div className="detail-col align-right">
                         <span className="detail-label">GATE STATUS</span>
-                        <span className="detail-val badge-text">✓ Confirmed</span>
+                        <span className="detail-val badge-text">
+                          ✓ Confirmed
+                        </span>
                       </div>
                     </div>
 
@@ -685,19 +753,29 @@ export default function ThermalReceiptPrinter({
                             {item.quantity || 1}X {item.name}
                           </span>
                           <span className="item-price">
-                            ₹{((item.price || 0) * (item.quantity || 1)).toLocaleString('en-IN')}
+                            ₹
+                            {(
+                              (item.price || 0) * (item.quantity || 1)
+                            ).toLocaleString("en-IN")}
                           </span>
                         </div>
                       ))}
                       {discount > 0 && (
                         <div className="ticket-item-row text-emerald-600">
                           <span className="item-name">Promo Discount</span>
-                          <span className="item-price">-₹{Number(discount).toLocaleString('en-IN')}</span>
+                          <span className="item-price">
+                            -₹{Number(discount).toLocaleString("en-IN")}
+                          </span>
                         </div>
                       )}
                       <div className="ticket-item-row text-slate-500 text-[10px] pt-1 border-t border-slate-200">
                         <span>GST (18% Included)</span>
-                        <span>₹{Math.round(totalAmount * 0.18).toLocaleString('en-IN')}</span>
+                        <span>
+                          ₹
+                          {Math.round(totalAmount * 0.18).toLocaleString(
+                            "en-IN",
+                          )}
+                        </span>
                       </div>
                     </div>
 
@@ -707,30 +785,28 @@ export default function ThermalReceiptPrinter({
                         <CreditCard size={14} />
                       </div>
                       <div className="payment-meta">
-                        <span className="cardholder-name">{customerName.toUpperCase()}</span>
+                        <span className="cardholder-name">
+                          {customerName.toUpperCase()}
+                        </span>
                         <span className="card-dots">{paymentMethod}</span>
                       </div>
                     </div>
-
                   </section>
 
                   {/* 4. Barcode Section */}
                   <footer className="ticket-code-section">
                     <div className="barcode-container">
                       <div className="barcode-graphic" />
-                      <div className="barcode-numbers mono">{orderId} • TURNSTILE PASS</div>
+                      <div className="barcode-numbers mono">
+                        {orderId} • TURNSTILE PASS
+                      </div>
                     </div>
                   </footer>
-
                 </div>
               </article>
-
             </div>
-
           </div>
-
         </main>
-
       </div>
     </div>
   );

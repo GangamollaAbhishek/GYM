@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useLayoutEffect,
+  useMemo,
+  useCallback,
+} from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cn } from "../lib/utils";
 
@@ -40,7 +47,9 @@ export function buildContributionWeeks(contributions, yearFilter = null) {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   if (yearFilter) {
-    valid = valid.filter((item) => item.parsedDate.getUTCFullYear() === Number(yearFilter));
+    valid = valid.filter(
+      (item) => item.parsedDate.getUTCFullYear() === Number(yearFilter),
+    );
   }
 
   if (valid.length === 0) return [];
@@ -59,7 +68,9 @@ export function buildContributionWeeks(contributions, yearFilter = null) {
     const count = Math.max(0, contribution?.count ?? 0);
     const explicitLevel = contribution?.level;
     const level =
-      Number.isInteger(explicitLevel) && explicitLevel >= 0 && explicitLevel <= 4
+      Number.isInteger(explicitLevel) &&
+      explicitLevel >= 0 &&
+      explicitLevel <= 4
         ? count === 0
           ? 0
           : explicitLevel
@@ -71,12 +82,12 @@ export function buildContributionWeeks(contributions, yearFilter = null) {
       level,
       duration: contribution?.duration,
       workout: contribution?.workout,
-      parsedDate: date
+      parsedDate: date,
     });
   }
 
   return Array.from({ length: Math.ceil(cells.length / 7) }, (_, index) =>
-    cells.slice(index * 7, index * 7 + 7)
+    cells.slice(index * 7, index * 7 + 7),
   );
 }
 
@@ -96,14 +107,18 @@ function selectRecentContributions(contributions, months, year = null) {
     .filter((item) => item.date !== null);
   const latest = parsed.reduce(
     (current, item) => (!current || item.date > current ? item.date : current),
-    null
+    null,
   );
 
   if (!latest) return [];
 
   const start = new Date(latest);
-  start.setUTCMonth(start.getUTCMonth() - Math.max(1, Math.min(12, Math.round(months))));
-  return parsed.filter((item) => item.date >= start).map((item) => item.contribution);
+  start.setUTCMonth(
+    start.getUTCMonth() - Math.max(1, Math.min(12, Math.round(months))),
+  );
+  return parsed
+    .filter((item) => item.date >= start)
+    .map((item) => item.contribution);
 }
 
 function formatContributionLabel(contribution) {
@@ -112,19 +127,34 @@ function formatContributionLabel(contribution) {
     weekday: "short",
     month: "short",
     day: "numeric",
-    year: "numeric"
+    year: "numeric",
   }).format(parsed);
 
   if (contribution.count === 0 || contribution.level === 0) {
     return `🔴 Rest / Absent Day · ${date}`;
   }
 
-  const durationStr = contribution.duration ? ` · ⏱️ ${contribution.duration}` : "";
+  const durationStr = contribution.duration
+    ? ` · ⏱️ ${contribution.duration}`
+    : "";
   const workoutStr = contribution.workout ? ` (${contribution.workout})` : "";
   return `🟢 Present · ${date}${durationStr}${workoutStr}`;
 }
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 const WEEKDAYS = ["", "Mon", "", "Wed", "", "Fri", ""];
 
 export default function WorkoutStreakGraph({
@@ -173,7 +203,7 @@ export default function WorkoutStreakGraph({
         if (monthIndex !== lastMonth) {
           labels.push({
             monthName: MONTH_NAMES[monthIndex],
-            weekIndex
+            weekIndex,
           });
           lastMonth = monthIndex;
         }
@@ -190,7 +220,7 @@ export default function WorkoutStreakGraph({
       const placement = cellRect.top > 56 ? "above" : "below";
       const left = Math.min(
         Math.max(cellRect.left + cellRect.width / 2, 130),
-        window.innerWidth - 130
+        window.innerWidth - 130,
       );
       setHoveredContribution({
         contribution,
@@ -203,7 +233,7 @@ export default function WorkoutStreakGraph({
         dayIndex,
       });
     },
-    [showTooltips]
+    [showTooltips],
   );
 
   const renderContribution = (contribution, columnIndex, rowIndex) => {
@@ -224,7 +254,11 @@ export default function WorkoutStreakGraph({
           height: cellSize,
           borderRadius: resolvedCellRadius,
         }}
-        initial={reducedMotion || animation === "none" ? false : { opacity: 0, scale: 0.4 }}
+        initial={
+          reducedMotion || animation === "none"
+            ? false
+            : { opacity: 0, scale: 0.4 }
+        }
         animate={{ opacity: 1, scale: 1 }}
         whileHover={{ scale: 1.25, zIndex: 20 }}
         transition={{
@@ -237,7 +271,7 @@ export default function WorkoutStreakGraph({
             contribution,
             columnIndex,
             rowIndex,
-            event
+            event,
           )
         }
         onFocus={(event) =>
@@ -249,10 +283,19 @@ export default function WorkoutStreakGraph({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 transition-colors shadow-inner"
           style={{
-            backgroundColor: contribution.level === 0 ? "#ef4444" : (colors[contribution.level] || colors[0]),
+            backgroundColor:
+              contribution.level === 0
+                ? "#ef4444"
+                : colors[contribution.level] || colors[0],
             borderRadius: resolvedCellRadius,
-            border: contribution.level === 0 ? "1px solid rgba(239, 68, 68, 0.45)" : "1px solid rgba(255,255,255,0.12)",
-            boxShadow: contribution.level === 0 ? "0 0 5px rgba(239, 68, 68, 0.25)" : "none"
+            border:
+              contribution.level === 0
+                ? "1px solid rgba(239, 68, 68, 0.45)"
+                : "1px solid rgba(255,255,255,0.12)",
+            boxShadow:
+              contribution.level === 0
+                ? "0 0 5px rgba(239, 68, 68, 0.25)"
+                : "none",
           }}
         />
       </motion.button>
@@ -267,7 +310,6 @@ export default function WorkoutStreakGraph({
       {weeks.length > 0 && (
         <div className="py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden overflow-x-auto">
           <div className="flex flex-col min-w-max pb-2">
-            
             {/* 1. Month Header Row */}
             <div className="flex pl-8 mb-1.5 text-[11px] font-mono text-slate-400">
               {monthLabels.map((m, idx) => (
@@ -277,7 +319,7 @@ export default function WorkoutStreakGraph({
                     position: "relative",
                     left: `${m.weekIndex * (cellSize + cellGap)}px`,
                     width: 0,
-                    whiteSpace: "nowrap"
+                    whiteSpace: "nowrap",
                   }}
                   className="font-semibold"
                 >
@@ -288,7 +330,6 @@ export default function WorkoutStreakGraph({
 
             {/* 2. Grid Container with Weekday Labels */}
             <div className="flex items-start gap-2">
-              
               {/* Day of Week Labels */}
               <div className="flex flex-col gap-[3.5px] pr-1 text-[9.5px] font-mono text-slate-500 font-bold select-none pt-0.5">
                 {WEEKDAYS.map((day, idx) => (
@@ -318,12 +359,11 @@ export default function WorkoutStreakGraph({
                     role="row"
                   >
                     {week.map((contribution, dayIndex) =>
-                      renderContribution(contribution, weekIndex, dayIndex)
+                      renderContribution(contribution, weekIndex, dayIndex),
                     )}
                   </div>
                 ))}
               </div>
-
             </div>
 
             {/* Floating Tooltip */}
@@ -338,7 +378,10 @@ export default function WorkoutStreakGraph({
                     left: hoveredContribution.originLeft,
                     top: hoveredContribution.originTop,
                     x: "-50%",
-                    y: hoveredContribution.placement === "above" ? "-100%" : "0%",
+                    y:
+                      hoveredContribution.placement === "above"
+                        ? "-100%"
+                        : "0%",
                   }}
                   animate={{
                     opacity: 1,
@@ -346,7 +389,10 @@ export default function WorkoutStreakGraph({
                     left: hoveredContribution.left,
                     top: hoveredContribution.top,
                     x: "-50%",
-                    y: hoveredContribution.placement === "above" ? "-100%" : "0%",
+                    y:
+                      hoveredContribution.placement === "above"
+                        ? "-100%"
+                        : "0%",
                   }}
                   exit={{ opacity: 0, scale: 0.92 }}
                   transition={{
@@ -361,16 +407,22 @@ export default function WorkoutStreakGraph({
                     <span
                       className="w-2.5 h-2.5 rounded-full"
                       style={{
-                        backgroundColor: hoveredContribution.contribution.level === 0 ? "#ef4444" : colors[hoveredContribution.contribution.level],
-                        boxShadow: `0 0 8px ${hoveredContribution.contribution.level === 0 ? "#ef4444" : colors[hoveredContribution.contribution.level]}`
+                        backgroundColor:
+                          hoveredContribution.contribution.level === 0
+                            ? "#ef4444"
+                            : colors[hoveredContribution.contribution.level],
+                        boxShadow: `0 0 8px ${hoveredContribution.contribution.level === 0 ? "#ef4444" : colors[hoveredContribution.contribution.level]}`,
                       }}
                     />
-                    <span>{formatContributionLabel(hoveredContribution.contribution)}</span>
+                    <span>
+                      {formatContributionLabel(
+                        hoveredContribution.contribution,
+                      )}
+                    </span>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-
           </div>
         </div>
       )}
@@ -385,13 +437,15 @@ export default function WorkoutStreakGraph({
                 style={{
                   width: 13,
                   height: 13,
-                  backgroundColor: '#ef4444',
+                  backgroundColor: "#ef4444",
                   borderRadius: 3,
-                  border: '1px solid rgba(239, 68, 68, 0.6)',
-                  boxShadow: '0 0 6px rgba(239, 68, 68, 0.45)'
+                  border: "1px solid rgba(239, 68, 68, 0.6)",
+                  boxShadow: "0 0 6px rgba(239, 68, 68, 0.45)",
                 }}
               />
-              <span className="text-rose-400 font-bold text-xs">🔴 Absent (Not Checked-In)</span>
+              <span className="text-rose-400 font-bold text-xs">
+                🔴 Absent (Not Checked-In)
+              </span>
             </div>
 
             {/* Present Activity Volume Scale */}
@@ -406,13 +460,15 @@ export default function WorkoutStreakGraph({
                       height: 13,
                       backgroundColor: color,
                       borderRadius: 3,
-                      border: '1px solid rgba(255,255,255,0.1)'
+                      border: "1px solid rgba(255,255,255,0.1)",
                     }}
                     title={`Session Intensity Level ${idx + 1}`}
                   />
                 ))}
               </div>
-              <span className="text-emerald-400 font-bold text-xs">🟢 Present (High Volume)</span>
+              <span className="text-emerald-400 font-bold text-xs">
+                🟢 Present (High Volume)
+              </span>
             </div>
           </div>
 
