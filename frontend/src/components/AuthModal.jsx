@@ -11,6 +11,10 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [signInSuccess, setSignInSuccess] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
+
+  // Form state
   const [signInData, setSignInData] = useState({ email: '', password: '' });
   const [signUpData, setSignUpData] = useState({ name: '', email: '', phone: '', password: '' });
   const [errorMsg, setErrorMsg] = useState('');
@@ -22,6 +26,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
   useEffect(() => {
     setIsRightPanelActive(initialMode === 'sign-up');
     setErrorMsg('');
+    setSignInSuccess(false);
+    setSignUpSuccess(false);
   }, [initialMode, isOpen]);
 
   if (!isOpen) return null;
@@ -37,10 +43,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
     setLoading(true);
 
     try {
-      const result = await login(signInData.email, signInData.password);
+      const [result] = await Promise.all([
+        login(signInData.email, signInData.password),
+        new Promise((resolve) => setTimeout(resolve, 800))
+      ]);
       setLoading(false);
 
       if (result.success && result.user) {
+        setSignInSuccess(true);
         botRef.current?.celebrate();
 
         confetti({
@@ -50,9 +60,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
           colors: ['#FF2E4C', '#E50914', '#00F2FE', '#10B981', '#F59E0B']
         });
 
-        if (onSuccess) onSuccess(result.user, 'sign-in');
-
         setTimeout(() => {
+          if (onSuccess) onSuccess(result.user, 'sign-in');
           onClose();
           const role = (result.user.role || '').toLowerCase().trim();
           if (role === 'admin') {
@@ -64,14 +73,16 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
           } else {
             navigate('/account?tab=personal&sub=profile');
           }
-        }, 1600);
+        }, 1800);
       } else {
+        setSignInSuccess(false);
         setErrorMsg(result.message || 'Invalid email or password.');
         astroAudio.playShy();
         botRef.current?.think();
       }
     } catch (err) {
       setLoading(false);
+      setSignInSuccess(false);
       setErrorMsg('An unexpected error occurred. Please try again.');
       astroAudio.playShy();
       botRef.current?.think();
@@ -89,10 +100,14 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
     setLoading(true);
 
     try {
-      const result = await signup(signUpData);
+      const [result] = await Promise.all([
+        signup(signUpData),
+        new Promise((resolve) => setTimeout(resolve, 800))
+      ]);
       setLoading(false);
 
       if (result.success && result.user) {
+        setSignUpSuccess(true);
         botRef.current?.celebrate();
 
         confetti({
@@ -102,19 +117,20 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
           colors: ['#FF2E4C', '#E50914', '#00F2FE', '#10B981', '#F59E0B']
         });
 
-        if (onSuccess) onSuccess(result.user, 'sign-up');
-
         setTimeout(() => {
+          if (onSuccess) onSuccess(result.user, 'sign-up');
           onClose();
           navigate('/account?tab=personal&sub=profile');
-        }, 1600);
+        }, 1800);
       } else {
+        setSignUpSuccess(false);
         setErrorMsg(result.message || 'Registration failed.');
         astroAudio.playShy();
         botRef.current?.think();
       }
     } catch (err) {
       setLoading(false);
+      setSignUpSuccess(false);
       setErrorMsg('An unexpected error occurred during registration.');
       astroAudio.playShy();
       botRef.current?.think();
@@ -270,8 +286,15 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
                 </button>
               </div>
 
-              <button type="submit" className="auth-btn-primary" disabled={loading}>
-                {loading ? 'Creating Account...' : 'Register Now'}
+              <button 
+                type="submit" 
+                className={`morph-auth-submit-btn ${loading ? 'is-loading' : ''} ${signUpSuccess ? 'is-success' : ''}`} 
+                disabled={loading || signUpSuccess}
+              >
+                <span className="btn-label">{loading ? '' : 'Register Now'}</span>
+                <svg className="btn-check-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <path d="M0 11c2.761.575 6.312 1.688 9 3.438 3.157-4.23 8.828-8.187 15-11.438-5.861 5.775-10.711 12.328-14 18.917-2.651-3.766-5.547-7.271-10-10.917z"/>
+                </svg>
               </button>
 
               <div className="mobile-auth-switch">
@@ -377,8 +400,15 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'sign-in', on
                 Forgot your password?
               </a>
 
-              <button type="submit" className="auth-btn-primary" disabled={loading}>
-                {loading ? 'Authenticating...' : 'Login'}
+              <button 
+                type="submit" 
+                className={`morph-auth-submit-btn ${loading ? 'is-loading' : ''} ${signInSuccess ? 'is-success' : ''}`} 
+                disabled={loading || signInSuccess}
+              >
+                <span className="btn-label">{loading ? '' : 'Login'}</span>
+                <svg className="btn-check-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                  <path d="M0 11c2.761.575 6.312 1.688 9 3.438 3.157-4.23 8.828-8.187 15-11.438-5.861 5.775-10.711 12.328-14 18.917-2.651-3.766-5.547-7.271-10-10.917z"/>
+                </svg>
               </button>
 
               <div className="mobile-auth-switch">

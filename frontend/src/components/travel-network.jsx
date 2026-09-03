@@ -455,7 +455,7 @@ export default function TravelNetwork() {
   }, []);
 
   return (
-    <section id="network" className="py-24 px-4 md:px-12 bg-[#090C0E] relative overflow-hidden">
+    <section id="locations" className="py-24 px-4 md:px-12 bg-[#090C0E] relative overflow-hidden">
       
       {/* Background Ambient Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-radial from-[#FF2E4C]/10 via-[#00F0FF]/5 to-transparent blur-3xl pointer-events-none" />

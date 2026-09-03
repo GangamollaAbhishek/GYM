@@ -18,25 +18,66 @@ import {
   Shield,
   LayoutDashboard,
   Globe,
+  MapPin,
   UserCheck,
   UserCog,
-  ShieldCheck
+  ShieldCheck,
+  Home,
+  Flame,
+  Zap,
+  Layers,
+  Compass
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useLandingPageCMS } from "../context/LandingPageCMSContext";
 import { useCart } from "../context/CartContext";
 
+const DEFAULT_NAV_CONFIG = {
+  Home: {
+    icon: Home,
+    i: "#E50914",
+    j: "#FF2E4C",
+  },
+  Programs: {
+    icon: Flame,
+    i: "#E50914",
+    j: "#FF2E4C",
+  },
+  Supplements: {
+    icon: Zap,
+    i: "#E50914",
+    j: "#FF2E4C",
+  },
+  Trainers: {
+    icon: Users,
+    i: "#E50914",
+    j: "#FF2E4C",
+  },
+  Memberships: {
+    icon: Crown,
+    i: "#E50914",
+    j: "#FF2E4C",
+  },
+  Locations: {
+    icon: MapPin,
+    i: "#E50914",
+    j: "#FF2E4C",
+  },
+  Zones: {
+    icon: MapPin,
+    i: "#E50914",
+    j: "#FF2E4C",
+  },
+};
+
 export function SpotlightNavbar({
   items = [
-    { label: "Home", href: "#" },
-    { label: "Programs", href: "#explore-escape" },
-    { label: "Supplements", href: "#preworkout-showcase" },
-    { label: "3D Arena", href: "#cylinder-arena" },
-    { label: "Trainers", href: "#trainers-deck" },
-    { label: "Memberships", href: "#services-showcase" },
-    { label: "Zones", href: "#supplements-menu" },
-    { label: "Transformations", href: "#transformations" },
-    { label: "Locations", href: "#locations" },
+    { label: "Home", href: "#", icon: Home, i: "#E50914", j: "#FF2E4C" },
+    { label: "Programs", href: "#explore-escape", icon: Flame, i: "#E50914", j: "#FF2E4C" },
+    { label: "Supplements", href: "#preworkout-showcase", icon: Zap, i: "#E50914", j: "#FF2E4C" },
+    { label: "Trainers", href: "#trainers-deck", icon: Users, i: "#E50914", j: "#FF2E4C" },
+    { label: "Memberships", href: "#services-section", icon: Crown, i: "#E50914", j: "#FF2E4C" },
+    { label: "Locations", href: "#locations", icon: MapPin, i: "#E50914", j: "#FF2E4C" },
   ],
   className,
   onItemClick,
@@ -77,12 +118,27 @@ export function SpotlightNavbar({
 
     if (item.href && item.href.startsWith("#")) {
       if (item.href === "#") {
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        if (window.__lenis) {
+          window.__lenis.scrollTo(0, { duration: 1.2 });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
       } else {
         const targetId = item.href.replace("#", "");
-        const targetElem = document.getElementById(targetId) || document.querySelector(item.href);
+        const targetElem = 
+          document.getElementById(targetId) || 
+          (targetId === 'services-showcase' ? document.getElementById('services-section') : null) ||
+          (targetId === 'services-section' ? document.getElementById('services-showcase') : null) ||
+          document.querySelector(item.href);
+
         if (targetElem) {
-          targetElem.scrollIntoView({ behavior: "smooth" });
+          if (window.__lenis) {
+            window.__lenis.scrollTo(targetElem, { offset: -64, duration: 1.2 });
+          } else {
+            const yOffset = -64;
+            const y = targetElem.getBoundingClientRect().top + window.pageYOffset + yOffset;
+            window.scrollTo({ top: y, behavior: "smooth" });
+          }
         }
       }
     }
@@ -97,8 +153,8 @@ export function SpotlightNavbar({
   };
 
   return (
-    <header className={cn("fixed top-0 left-0 right-0 z-[100] bg-[#08090D]/95 backdrop-blur-xl border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.75)] transition-all duration-300", className)}>
-      <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-4">
+    <header className={cn("fixed top-0 left-0 right-0 z-[100] bg-[#08090D]/95 backdrop-blur-xl border-b border-[#E50914]/20 shadow-[0_4px_25px_rgba(229,9,20,0.15)] transition-all duration-300", className)}>
+      <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
         
         {/* 1. LEFT SIDE: BRAND LOGO + NAME */}
         <a 
@@ -107,64 +163,76 @@ export function SpotlightNavbar({
             e.preventDefault();
             window.scrollTo({ top: 0, behavior: "smooth" });
           }}
-          className="logo-truus flex items-center gap-3 group focus:outline-none cursor-pointer shrink-0"
+          className="logo-truus flex items-center gap-2.5 group focus:outline-none cursor-pointer shrink-0"
         >
           {brandData.logo ? (
-            <div className="w-10 h-10 rounded-xl bg-[#121217] border border-white/15 overflow-hidden flex items-center justify-center p-1.5 shadow-[0_0_20px_rgba(229,9,20,0.4)] group-hover:scale-105 transition-transform duration-300">
+            <div className="w-8 h-8 rounded-lg bg-[#121217] border border-white/15 overflow-hidden flex items-center justify-center p-1 shadow-[0_0_15px_rgba(229,9,20,0.4)] group-hover:scale-105 transition-transform duration-300">
               <img src={brandData.logo} alt={brandData.name || 'Logo'} className="w-full h-full object-contain" />
             </div>
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.5)] group-hover:scale-105 transition-transform duration-300">
-              <Activity size={22} className="stroke-[2.5]" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_15px_rgba(229,9,20,0.5)] group-hover:scale-105 transition-transform duration-300">
+              <Activity size={18} className="stroke-[2.5]" />
             </div>
           )}
           <div className="flex flex-col">
-            <span className="font-bebas text-2xl sm:text-3xl text-white tracking-wider leading-none">
+            <span className="font-bebas text-xl sm:text-2xl text-white tracking-wider leading-none">
               {brandData.name || 'TITAN•PULSE'}
             </span>
-            <span className="text-[9px] uppercase tracking-[0.25em] text-[#A0A0A0] font-mono leading-tight">
+            <span className="text-[8px] uppercase tracking-[0.25em] text-[#A0A0A0] font-mono leading-tight">
               {brandData.subname || '3D FITNESS SYSTEM'}
             </span>
           </div>
         </a>
 
-        {/* 2. CENTER: TRADITIONAL HORIZONTAL NAVIGATION LINKS */}
-        <nav className="flex items-center gap-1 sm:gap-2 md:gap-3 lg:gap-5 overflow-x-auto no-scrollbar py-1">
-          {items.map((item, idx) => (
-            <a
-              key={idx}
-              href={item.href}
-              onClick={(e) => {
-                e.preventDefault();
-                handleItemClick(item, idx);
-              }}
-              className={cn(
-                "relative px-3 py-1.5 text-xs sm:text-[13px] font-bold uppercase tracking-wider transition-all duration-200 rounded-lg whitespace-nowrap cursor-pointer",
-                activeIndex === idx
-                  ? "text-white bg-white/10 shadow-[0_0_15px_rgba(229,9,20,0.3)] border border-[#E50914]/40"
-                  : "text-neutral-400 hover:text-white hover:bg-white/5"
-              )}
-            >
-              {item.label}
-              {activeIndex === idx && (
-                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-[#E50914] shadow-[0_0_8px_#E50914]" />
-              )}
-            </a>
-          ))}
+        {/* 2. CENTER: MORPHING EXPANDABLE PILL NAVBAR */}
+        <nav className="flex items-center overflow-x-auto no-scrollbar py-1 px-1">
+          <ul className="nav-morph-list">
+            {items.map((item, idx) => {
+              const config = DEFAULT_NAV_CONFIG[item.label] || {};
+              const IconComponent = item.icon || config.icon || Activity;
+              const colorI = item.i || config.i || "#E50914";
+              const colorJ = item.j || config.j || "#FF2E4C";
+
+              return (
+                <li key={idx} className="list-none flex-shrink-0">
+                  <a
+                    href={item.href}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      handleItemClick(item, idx);
+                    }}
+                    style={{
+                      "--i": colorI,
+                      "--j": colorJ,
+                    }}
+                    className={cn(
+                      "nav-morph-item",
+                      activeIndex === idx && "is-active"
+                    )}
+                  >
+                    <span className="nav-icon">
+                      <IconComponent size={17} />
+                    </span>
+                    <span className="nav-title">{item.label}</span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
         </nav>
 
         {/* 3. RIGHT SIDE: CART & LOGIN / USER PROFILE */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           
           {/* CART BUTTON WITH BADGE */}
           <Link
             to="/my-cart"
-            className="relative p-2.5 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white hover:text-[#FF1E27] transition-all flex items-center justify-center cursor-pointer shadow-sm group"
+            className="relative p-2 rounded-full bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white hover:text-[#FF1E27] transition-all flex items-center justify-center cursor-pointer shadow-sm group"
             title="View My Cart"
           >
-            <ShoppingBag size={18} />
+            <ShoppingBag size={16} />
             {totalItemsCount > 0 && (
-              <span className="absolute -top-1 -right-1 px-1.5 py-0.5 min-w-[18px] h-[18px] rounded-full bg-[#FF1E27] text-white text-[10px] font-black font-mono flex items-center justify-center shadow-[0_0_10px_rgba(255,30,39,0.8)] animate-pulse">
+              <span className="absolute -top-1 -right-1 px-1 py-0.5 min-w-[16px] h-[16px] rounded-full bg-[#FF1E27] text-white text-[9px] font-black font-mono flex items-center justify-center shadow-[0_0_10px_rgba(255,30,39,0.8)] animate-pulse">
                 {totalItemsCount}
               </span>
             )}
@@ -177,71 +245,71 @@ export function SpotlightNavbar({
                 <button
                   onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
                   onMouseEnter={() => setAccountDropdownOpen(true)}
-                  className="flex items-center gap-2 bg-[#181114] hover:bg-[#23151A] border border-[#FF1E27]/50 hover:border-[#FF1E27] px-3.5 py-2 rounded-full transition-all cursor-pointer shadow-[0_0_15px_rgba(255,30,39,0.2)] group"
+                  className="flex items-center gap-1.5 bg-[#181114] hover:bg-[#23151A] border border-[#FF1E27]/50 hover:border-[#FF1E27] px-3 py-1.5 rounded-full transition-all cursor-pointer shadow-[0_0_15px_rgba(255,30,39,0.2)] group"
                 >
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#FF1E27] to-[#B91C1C] text-white flex items-center justify-center shadow-sm">
-                    <Shield size={14} className="text-white" />
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#FF1E27] to-[#B91C1C] text-white flex items-center justify-center shadow-sm">
+                    <Shield size={12} className="text-white" />
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-white max-w-[100px] truncate">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-bold text-white max-w-[90px] truncate">
                       {user.name ? user.name.split(' ')[0] : 'Admin'}
                     </span>
-                    <span className="px-1.5 py-0.5 rounded bg-[#FF1E27]/20 border border-[#FF1E27]/30 text-[#FF1E27] text-[9px] font-mono font-black uppercase">
+                    <span className="px-1 py-0.2 rounded bg-[#FF1E27]/20 border border-[#FF1E27]/30 text-[#FF1E27] text-[8px] font-mono font-black uppercase">
                       HQ
                     </span>
                   </div>
                   {accountDropdownOpen ? (
-                    <ChevronUp size={14} className="text-[#FF1E27] transition-transform" />
+                    <ChevronUp size={13} className="text-[#FF1E27] transition-transform" />
                   ) : (
-                    <ChevronDown size={14} className="text-slate-400 group-hover:text-white transition-transform" />
+                    <ChevronDown size={13} className="text-slate-400 group-hover:text-white transition-transform" />
                   )}
                 </button>
               ) : user.role === 'receptionist' ? (
                 <button
                   onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
                   onMouseEnter={() => setAccountDropdownOpen(true)}
-                  className="flex items-center gap-2 bg-[#1B1710] hover:bg-[#251E14] border border-amber-500/50 hover:border-amber-400 px-3.5 py-2 rounded-full transition-all cursor-pointer shadow-md group"
+                  className="flex items-center gap-1.5 bg-[#1B1710] hover:bg-[#251E14] border border-amber-500/50 hover:border-amber-400 px-3 py-1.5 rounded-full transition-all cursor-pointer shadow-md group"
                 >
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-amber-700 text-black flex items-center justify-center shadow-sm">
-                    <UserCog size={14} className="text-white" />
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-500 to-amber-700 text-black flex items-center justify-center shadow-sm">
+                    <UserCog size={12} className="text-white" />
                   </div>
-                  <span className="text-xs font-bold text-white max-w-[100px] truncate">
+                  <span className="text-xs font-bold text-white max-w-[90px] truncate">
                     {user.name ? user.name.split(' ')[0] : 'Desk'}
                   </span>
-                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-mono font-bold">DESK</span>
-                  {accountDropdownOpen ? <ChevronUp size={14} className="text-amber-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                  <span className="px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[8px] font-mono font-bold">DESK</span>
+                  {accountDropdownOpen ? <ChevronUp size={13} className="text-amber-400" /> : <ChevronDown size={13} className="text-slate-400" />}
                 </button>
               ) : user.role === 'trainer' ? (
                 <button
                   onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
                   onMouseEnter={() => setAccountDropdownOpen(true)}
-                  className="flex items-center gap-2 bg-[#171120] hover:bg-[#21172E] border border-purple-500/50 hover:border-purple-400 px-3.5 py-2 rounded-full transition-all cursor-pointer shadow-md group"
+                  className="flex items-center gap-1.5 bg-[#171120] hover:bg-[#21172E] border border-purple-500/50 hover:border-purple-400 px-3 py-1.5 rounded-full transition-all cursor-pointer shadow-md group"
                 >
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-purple-500 to-purple-800 text-white flex items-center justify-center shadow-sm">
-                    <Dumbbell size={14} className="text-white" />
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-purple-500 to-purple-800 text-white flex items-center justify-center shadow-sm">
+                    <Dumbbell size={12} className="text-white" />
                   </div>
-                  <span className="text-xs font-bold text-white max-w-[100px] truncate">
+                  <span className="text-xs font-bold text-white max-w-[90px] truncate">
                     {user.name ? user.name.split(' ')[0] : 'Coach'}
                   </span>
-                  <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 text-[9px] font-mono font-bold">COACH</span>
-                  {accountDropdownOpen ? <ChevronUp size={14} className="text-purple-400" /> : <ChevronDown size={14} className="text-slate-400" />}
+                  <span className="px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 text-[8px] font-mono font-bold">COACH</span>
+                  {accountDropdownOpen ? <ChevronUp size={13} className="text-purple-400" /> : <ChevronDown size={13} className="text-slate-400" />}
                 </button>
               ) : (
                 <button
                   onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
                   onMouseEnter={() => setAccountDropdownOpen(true)}
-                  className="flex items-center gap-2 bg-[#151722] hover:bg-[#1f2333] border border-white/15 hover:border-[#FF2E4C]/50 px-3.5 py-2 rounded-full transition-all cursor-pointer shadow-md group"
+                  className="flex items-center gap-1.5 bg-[#151722] hover:bg-[#1f2333] border border-white/15 hover:border-[#FF2E4C]/50 px-3 py-1.5 rounded-full transition-all cursor-pointer shadow-md group"
                 >
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#E50914] to-[#FF2E4C] text-white font-extrabold text-xs flex items-center justify-center uppercase shadow-sm">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#E50914] to-[#FF2E4C] text-white font-extrabold text-[11px] flex items-center justify-center uppercase shadow-sm">
                     {(user.name || 'U').charAt(0)}
                   </div>
-                  <span className="text-xs font-bold text-white max-w-[100px] sm:max-w-[130px] truncate">
+                  <span className="text-xs font-bold text-white max-w-[90px] sm:max-w-[120px] truncate">
                     {user.name ? user.name.split(' ')[0] : 'Athlete'}
                   </span>
                   {accountDropdownOpen ? (
-                    <ChevronUp size={14} className="text-slate-400 group-hover:text-white transition-transform" />
+                    <ChevronUp size={13} className="text-slate-400 group-hover:text-white transition-transform" />
                   ) : (
-                    <ChevronDown size={14} className="text-slate-400 group-hover:text-white transition-transform" />
+                    <ChevronDown size={13} className="text-slate-400 group-hover:text-white transition-transform" />
                   )}
                 </button>
               )}
@@ -487,19 +555,41 @@ export function SpotlightNavbar({
               </AnimatePresence>
             </div>
           ) : (
-            /* TRADITIONAL HORIZONTAL LOGIN BUTTON */
+            /* GOOEY BLOB LOGIN BUTTON */
             <button
               onClick={handleLoginClick}
-              className="px-5 sm:px-6 py-2 sm:py-2.5 rounded-full bg-gradient-to-r from-[#E50914] to-[#FF2B35] text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider shadow-[0_0_20px_rgba(229,9,20,0.5)] hover:shadow-[0_0_25px_rgba(229,9,20,0.8)] hover:brightness-110 transition-all cursor-pointer flex items-center gap-1.5"
+              className="blob-btn group focus:outline-none shrink-0"
+              title="Sign In / Register"
             >
-              <span>Login</span>
-              <ArrowRight size={14} />
+              <span className="blob-btn__text flex items-center gap-1.5 font-extrabold uppercase tracking-wider text-xs sm:text-[13px]">
+                <span>Login</span>
+                <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
+              </span>
+              <span className="blob-btn__inner">
+                <span className="blob-btn__blobs">
+                  <span className="blob-btn__blob"></span>
+                  <span className="blob-btn__blob"></span>
+                  <span className="blob-btn__blob"></span>
+                  <span className="blob-btn__blob"></span>
+                </span>
+              </span>
             </button>
           )}
 
         </div>
 
       </div>
+
+      {/* SVG Gooey Filter for Blob Buttons */}
+      <svg xmlns="http://www.w3.org/2000/svg" version="1.1" className="hidden absolute w-0 h-0 pointer-events-none" aria-hidden="true">
+        <defs>
+          <filter id="goo">
+            <feGaussianBlur in="SourceGraphic" result="blur" stdDeviation="8"></feGaussianBlur>
+            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 21 -7" result="goo"></feColorMatrix>
+            <feBlend in2="goo" in="SourceGraphic" result="mix"></feBlend>
+          </filter>
+        </defs>
+      </svg>
     </header>
   );
 }

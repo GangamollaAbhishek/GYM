@@ -10,7 +10,7 @@ import SpotlightNavbar from './components/SpotlightNavbar';
 import Hero from './components/hero';
 import TransitionScribble from './components/TransitionScribble';
 import HorizontalWords from './components/HorizontalWords';
-import FadeThroughShowcase from './components/FadeThroughShowcase';
+import KineticFlythroughGrid from './components/KineticFlythroughGrid';
 import LineByLineShowcase from './components/LineByLineShowcase';
 import ExpandingFrameSection from './components/ExpandingFrameSection';
 import PreworkoutShowcaseSection from './components/PreworkoutShowcaseSection';
@@ -27,6 +27,7 @@ import ConstellationTestimonials from './components/constellation-testimonials';
 import TravelNetwork from './components/travel-network';
 import TrainerCardDeck from './components/TrainerCardDeck';
 import DepthParallaxShowcase from './components/DepthParallaxShowcase';
+import ParallaxFeatureZoom from './components/ParallaxFeatureZoom';
 import Footer from './components/footer';
 import AuthPage from './components/AuthPage';
 import AuthModal from './components/AuthModal';
@@ -40,7 +41,7 @@ import ScrollToTop from './components/ScrollToTop';
 import MyCartPage from './components/MyCartPage';
 import ToastNotificationStack from './components/ToastNotificationStack';
 
-import { X, Shield, Sparkles } from 'lucide-react';
+import { X, Shield, Sparkles, Home, Flame, Zap, Users, Crown, Globe, MapPin } from 'lucide-react';
 import { LandingPageCMSProvider } from './context/LandingPageCMSContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -123,17 +124,6 @@ function MainAppContent() {
 
   const handleAuthSuccess = (userData, mode) => {
     triggerToast(mode === 'sign-up' ? `Welcome to TITAN PULSE, ${userData.name}!` : `Welcome back, ${userData.name}!`);
-
-    const role = (userData.role || '').toLowerCase().trim();
-    if (role === 'admin') {
-      navigate('/admin');
-    } else if (role === 'receptionist') {
-      navigate('/receptionist');
-    } else if (role === 'trainer') {
-      navigate('/trainer');
-    } else {
-      navigate('/');
-    }
   };
 
   const handleLogout = () => {
@@ -169,15 +159,12 @@ function MainAppContent() {
   };
 
   const navItems = [
-    { label: "Home", href: "#" },
-    { label: "Programs", href: "#explore-escape" },
-    { label: "Supplements", href: "#preworkout-showcase" },
-    { label: "3D Arena", href: "#cylinder-arena" },
-    { label: "Trainers", href: "#trainers-deck" },
-    { label: "Memberships", href: "#services-showcase" },
-    { label: "Zones", href: "#supplements-menu" },
-    { label: "Transformations", href: "#transformations" },
-    { label: "Locations", href: "#locations" },
+    { label: "Home", href: "#", icon: Home, i: "#E50914", j: "#FF2E4C" },
+    { label: "Programs", href: "#explore-escape", icon: Flame, i: "#E50914", j: "#FF2E4C" },
+    { label: "Supplements", href: "#preworkout-showcase", icon: Zap, i: "#E50914", j: "#FF2E4C" },
+    { label: "Trainers", href: "#trainers-deck", icon: Users, i: "#E50914", j: "#FF2E4C" },
+    { label: "Memberships", href: "#services-section", icon: Crown, i: "#E50914", j: "#FF2E4C" },
+    { label: "Locations", href: "#locations", icon: MapPin, i: "#E50914", j: "#FF2E4C" },
   ];
 
   return (
@@ -230,11 +217,8 @@ function MainAppContent() {
                 {/* Kinetic Horizontal Pinning Words Section */}
                 <HorizontalWords />
 
-                {/* SmoothUI FadeThrough Performance Manifesto Section */}
-                <FadeThroughShowcase onExploreClick={() => {
-                  const el = document.getElementById('explore-escape');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }} />
+                {/* 3D Perspective Scroll Fly-Through Grid Showcase */}
+                <KineticFlythroughGrid />
 
                 {/* Section 3: "Explore Programs" Bento Grid */}
                 <ExploreEscape onReserveSpot={handleReserveSpot} />
@@ -250,6 +234,7 @@ function MainAppContent() {
 
                 {/* 8th Section: 3D Interactive Services & Membership Showcase */}
                 <ServicesSection 
+                  id="services-section"
                   onClaimPass={handleReserveSpot}
                   onBookPT={handleBookCoach}
                 />
@@ -257,16 +242,13 @@ function MainAppContent() {
                 {/* Apple-style SmoothUI Line-by-Line Architectural Reveal */}
                 <LineByLineShowcase />
 
-                {/* SmoothUI 3D Depth Parallax Words Showcase */}
-                <DepthParallaxShowcase />
+                {/* Parallax Zoom-Out & Blur Feature Showcase */}
+                <ParallaxFeatureZoom />
 
                 {/* Signature Workout Zones Sticky Horizontal Scroll */}
                 <PopularDestinations onReserveSpot={handleReserveSpot} />
 
-                {/* 3D Smart Gym Equipment Engine */}
-                <LetsDrive />
-
-                {/* "Why We Dominate" Bento Matrix */}
+                {/* "Why We Dominate" 3D Stacking Cards Deck */}
                 <WhyChoose />
 
                 {/* Locations & Coaches Spotlight */}

@@ -43,7 +43,7 @@ export default function PopularSpots({ onBookCoach }) {
   const currentSpot = spots.find(s => s.id === activeSpot);
 
   return (
-    <section id="locations" className="py-24 px-4 md:px-12 bg-[#090C0E] relative">
+    <section id="coaches-spotlight" className="py-24 px-4 md:px-12 bg-[#090C0E] relative">
       
       <div className="max-w-7xl mx-auto">
         

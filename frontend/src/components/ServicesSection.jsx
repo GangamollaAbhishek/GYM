@@ -2026,7 +2026,7 @@ export function ServicesSection({
 
   return (
     <section
-      id={id}
+      id={id || 'services-section'}
       ref={rootRef}
       tabIndex={0}
       role="region"
@@ -2039,6 +2039,8 @@ export function ServicesSection({
         className,
       )}
     >
+      {/* Anchor for backward compatibility */}
+      <span id="services-showcase" className="absolute top-0 left-0 pointer-events-none" aria-hidden="true" />
       {/* Background Section Title */}
       <div
         className={`pointer-events-none absolute left-1/2 top-[12%] z-[1] -translate-x-1/2 select-none transition-all duration-500 ease-out ${

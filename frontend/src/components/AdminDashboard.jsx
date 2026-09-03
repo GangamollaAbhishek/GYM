@@ -1785,14 +1785,12 @@ export default function AdminDashboard({ user, onLogout }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-                  <a
-                    href="/"
-                    target="_blank"
-                    rel="noreferrer"
+                  <Link
+                    to="/"
                     className="px-4 py-2.5 rounded-xl bg-[#181820] border border-[#2A2A38] hover:border-[#FF1E27] text-slate-200 hover:text-white font-bold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md"
                   >
                     <Eye size={15} className="text-[#FF1E27]" /> Live Preview
-                  </a>
+                  </Link>
 
                   <button
                     onClick={handleResetCMS}

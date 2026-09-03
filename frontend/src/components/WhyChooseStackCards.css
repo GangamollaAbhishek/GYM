@@ -1,0 +1,194 @@
+/* WhyChooseStackCards.css - 3D Scroll Stacking Deck Effect */
+
+.stack-cards-section {
+  position: relative;
+  width: 100%;
+  height: 380vh;
+  background: #07080B;
+  color: #ffffff;
+}
+
+@media(max-width: 768px) {
+  .stack-cards-section {
+    height: 340vh;
+  }
+}
+
+/* Background Animated Light Rays */
+.s__rays {
+  position: absolute;
+  top: 0;
+  left: 0; 
+  right: 0; 
+  margin-left: auto; 
+  margin-right: auto; 
+  height: 100%;
+  width: 420px;
+  max-width: 90vw;
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.a-rays {
+  position: absolute;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  pointer-events: none;
+  transform: skew(-15deg);
+  transition: opacity .7s linear;
+  will-change: opacity;
+}
+
+.a-rays .a__scene {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translate3d(-50%,0,0);
+}
+
+.a-rays .a__scene path {
+  stroke-linecap: round;
+  stroke-width: 1.5px;
+  animation: a-rays-move 20s linear infinite;
+  will-change: transform;
+}
+
+@keyframes a-rays-move {
+  0% {
+    transform: translateZ(0);
+  }
+  100% {
+    transform: translate3d(0, -100%, 0);
+  }
+}
+
+/* Sticky Center Viewport */
+.stack-viewport {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+/* Stacking Deck Container */
+.stack-cards-deck {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
+  margin: 0 auto;
+}
+
+@media(max-width: 640px) {
+  .stack-cards-deck {
+    max-width: 92vw;
+    height: 340px;
+  }
+}
+
+.stack-card-item {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -50%);
+  border-radius: 1.75rem;
+  will-change: opacity, transform;
+  color: white;
+  transition: transform 0.85s cubic-bezier(0.25, 1, 0.5, 1), 
+              opacity 0.7s cubic-bezier(0.25, 1, 0.5, 1),
+              box-shadow 0.4s ease;
+  user-select: none;
+}
+
+.stack-card-item .card-inner {
+  position: relative;
+  z-index: 2;
+  padding: 1.85rem;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at top left, #161A22 0%, #0D1016 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 1.75rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  backdrop-filter: blur(16px);
+}
+
+.stack-card-item.accent-red .card-inner {
+  border-color: rgba(255, 46, 76, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(255, 46, 76, 0.15);
+}
+
+.stack-card-item.accent-cyan .card-inner {
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 240, 255, 0.15);
+}
+
+.stack-card-item.accent-amber .card-inner {
+  border-color: rgba(255, 184, 0, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(255, 184, 0, 0.15);
+}
+
+.stack-card-item.accent-purple .card-inner {
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(168, 85, 247, 0.15);
+}
+
+/* Card Shadow Element Behind */
+.stack-card-item .card-shadow {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(7, 9, 13, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 1.75rem;
+  filter: blur(4px);
+}
+
+/* Counter Badge */
+.stack-card-item .counter-badge {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Slide-Up State */
+.stack-card-item.slide-up {
+  transform: translate(-50%, -240%) scale(0.92) rotate(-4deg);
+  opacity: 0;
+  pointer-events: none;
+}

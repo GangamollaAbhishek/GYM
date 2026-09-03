@@ -20,6 +20,8 @@ export default function AuthPage({ onAuthSuccess }) {
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [signInSuccess, setSignInSuccess] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
 
   // 3D Mascot & Customizer State
   const [modelType, setModelType] = useState('robot'); // 'robot' | 'xbot' | 'soldier'
@@ -32,13 +34,14 @@ export default function AuthPage({ onAuthSuccess }) {
   const [signUpData, setSignUpData] = useState({ name: '', email: '', phone: '', password: '' });
   const [errorMsg, setErrorMsg] = useState('');
 
-  // If already authenticated, redirect appropriately
+  // If already authenticated on initial page mount, redirect appropriately
   useEffect(() => {
     const isSignUp = location.pathname === '/signup' || location.pathname === '/register';
     setIsRightPanelActive(isSignUp);
     setErrorMsg('');
 
-    if (isAuthenticated && user) {
+    // Only auto-redirect if already logged in on page load, NOT during active form submission/animation
+    if (isAuthenticated && user && !loading && !signInSuccess && !signUpSuccess) {
       const userRole = (user.role || '').toLowerCase().trim();
       const redirectFrom = location.state?.from?.pathname;
 
@@ -54,7 +57,7 @@ export default function AuthPage({ onAuthSuccess }) {
         navigate('/account?tab=personal&sub=profile', { replace: true });
       }
     }
-  }, [location.pathname, isAuthenticated, user, navigate, location.state]);
+  }, [location.pathname, isAuthenticated, user, navigate, location.state, loading, signInSuccess, signUpSuccess]);
 
   const switchToSignUp = () => {
     setIsRightPanelActive(true);
@@ -83,10 +86,17 @@ export default function AuthPage({ onAuthSuccess }) {
     setLoading(true);
 
     try {
-      const result = await login(signInData.email, signInData.password);
+      // Allow the spinning animation to display for at least 800ms
+      const [result] = await Promise.all([
+        login(signInData.email, signInData.password),
+        new Promise((resolve) => setTimeout(resolve, 800))
+      ]);
+
       setLoading(false);
 
       if (result.success && result.user) {
+        // Trigger green checkmark animation
+        setSignInSuccess(true);
         botRef.current?.celebrate();
 
         confetti({
@@ -96,9 +106,10 @@ export default function AuthPage({ onAuthSuccess }) {
           colors: ['#FF2E4C', '#E50914', '#00F2FE', '#10B981', '#F59E0B']
         });
 
-        if (onAuthSuccess) onAuthSuccess(result.user, 'sign-in');
-
+        // Redirect to Dashboard strictly AFTER the effect completes
         setTimeout(() => {
+          if (onAuthSuccess) onAuthSuccess(result.user, 'sign-in');
+
           const role = (result.user.role || '').toLowerCase().trim();
           const fromPath = location.state?.from?.pathname;
 
@@ -113,14 +124,16 @@ export default function AuthPage({ onAuthSuccess }) {
           } else {
             navigate('/account?tab=personal&sub=profile', { replace: true });
           }
-        }, 1600);
+        }, 1800);
       } else {
+        setSignInSuccess(false);
         setErrorMsg(result.message || 'Invalid email or password.');
         astroAudio.playShy();
         botRef.current?.think();
       }
     } catch (err) {
       setLoading(false);
+      setSignInSuccess(false);
       setErrorMsg('An unexpected error occurred. Please try again.');
       astroAudio.playShy();
       botRef.current?.think();
@@ -138,10 +151,15 @@ export default function AuthPage({ onAuthSuccess }) {
     setLoading(true);
 
     try {
-      const result = await signup(signUpData);
+      const [result] = await Promise.all([
+        signup(signUpData),
+        new Promise((resolve) => setTimeout(resolve, 800))
+      ]);
+
       setLoading(false);
 
       if (result.success && result.user) {
+        setSignUpSuccess(true);
         botRef.current?.celebrate();
 
         confetti({
@@ -151,17 +169,20 @@ export default function AuthPage({ onAuthSuccess }) {
           colors: ['#FF2E4C', '#E50914', '#00F2FE', '#10B981', '#F59E0B']
         });
 
-        if (onAuthSuccess) onAuthSuccess(result.user, 'sign-up');
+        // Redirect to Dashboard strictly AFTER the effect completes
         setTimeout(() => {
+          if (onAuthSuccess) onAuthSuccess(result.user, 'sign-up');
           navigate('/account?tab=personal&sub=profile', { replace: true });
-        }, 1600);
+        }, 1800);
       } else {
+        setSignUpSuccess(false);
         setErrorMsg(result.message || 'Registration failed.');
         astroAudio.playShy();
         botRef.current?.think();
       }
     } catch (err) {
       setLoading(false);
+      setSignUpSuccess(false);
       setErrorMsg('An unexpected error occurred during registration.');
       astroAudio.playShy();
       botRef.current?.think();
@@ -390,8 +411,15 @@ export default function AuthPage({ onAuthSuccess }) {
                   </button>
                 </div>
 
-                <button type="submit" className="auth-btn-primary" disabled={loading}>
-                  {loading ? 'Creating Account...' : 'Register Now'}
+                <button 
+                  type="submit" 
+                  className={`morph-auth-submit-btn ${loading ? 'is-loading' : ''} ${signUpSuccess ? 'is-success' : ''}`} 
+                  disabled={loading || signUpSuccess}
+                >
+                  <span className="btn-label">{loading ? '' : 'Register Now'}</span>
+                  <svg className="btn-check-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M0 11c2.761.575 6.312 1.688 9 3.438 3.157-4.23 8.828-8.187 15-11.438-5.861 5.775-10.711 12.328-14 18.917-2.651-3.766-5.547-7.271-10-10.917z"/>
+                  </svg>
                 </button>
 
                 <div className="mobile-auth-switch">
@@ -497,8 +525,15 @@ export default function AuthPage({ onAuthSuccess }) {
                   Forgot your password?
                 </a>
 
-                <button type="submit" className="auth-btn-primary" disabled={loading}>
-                  {loading ? 'Authenticating...' : 'Login'}
+                <button 
+                  type="submit" 
+                  className={`morph-auth-submit-btn ${loading ? 'is-loading' : ''} ${signInSuccess ? 'is-success' : ''}`} 
+                  disabled={loading || signInSuccess}
+                >
+                  <span className="btn-label">{loading ? '' : 'Login'}</span>
+                  <svg className="btn-check-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M0 11c2.761.575 6.312 1.688 9 3.438 3.157-4.23 8.828-8.187 15-11.438-5.861 5.775-10.711 12.328-14 18.917-2.651-3.766-5.547-7.271-10-10.917z"/>
+                  </svg>
                 </button>
 
                 <div className="mobile-auth-switch">
