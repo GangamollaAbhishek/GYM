@@ -232,7 +232,13 @@ export default function Hero({ onSearchSubmit, onJoinClick, onStoryClick }) {
 
                 {/* Hero Athlete Image */}
                 <img
-                  src="/assets/hero-athlete.png"
+                  src={
+                    heroData.athleteImage &&
+                    heroData.athleteImage !== "/assets/hero-athlete.png" &&
+                    heroData.athleteImage !== "/assets/toji-2.jpg"
+                      ? heroData.athleteImage
+                      : "/assets/toji-2-removebg-preview.png"
+                  }
                   alt="Titan Pulse Athlete"
                   className="relative z-10 w-auto h-[400px] sm:h-[480px] lg:h-[550px] xl:h-[590px] object-contain object-bottom drop-shadow-[0_15px_45px_rgba(229,9,20,0.35)] filter brightness-[1.05] contrast-[1.1]"
                 />

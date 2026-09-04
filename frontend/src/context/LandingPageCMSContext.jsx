@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import api from "../lib/api";
 
 const defaultLandingData = {
   brand: {
@@ -20,7 +21,7 @@ const defaultLandingData = {
     transformationsLabel: "Transformations",
     hoursCount: "24/7",
     hoursLabel: "Gym Access",
-    athleteImage: "/assets/hero-athlete.png",
+    athleteImage: "/assets/toji-2-removebg-preview.png",
   },
   horizontalWords: {
     sentence: "PAIN IS TEMPORARY GLORY IS FOREVER",
@@ -408,6 +409,33 @@ export function LandingPageCMSProvider({ children }) {
     }
   });
 
+  // Fetch genuine saved CMS & Brand settings from MongoDB on mount
+  useEffect(() => {
+    const fetchLiveCMS = async () => {
+      try {
+        const res = await api.get("/api/cms");
+        if (res.data?.status === "success" && res.data?.data) {
+          const liveData = res.data.data;
+          if (
+            liveData.memberships &&
+            !Array.isArray(liveData.memberships) &&
+            typeof liveData.memberships === "object"
+          ) {
+            liveData.memberships = Object.values(liveData.memberships);
+          }
+          setCmsData(liveData);
+          localStorage.setItem("titan_landing_cms", JSON.stringify(liveData));
+        }
+      } catch (err) {
+        console.warn(
+          "Could not load CMS from backend server, falling back to local storage cache:",
+          err,
+        );
+      }
+    };
+    fetchLiveCMS();
+  }, []);
+
   // Listen for storage events (e.g. when Admin updates CMS in admin panel)
   useEffect(() => {
     const handleStorageChange = (e) => {
@@ -431,7 +459,8 @@ export function LandingPageCMSProvider({ children }) {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  const updateSection = (sectionKey, newSectionData) => {
+  const updateSection = async (sectionKey, newSectionData) => {
+    let finalUpdated;
     setCmsData((prev) => {
       let finalSectionData;
       if (Array.isArray(newSectionData)) {
@@ -449,26 +478,50 @@ export function LandingPageCMSProvider({ children }) {
         finalSectionData = newSectionData;
       }
 
-      const updated = {
+      finalUpdated = {
         ...prev,
         [sectionKey]: finalSectionData,
       };
-      localStorage.setItem("titan_landing_cms", JSON.stringify(updated));
-      return updated;
+      localStorage.setItem("titan_landing_cms", JSON.stringify(finalUpdated));
+      return finalUpdated;
     });
+
+    // Asynchronously save to MongoDB database
+    try {
+      await api.put(`/api/cms/${sectionKey}`, newSectionData);
+    } catch (err) {
+      console.error(
+        `Failed to save CMS section "${sectionKey}" to database:`,
+        err,
+      );
+    }
   };
 
-  const updateFullCMS = (newFullData) => {
+  const updateFullCMS = async (newFullData) => {
     setCmsData(newFullData);
     localStorage.setItem("titan_landing_cms", JSON.stringify(newFullData));
+
+    // Asynchronously save full CMS & brand settings to MongoDB database
+    try {
+      await api.put("/api/cms", newFullData);
+    } catch (err) {
+      console.error("Failed to save full CMS to database:", err);
+    }
   };
 
-  const resetToDefaults = () => {
+  const resetToDefaults = async () => {
     setCmsData(defaultLandingData);
     localStorage.setItem(
       "titan_landing_cms",
       JSON.stringify(defaultLandingData),
     );
+
+    // Reset in MongoDB database
+    try {
+      await api.post("/api/cms/reset");
+    } catch (err) {
+      console.error("Failed to reset CMS in database:", err);
+    }
   };
 
   return (
