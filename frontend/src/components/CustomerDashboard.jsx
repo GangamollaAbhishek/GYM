@@ -1334,15 +1334,48 @@ export default function CustomerDashboard({ onLogout }) {
     });
   };
 
+  // Helper to get renewal price from CMS for the user's plan
+  const getCustomerRenewPrice = (months) => {
+    const activeList =
+      cmsData?.memberships && cmsData.memberships.length > 0
+        ? cmsData.memberships
+        : [];
+    const targetPlanName =
+      user?.membershipPlan && user.membershipPlan !== "No Active Plan"
+        ? user.membershipPlan
+        : activeList[0]?.name || "PRO MEMBERSHIP";
+    const matched =
+      activeList.find(
+        (p) =>
+          p.name?.toLowerCase() === targetPlanName.toLowerCase() ||
+          p.id?.toLowerCase() === targetPlanName.toLowerCase() ||
+          (p.tierKey &&
+            targetPlanName.toLowerCase().includes(p.tierKey.toLowerCase()))
+      ) || activeList[0];
+
+    const monthlyPrice = Number(matched?.price) || 2499;
+    const m = Number(months) || 1;
+    if (m === 1) return monthlyPrice;
+    if (m === 3)
+      return matched?.quarterlyPrice
+        ? Number(matched.quarterlyPrice)
+        : Math.round(monthlyPrice * 3 * 0.92);
+    if (m === 6) return Math.round(monthlyPrice * 6 * 0.88);
+    if (m === 12)
+      return matched?.annualPrice
+        ? Number(matched.annualPrice)
+        : Math.round(monthlyPrice * 10);
+    return monthlyPrice * m;
+  };
+
   // Open Payment Interface for Renewal
   const handleRenewPayment = () => {
     const durationMonths = parseInt(selectedRenewDuration, 10) || 12;
-    const renewPriceMap = { 1: 2499, 3: 6749, 6: 11999, 12: 19499 };
-    const priceNum = renewPriceMap[selectedRenewDuration] || 19499;
+    const priceNum = getCustomerRenewPrice(durationMonths);
     const targetPlan =
       user?.membershipPlan && user.membershipPlan !== "No Active Plan"
         ? user.membershipPlan
-        : "TITAN OBSIDIAN PRO";
+        : "PRO MEMBERSHIP";
 
     setCardHolder(fullName || user?.name || "Athlete Member");
     setCardErrors({});
@@ -4174,26 +4207,26 @@ export default function CustomerDashboard({ onLogout }) {
                           {
                             val: "1",
                             title: "1 Month Renewal",
-                            price: "₹2,499",
+                            price: `₹${getCustomerRenewPrice(1).toLocaleString()}`,
                             save: null,
                           },
                           {
                             val: "3",
                             title: "3 Months Renewal",
-                            price: "₹6,749",
-                            save: "Save 10%",
+                            price: `₹${getCustomerRenewPrice(3).toLocaleString()}`,
+                            save: "Save 8%",
                           },
                           {
                             val: "6",
                             title: "6 Months Renewal",
-                            price: "₹11,999",
-                            save: "Save 20%",
+                            price: `₹${getCustomerRenewPrice(6).toLocaleString()}`,
+                            save: "Save 12%",
                           },
                           {
                             val: "12",
                             title: "12 Months (Best Value)",
-                            price: "₹19,499",
-                            save: "Save 35%",
+                            price: `₹${getCustomerRenewPrice(12).toLocaleString()}`,
+                            save: "2 Months Free",
                           },
                         ].map((opt) => (
                           <div
@@ -4226,13 +4259,7 @@ export default function CustomerDashboard({ onLogout }) {
                         <div className="flex justify-between text-xs text-slate-300">
                           <span>Base Renewal Charge:</span>
                           <span className="font-mono text-white">
-                            {selectedRenewDuration === "1"
-                              ? "₹2,499"
-                              : selectedRenewDuration === "3"
-                                ? "₹6,749"
-                                : selectedRenewDuration === "6"
-                                  ? "₹11,999"
-                                  : "₹19,499"}
+                            ₹{getCustomerRenewPrice(selectedRenewDuration).toLocaleString()}
                           </span>
                         </div>
                         <div className="flex justify-between text-xs text-slate-300">
@@ -4250,13 +4277,7 @@ export default function CustomerDashboard({ onLogout }) {
                         <div className="pt-2 border-t border-white/[0.06] flex justify-between text-sm font-semibold text-white">
                           <span>Total Payable Amount:</span>
                           <span className="font-mono text-[#FF1E27] text-base font-bold">
-                            {selectedRenewDuration === "1"
-                              ? "₹2,499"
-                              : selectedRenewDuration === "3"
-                                ? "₹6,749"
-                                : selectedRenewDuration === "6"
-                                  ? "₹11,999"
-                                  : "₹19,499"}
+                            ₹{getCustomerRenewPrice(selectedRenewDuration).toLocaleString()}
                           </span>
                         </div>
                       </div>

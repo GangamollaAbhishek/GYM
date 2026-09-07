@@ -21,9 +21,13 @@ const itemVariants = {
   },
 };
 
-function ItemCard({ item, pinned, onToggle, onItemClick }) {
+const ItemCard = React.forwardRef(function ItemCard(
+  { item, pinned, onToggle, onItemClick },
+  ref
+) {
   return (
     <motion.div
+      ref={ref}
       layoutId={item.id}
       layout
       variants={itemVariants}
@@ -89,7 +93,7 @@ function ItemCard({ item, pinned, onToggle, onItemClick }) {
       </button>
     </motion.div>
   );
-}
+});
 
 const headingVariants = {
   hidden: { opacity: 0, y: -6 },

@@ -157,6 +157,19 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
           assignedTrainer: req.user.assignedTrainer || null,
           assignedTrainerName: req.user.assignedTrainerName || '',
           createdAt: req.user.createdAt,
+          shift: req.user.shift || '06:00 AM - 02:00 PM',
+          specialization: req.user.specialization || 'Master Coach & Conditioning',
+          assignedRoom: req.user.assignedRoom || 'Main Strength & Conditioning Arena',
+          workingDays: req.user.workingDays || ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+          breakTime: req.user.breakTime || '01:00 PM - 02:00 PM',
+          experience: req.user.experience || '6+ Years Experience',
+          bio: req.user.bio || 'Certified strength, biomechanics and performance specialist.',
+          rating: req.user.rating || '5.0',
+          pricePerSession: req.user.pricePerSession || '₹1,500',
+          workoutPlan: req.user.workoutPlan,
+          dietPlan: req.user.dietPlan,
+          trainerNotes: req.user.trainerNotes || [],
+          chatMessages: req.user.chatMessages || []
         }
       }
     });
@@ -1202,8 +1215,8 @@ app.get('/api/feedbacks', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/feedbacks/trainer/:trainerId - Get feedbacks for specific trainer
-app.get('/api/feedbacks/trainer/:trainerId', authenticateToken, async (req, res) => {
+// GET /api/feedbacks/trainer/:trainerId & /feedbacks/trainer/:trainerId
+const handleGetTrainerFeedbacks = async (req, res) => {
   try {
     const { trainerId } = req.params;
     const trainerUser = await User.findById(req.user?.id || req.user?._id).lean().exec();
@@ -1280,10 +1293,13 @@ app.get('/api/feedbacks/trainer/:trainerId', authenticateToken, async (req, res)
     console.error('Fetch trainer feedbacks error:', error);
     res.status(500).json({ status: 'error', message: 'Failed to fetch feedbacks' });
   }
-});
+};
+
+app.get('/api/feedbacks/trainer/:trainerId', authenticateToken, handleGetTrainerFeedbacks);
+app.get('/feedbacks/trainer/:trainerId', authenticateToken, handleGetTrainerFeedbacks);
 
 // PUT /api/feedbacks/:id/reply - Coach/Admin adds a reply to a feedback
-app.put('/api/feedbacks/:id/reply', authenticateToken, async (req, res) => {
+const handleReplyFeedback = async (req, res) => {
   try {
     const { reply } = req.body;
     if (!reply) {
@@ -1312,7 +1328,10 @@ app.put('/api/feedbacks/:id/reply', authenticateToken, async (req, res) => {
     console.error('Reply feedback error:', error);
     res.status(500).json({ status: 'error', message: 'Failed to post reply' });
   }
-});
+};
+
+app.put('/api/feedbacks/:id/reply', authenticateToken, handleReplyFeedback);
+app.put('/feedbacks/:id/reply', authenticateToken, handleReplyFeedback);
 
 // POST /api/users - Create new user from Admin panel or Receptionist onboarding
 app.post('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist'), async (req, res) => {
@@ -1439,26 +1458,38 @@ app.put('/api/users/:id/membership', authenticateToken, async (req, res) => {
   }
 });
 
-// PUT /api/users/:id/shift - Update trainer shift timings, working days, and arena (Protected: Admin)
-app.put('/api/users/:id/shift', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+// PUT /api/users/:id/shift - Update trainer shift timings, working days, and arena (Protected: Admin, Receptionist, Trainer)
+const handleUpdateShift = async (req, res) => {
   try {
     const { id } = req.params;
-    const { shift, room, days, specialization } = req.body;
+    const { shift, room, days, specialization, breakTime } = req.body;
 
     const updateFields = {};
     if (shift) updateFields.shift = shift;
     if (room) updateFields.assignedRoom = room;
     if (days) updateFields.workingDays = days;
     if (specialization) updateFields.specialization = specialization;
+    if (breakTime) updateFields.breakTime = breakTime;
 
-    const updated = await User.findByIdAndUpdate(
-      id,
-      { $set: updateFields },
-      { new: true }
-    ).select('-password');
+    let updated = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      updated = await User.findByIdAndUpdate(
+        id,
+        { $set: updateFields },
+        { new: true }
+      ).select('-password');
+    }
 
     if (!updated) {
-      return res.status(404).json({ status: 'error', message: 'Trainer not found' });
+      updated = await User.findOneAndUpdate(
+        { $or: [{ email: id }, { name: new RegExp(`^${id}$`, 'i') }] },
+        { $set: updateFields },
+        { new: true }
+      ).select('-password');
+    }
+
+    if (!updated) {
+      return res.status(404).json({ status: 'error', message: 'Trainer not found in database' });
     }
 
     res.status(200).json({
@@ -1470,7 +1501,10 @@ app.put('/api/users/:id/shift', authenticateToken, authorizeRoles('admin'), asyn
     console.error('Update shift error:', error);
     res.status(500).json({ status: 'error', message: error.message });
   }
-});
+};
+
+app.put('/api/users/:id/shift', authenticateToken, authorizeRoles('admin', 'receptionist', 'trainer'), handleUpdateShift);
+app.put('/users/:id/shift', authenticateToken, authorizeRoles('admin', 'receptionist', 'trainer'), handleUpdateShift);
 
 // GET /api/trainers - Retrieve all genuine registered trainers/coaches
 app.get('/api/trainers', async (req, res) => {

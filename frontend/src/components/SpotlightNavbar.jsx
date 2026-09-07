@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, animate } from "framer-motion";
 import {
   Activity,
   ArrowRight,
@@ -123,8 +123,80 @@ export function SpotlightNavbar({
 
   const navigate = useNavigate();
   const dropdownRef = useRef(null);
+  const navRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(defaultActiveIndex);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+  const [hoverX, setHoverX] = useState(null);
+
+  // Refs for the "light" positions to animate imperatively with spring physics
+  const spotlightX = useRef(0);
+  const ambienceX = useRef(0);
+
+  // Handle Mouse Spotlight Movement with Spring on leave
+  useEffect(() => {
+    if (!navRef.current) return;
+    const nav = navRef.current;
+
+    const handleMouseMove = (e) => {
+      const rect = nav.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      setHoverX(x);
+      spotlightX.current = x;
+      nav.style.setProperty("--spotlight-x", `${x}px`);
+    };
+
+    const handleMouseLeave = () => {
+      setHoverX(null);
+      // When mouse leaves, spring the spotlight back to the active item
+      const activeItem = nav.querySelector(`[data-index="${activeIndex}"]`);
+      if (activeItem) {
+        const navRect = nav.getBoundingClientRect();
+        const itemRect = activeItem.getBoundingClientRect();
+        const targetX = itemRect.left - navRect.left + itemRect.width / 2;
+
+        animate(spotlightX.current, targetX, {
+          type: "spring",
+          stiffness: 200,
+          damping: 20,
+          onUpdate: (v) => {
+            spotlightX.current = v;
+            nav.style.setProperty("--spotlight-x", `${v}px`);
+          },
+        });
+      }
+    };
+
+    nav.addEventListener("mousemove", handleMouseMove);
+    nav.addEventListener("mouseleave", handleMouseLeave);
+
+    return () => {
+      nav.removeEventListener("mousemove", handleMouseMove);
+      nav.removeEventListener("mouseleave", handleMouseLeave);
+    };
+  }, [activeIndex]);
+
+  // Handle the "Ambience" (Active Item) Movement
+  useEffect(() => {
+    if (!navRef.current) return;
+    const nav = navRef.current;
+    const activeItem = nav.querySelector(`[data-index="${activeIndex}"]`);
+
+    if (activeItem) {
+      const navRect = nav.getBoundingClientRect();
+      const itemRect = activeItem.getBoundingClientRect();
+      const targetX = itemRect.left - navRect.left + itemRect.width / 2;
+
+      animate(ambienceX.current, targetX, {
+        type: "spring",
+        stiffness: 200,
+        damping: 20,
+        onUpdate: (v) => {
+          ambienceX.current = v;
+          nav.style.setProperty("--ambience-x", `${v}px`);
+        },
+      });
+    }
+  }, [activeIndex]);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -229,9 +301,16 @@ export function SpotlightNavbar({
           </div>
         </a>
 
-        {/* 2. CENTER: MORPHING EXPANDABLE PILL NAVBAR */}
-        <nav className="flex items-center overflow-x-auto no-scrollbar py-1 px-1">
-          <ul className="nav-morph-list">
+        {/* 2. CENTER: SPOTLIGHT MORPHING EXPANDABLE PILL NAVBAR */}
+        <nav
+          ref={navRef}
+          className="relative flex items-center overflow-x-auto no-scrollbar py-1 px-2 rounded-full bg-[#101015]/90 border border-white/10 shadow-[0_4px_25px_rgba(0,0,0,0.5)] transition-all duration-300 overflow-hidden"
+          style={{
+            "--spotlight-color": "rgba(255, 46, 76, 0.25)",
+            "--ambience-color": "#FF2E4C",
+          }}
+        >
+          <ul className="nav-morph-list relative z-[10] flex items-center gap-0.5">
             {items.map((item, idx) => {
               const config = DEFAULT_NAV_CONFIG[item.label] || {};
               const IconComponent = item.icon || config.icon || Activity;
@@ -242,6 +321,7 @@ export function SpotlightNavbar({
                 <li key={idx} className="list-none flex-shrink-0">
                   <a
                     href={item.href}
+                    data-index={idx}
                     onClick={(e) => {
                       e.preventDefault();
                       handleItemClick(item, idx);
@@ -264,6 +344,24 @@ export function SpotlightNavbar({
               );
             })}
           </ul>
+
+          {/* LIGHTING LAYERS */}
+          {/* 1. Moving Spotlight Layer (Follows Mouse with Spring) */}
+          <div
+            className="pointer-events-none absolute bottom-0 left-0 w-full h-full z-[1] transition-opacity duration-300"
+            style={{
+              opacity: hoverX !== null ? 1 : 0,
+              background: `radial-gradient(130px circle at var(--spotlight-x, 0px) 100%, var(--spotlight-color, rgba(255,46,76,0.25)) 0%, transparent 60%)`,
+            }}
+          />
+
+          {/* 2. Active State Ambience Line (Springs to Active Item) */}
+          <div
+            className="pointer-events-none absolute bottom-0 left-0 w-full h-[2px] z-[2]"
+            style={{
+              background: `radial-gradient(70px circle at var(--ambience-x, 0px) 0%, var(--ambience-color, #FF2E4C) 0%, transparent 100%)`,
+            }}
+          />
         </nav>
 
         {/* 3. RIGHT SIDE: CART & LOGIN / USER PROFILE */}

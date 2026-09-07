@@ -53,9 +53,12 @@ import {
   FileCheck,
   Download,
   ExternalLink,
+  RefreshCw,
+  LayoutDashboard,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import PinnedList from "./smoothui/components/pinned-list";
+import WhyUsBento from "./WhyUsBento";
 import api from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useLandingPageCMS } from "../context/LandingPageCMSContext";
@@ -715,9 +718,9 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Active Main Tab
-  const initialTab = searchParams.get("tab") || "assigned-customers";
+  const initialTab = searchParams.get("tab") || "dashboard";
   const [activeTab, setActiveTab] = useState(
-    initialTab === "notifications" ? "assigned-customers" : initialTab,
+    initialTab === "notifications" ? "dashboard" : initialTab,
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
@@ -1219,31 +1222,42 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
     const saved = localStorage.getItem(
       `titan_coach_profile_${user?.id || user?._id || "default"}`,
     );
+    let initialFromStorage = null;
     if (saved) {
       try {
-        return JSON.parse(saved);
+        initialFromStorage = JSON.parse(saved);
       } catch (e) {}
     }
     return {
-      name: user?.name || "Master Coach Vikram",
+      name: user?.name || initialFromStorage?.name || "Master Coach Vikram",
       spec:
         user?.specialization ||
+        initialFromStorage?.spec ||
         "Master Strength & Olympic Biomechanics Specialist",
-      experience: user?.experience || "7+ Years Elite Faculty",
-      shift: user?.shift || "06:00 AM - 02:00 PM (Morning Roster)",
-      room: user?.assignedRoom || "Main Strength & Olympic Lifting Arena",
-      rating: user?.rating || "4.98",
-      totalSessions: 1420,
+      experience: user?.experience || initialFromStorage?.experience || "7+ Years Elite Faculty",
+      shift: user?.shift || initialFromStorage?.shift || "06:00 AM - 02:00 PM",
+      room: user?.assignedRoom || initialFromStorage?.room || "Main Strength & Olympic Lifting Arena",
+      workingDays:
+        user?.workingDays ||
+        initialFromStorage?.workingDays ||
+        ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+      breakTime:
+        user?.breakTime ||
+        initialFromStorage?.breakTime ||
+        "11:00 AM - 11:30 AM",
+      rating: user?.rating || initialFromStorage?.rating || "4.98",
+      totalSessions: initialFromStorage?.totalSessions || 1420,
       bio:
         user?.bio ||
+        initialFromStorage?.bio ||
         "Former national powerlifting champion specialized in velocity-based barbell training, CNS recovery algorithms, and progressive hypertrophy periodization.",
-      certifications: [
+      certifications: initialFromStorage?.certifications || [
         "CSCS Certified",
         "IFBB Pro Conditioning",
         "Precision Nutrition L2",
         "Olympic Weightlifting USAW",
       ],
-      certificateFiles: [
+      certificateFiles: initialFromStorage?.certificateFiles || [
         {
           id: "cert-1",
           title: "CSCS (Certified Strength and Conditioning Specialist)",
@@ -1275,13 +1289,140 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
             "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80",
         },
       ],
-      phone: user?.phone || "+91 98765 43210",
-      email: user?.email || "vikram.coach@titanpulse.fit",
+      phone: user?.phone || initialFromStorage?.phone || "+91 98765 43210",
+      email: user?.email || initialFromStorage?.email || "vikram.coach@titanpulse.fit",
       avatar:
         user?.avatar ||
+        initialFromStorage?.avatar ||
         "https://images.unsplash.com/photo-1567013127542-490d757e51fc?auto=format&fit=crop&w=600&q=80",
     };
   });
+
+  // Real-time synchronization when Receptionist / Admin updates shift timings or coach details
+  const fetchLiveCoachProfile = async () => {
+    try {
+      const res = await api.get("/api/auth/me");
+      if (res.data?.status === "success" && res.data?.data?.user) {
+        const u = res.data.data.user;
+        setCoachProfile((prev) => {
+          const updated = {
+            ...prev,
+            name: u.name || prev.name,
+            email: u.email || prev.email,
+            phone: u.phone && u.phone !== "N/A" ? u.phone : prev.phone,
+            spec: u.specialization || prev.spec,
+            shift: u.shift || prev.shift,
+            room: u.assignedRoom || prev.room,
+            workingDays: u.workingDays && u.workingDays.length > 0 ? u.workingDays : prev.workingDays,
+            breakTime: u.breakTime || prev.breakTime,
+            experience: u.experience || prev.experience,
+            bio: u.bio || prev.bio,
+            rating: u.rating || prev.rating,
+            avatar: u.avatar || prev.avatar,
+          };
+          try {
+            localStorage.setItem(
+              `titan_coach_profile_${u.id || u._id || "default"}`,
+              JSON.stringify(updated),
+            );
+          } catch (e) {}
+          return updated;
+        });
+      }
+    } catch (e) {
+      console.warn("Live coach profile sync:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveCoachProfile();
+
+    // Listen for cross-tab or live in-app receptionist shift updates
+    const handleShiftSync = (e) => {
+      const detail = e.detail;
+      if (!detail) return;
+      const currentId = String(user?.id || user?._id || "");
+      const currentName = (user?.name || "").toLowerCase().trim();
+      const targetTrainerName = (detail.trainerName || "").toLowerCase().trim();
+
+      if (
+        !detail.trainerId ||
+        detail.trainerId === currentId ||
+        (targetTrainerName && targetTrainerName.includes(currentName)) ||
+        (currentName && currentName.includes(targetTrainerName))
+      ) {
+        setCoachProfile((prev) => {
+          const updated = {
+            ...prev,
+            shift: detail.shift || prev.shift,
+            room: detail.room || prev.room,
+            workingDays: detail.days || prev.workingDays,
+            breakTime: detail.breakTime || prev.breakTime,
+          };
+          try {
+            localStorage.setItem(
+              `titan_coach_profile_${user?.id || user?._id || "default"}`,
+              JSON.stringify(updated),
+            );
+          } catch (err) {}
+          return updated;
+        });
+        showToast(
+          `⚡ Duty Schedule Updated: Shift timings set to "${detail.shift}" by Receptionist!`,
+        );
+      }
+    };
+
+    const handleStorage = (e) => {
+      if (e.key === "titan_trainer_shift_updated" && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          const currentId = String(user?.id || user?._id || "");
+          const currentName = (user?.name || "").toLowerCase().trim();
+          const targetTrainerName = (data.trainerName || "").toLowerCase().trim();
+
+          if (
+            !data.trainerId ||
+            data.trainerId === currentId ||
+            (targetTrainerName && targetTrainerName.includes(currentName)) ||
+            (currentName && currentName.includes(targetTrainerName))
+          ) {
+            setCoachProfile((prev) => {
+              const updated = {
+                ...prev,
+                shift: data.shift || prev.shift,
+                room: data.room || prev.room,
+                workingDays: data.days || prev.workingDays,
+                breakTime: data.breakTime || prev.breakTime,
+              };
+              try {
+                localStorage.setItem(
+                  `titan_coach_profile_${user?.id || user?._id || "default"}`,
+                  JSON.stringify(updated),
+                );
+              } catch (err) {}
+              return updated;
+            });
+            showToast(
+              `⚡ Duty Schedule Updated: Shift timings set to "${data.shift}" by Receptionist!`,
+            );
+          }
+        } catch (err) {}
+      }
+    };
+
+    window.addEventListener("titan_trainer_shift_sync", handleShiftSync);
+    window.addEventListener("storage", handleStorage);
+
+    // Periodic polling to guarantee freshness even across independent browser sessions
+    const intervalId = setInterval(fetchLiveCoachProfile, 10000);
+
+    return () => {
+      window.removeEventListener("titan_trainer_shift_sync", handleShiftSync);
+      window.removeEventListener("storage", handleStorage);
+      clearInterval(intervalId);
+    };
+  }, [user]);
 
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [editProfileForm, setEditProfileForm] = useState({ ...coachProfile });
@@ -1586,7 +1727,7 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
       let apiFeedbacks = [];
       try {
         const res = await api.get(
-          `/feedbacks/trainer/${coachId || user?.name || "default"}`,
+          `/api/feedbacks/trainer/${coachId || user?.name || "default"}`,
         );
         if (
           res.data &&
@@ -1646,7 +1787,7 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
     const text = replyInput[feedbackId];
     if (!text || !text.trim()) return;
     try {
-      await api.put(`/feedbacks/${feedbackId}/reply`, { reply: text.trim() });
+      await api.put(`/api/feedbacks/${feedbackId}/reply`, { reply: text.trim() });
       setFeedbacks((prev) =>
         prev.map((f) =>
           f.id === feedbackId
@@ -1777,10 +1918,20 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
 
   const navItems = [
     {
+      id: "dashboard",
+      label: "Dashboard HQ",
+      icon: LayoutDashboard,
+    },
+    {
       id: "assigned-customers",
       label: "View Assigned Customers",
       icon: Users,
       badge: `${allCustomers.length}`,
+    },
+    {
+      id: "schedule",
+      label: "Duty Schedule & Timings",
+      icon: CalendarCheck,
     },
     { id: "profile", label: "Profile", icon: Award },
     {
@@ -1833,14 +1984,6 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                 </div>
               )}
             </Link>
-
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors cursor-pointer"
-              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
-            >
-              <Menu size={16} />
-            </button>
           </div>
 
           {/* Coach Profile Capsule */}
@@ -2092,6 +2235,174 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
 
         {/* Dashboard Body Container */}
         <div className="p-6 sm:p-8 max-w-7xl w-full mx-auto space-y-8 flex-1">
+          {/* ========================================================================================= */}
+          {/* 0. DASHBOARD OVERVIEW HQ (FEATURING WHYUSBENTO EFFECT)                                    */}
+          {/* ========================================================================================= */}
+          {activeTab === "dashboard" && (
+            <div className="space-y-8 animate-fadeIn">
+              {/* Welcome Hero Banner */}
+              <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-[#12141C] via-[#161826] to-[#12141C] border border-purple-500/30 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="flex items-center gap-5 relative z-10">
+                  <div className="relative">
+                    <img
+                      src={coachProfile.avatar}
+                      alt={coachProfile.name}
+                      className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover border-2 border-purple-500/60 shadow-2xl"
+                    />
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#12141C] animate-pulse" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight font-['Outfit',sans-serif]">
+                        Welcome, {coachProfile.name}
+                      </h2>
+                      <span className="px-2.5 py-0.5 rounded-full bg-purple-950/80 text-purple-300 border border-purple-700/60 text-[10px] font-bold font-mono">
+                        ★ MASTER COACH
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm text-purple-300/90 font-medium">
+                      {coachProfile.spec}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pt-1">
+                      <span className="flex items-center gap-1.5 font-mono text-purple-300">
+                        <Clock size={13} className="text-purple-400" /> Duty Shift: {coachProfile.shift}
+                      </span>
+                      <span className="text-slate-600">•</span>
+                      <span className="flex items-center gap-1.5 text-slate-300">
+                        <MapPin size={13} className="text-purple-400" /> {coachProfile.room}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 relative z-10 w-full md:w-auto">
+                  <button
+                    onClick={() => handleTabChange("assigned-customers")}
+                    className="flex-1 md:flex-none px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-lg hover:brightness-110 flex items-center justify-center gap-2"
+                  >
+                    <Users size={16} /> Manage Athletes ({allCustomers.length})
+                  </button>
+                  <button
+                    onClick={() => handleTabChange("schedule")}
+                    className="flex-1 md:flex-none px-5 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-slate-300 hover:text-white font-semibold text-xs sm:text-sm transition-all cursor-pointer border border-white/10 flex items-center justify-center gap-2"
+                  >
+                    <CalendarCheck size={16} className="text-purple-400" /> Duty Timings
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Quick Stat Metric Badges */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-5 rounded-2xl bg-[#12141C] border border-white/[0.08] space-y-1 shadow-sm">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider">ASSIGNED ATHLETES</span>
+                    <Users size={16} className="text-purple-400" />
+                  </div>
+                  <div className="text-2xl font-bold text-white font-mono">{allCustomers.length}</div>
+                  <span className="text-[11px] text-emerald-400 flex items-center gap-1">
+                    <CheckCircle size={12} /> Active Telemetry
+                  </span>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-[#12141C] border border-white/[0.08] space-y-1 shadow-sm">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider">FACULTY RATING</span>
+                    <Star size={16} className="text-amber-400 fill-amber-400" />
+                  </div>
+                  <div className="text-2xl font-bold text-amber-400 font-mono">{coachProfile.rating} / 5.0</div>
+                  <span className="text-[11px] text-slate-400">Verified Member Reviews</span>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-[#12141C] border border-white/[0.08] space-y-1 shadow-sm">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider">DUTY SHIFT</span>
+                    <Clock size={16} className="text-purple-400" />
+                  </div>
+                  <div className="text-base font-bold text-white font-mono truncate">{coachProfile.shift.split("(")[0]}</div>
+                  <span className="text-[11px] text-purple-300 flex items-center gap-1">
+                    <Sparkles size={12} /> Managed by Reception
+                  </span>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-[#12141C] border border-white/[0.08] space-y-1 shadow-sm">
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider">SESSIONS RUN</span>
+                    <Activity size={16} className="text-emerald-400" />
+                  </div>
+                  <div className="text-2xl font-bold text-white font-mono">{coachProfile.totalSessions}+</div>
+                  <span className="text-[11px] text-emerald-400 font-mono">100% Adherence Score</span>
+                </div>
+              </div>
+
+              {/* Bento Grid AI & Biomechanics Workspace */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-white font-['Outfit',sans-serif] flex items-center gap-2">
+                      <Sparkles size={18} className="text-purple-400" />
+                      <span>Coaching Architecture & Telemetry Bento</span>
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      High-performance athletic programming, closed-loop telemetry, and kinetic engineering.
+                    </p>
+                  </div>
+                </div>
+
+                <WhyUsBento />
+              </div>
+
+              {/* Quick Assigned Athletes Carousel */}
+              <div className="p-6 sm:p-7 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
+                  <h3 className="text-base font-bold text-white font-['Outfit',sans-serif] flex items-center gap-2">
+                    <Users size={18} className="text-purple-400" />
+                    <span>Recent Assigned Athletes</span>
+                  </h3>
+                  <button
+                    onClick={() => handleTabChange("assigned-customers")}
+                    className="text-xs font-semibold text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>View All ({allCustomers.length})</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {allCustomers.slice(0, 3).map((cust) => (
+                    <div
+                      key={cust.id}
+                      onClick={() => handleInspectCustomer(cust, "workout-plan")}
+                      className="p-4 rounded-2xl bg-[#090A0E] border border-white/[0.06] hover:border-purple-500/50 transition-all cursor-pointer flex items-center justify-between gap-3 group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={cust.avatar}
+                          alt={cust.name}
+                          className="w-11 h-11 rounded-xl object-cover border border-purple-500/30 group-hover:scale-105 transition-transform"
+                        />
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-bold text-white truncate font-['Outfit',sans-serif] group-hover:text-purple-400 transition-colors">
+                            {cust.name}
+                          </h4>
+                          <span className="text-[11px] text-purple-400 font-mono block truncate">
+                            {cust.membershipPlan}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="px-2.5 py-1 rounded-lg bg-purple-600/20 text-purple-300 text-xs font-semibold group-hover:bg-purple-600 group-hover:text-white transition-all shrink-0">
+                        View Plan
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ========================================================================================= */}
           {/* 1. VIEW ASSIGNED CUSTOMERS SECTION (ORIGINAL DB DATA & INLINE ATHLETE MANAGEMENT SECTION) */}
           {/* ========================================================================================= */}
@@ -3391,7 +3702,265 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
           )}
 
           {/* ========================================================================================= */}
-          {/* 2. PROFILE SECTION (INLINE VIEW, AVATAR UPLOAD, & CERTIFICATE DOCUMENTS SYSTEM)           */}
+          {/* 2. LIVE DUTY SCHEDULE & TIMINGS SECTION (MANAGED BY RECEPTIONIST)                         */}
+          {/* ========================================================================================= */}
+          {activeTab === "schedule" && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Header Bar */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-white/[0.08]">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-['Outfit',sans-serif] flex items-center gap-2.5">
+                    <CalendarCheck className="text-purple-400" size={24} />
+                    <span>Coach Duty Schedule & Shift Timings</span>
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                    Live schedule, shift window, working days, and training arena assigned and managed by Front Desk Reception.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <span className="px-3.5 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-xs font-mono font-bold flex items-center gap-2 shadow-sm">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Live Roster Active</span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      fetchLiveCoachProfile();
+                      showToast("🔄 Synced with Receptionist Duty Roster!");
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/40 text-purple-300 border border-purple-500/40 text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+                    title="Refresh schedule from database"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Sync Live</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 Key Schedule Metrics Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Shift Window */}
+                <div className="p-5 rounded-3xl bg-[#12141C] border border-purple-500/30 shadow-lg space-y-2 relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-purple-600/10 rounded-full blur-2xl group-hover:bg-purple-600/20 transition-all" />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-purple-400 font-mono font-bold uppercase tracking-wider">
+                      ASSIGNED DUTY SHIFT
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400 flex items-center justify-center">
+                      <Clock size={16} />
+                    </div>
+                  </div>
+                  <div className="text-lg font-bold text-white font-['Outfit',sans-serif] tracking-tight">
+                    {coachProfile.shift}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-purple-300/80 font-medium">
+                    <Sparkles size={11} className="text-purple-400" />
+                    <span>Configured by Receptionist</span>
+                  </div>
+                </div>
+
+                {/* 2. Training Arena */}
+                <div className="p-5 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-lg space-y-2 relative overflow-hidden group">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider">
+                      PRIMARY COACHING ARENA
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/10 text-slate-300 flex items-center justify-center">
+                      <MapPin size={16} />
+                    </div>
+                  </div>
+                  <div className="text-base font-bold text-white font-['Outfit',sans-serif] tracking-tight truncate">
+                    {coachProfile.room}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                    <ShieldCheck size={11} className="text-emerald-400" />
+                    <span>Designated Training Floor</span>
+                  </div>
+                </div>
+
+                {/* 3. Scheduled Break */}
+                <div className="p-5 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-lg space-y-2 relative overflow-hidden group">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider">
+                      SCHEDULED BREAK
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/10 text-slate-300 flex items-center justify-center">
+                      <Utensils size={16} />
+                    </div>
+                  </div>
+                  <div className="text-lg font-bold text-white font-['Outfit',sans-serif] tracking-tight">
+                    {coachProfile.breakTime || "11:00 AM - 11:30 AM"}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                    <Clock size={11} className="text-slate-500" />
+                    <span>Nutrition & Recovery Slot</span>
+                  </div>
+                </div>
+
+                {/* 4. Active Working Days */}
+                <div className="p-5 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-lg space-y-2 relative overflow-hidden group">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider">
+                      ACTIVE DUTY DAYS
+                    </span>
+                    <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/10 text-slate-300 flex items-center justify-center">
+                      <Calendar size={16} />
+                    </div>
+                  </div>
+                  <div className="text-lg font-bold text-white font-['Outfit',sans-serif] tracking-tight">
+                    {(coachProfile.workingDays || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).length} Days / Week
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-medium">
+                    <CheckCircle size={11} />
+                    <span>Active Weekly Rotation</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Weekly Shift Schedule Visual Matrix (Mon - Sun) */}
+              <div className="p-6 sm:p-7 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl space-y-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-4 border-b border-white/[0.06]">
+                  <div>
+                    <h3 className="text-base font-bold text-white font-['Outfit',sans-serif] flex items-center gap-2">
+                      <Calendar size={18} className="text-purple-400" />
+                      <span>Weekly Working Days & Shift Schedule</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Assigned duty calendar showing your active coaching days and daily shift hours.
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-purple-950/60 border border-purple-800/60 text-purple-300 text-xs font-mono font-semibold">
+                    Duty Hours: {coachProfile.shift.split("(")[0]}
+                  </span>
+                </div>
+
+                {/* Day Cards Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                  {[
+                    { id: "Mon", full: "Monday" },
+                    { id: "Tue", full: "Tuesday" },
+                    { id: "Wed", full: "Wednesday" },
+                    { id: "Thu", full: "Thursday" },
+                    { id: "Fri", full: "Friday" },
+                    { id: "Sat", full: "Saturday" },
+                    { id: "Sun", full: "Sunday" },
+                  ].map((d) => {
+                    const activeDays = coachProfile.workingDays || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                    const isOnDuty = activeDays.includes(d.id);
+
+                    return (
+                      <div
+                        key={d.id}
+                        className={`p-4 rounded-2xl border transition-all space-y-2.5 flex flex-col justify-between ${
+                          isOnDuty
+                            ? "bg-purple-950/20 border-purple-500/40 shadow-[0_0_15px_rgba(168,85,247,0.08)]"
+                            : "bg-[#090A0E]/60 border-white/[0.04] opacity-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-white font-['Outfit',sans-serif]">
+                            {d.full}
+                          </span>
+                          <span
+                            className={`w-2 h-2 rounded-full ${
+                              isOnDuty ? "bg-emerald-400" : "bg-slate-600"
+                            }`}
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <span
+                            className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md inline-block ${
+                              isOnDuty
+                                ? "bg-purple-600/30 text-purple-300 border border-purple-500/30"
+                                : "bg-white/[0.04] text-slate-500"
+                            }`}
+                          >
+                            {isOnDuty ? "ON DUTY" : "OFF / REST"}
+                          </span>
+                          {isOnDuty && (
+                            <p className="text-[11px] text-slate-300 font-mono pt-1">
+                              {coachProfile.shift.split("(")[0]}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Assigned Athletes for Current Shift */}
+              <div className="p-6 sm:p-7 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl space-y-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-white/[0.06]">
+                  <div>
+                    <h3 className="text-base font-bold text-white font-['Outfit',sans-serif] flex items-center gap-2">
+                      <Users size={18} className="text-purple-400" />
+                      <span>Athletes Assigned to Your Shift</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Members scheduled for coaching and workout guidance during your active hours.
+                    </p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-white/[0.06] text-slate-300 text-xs font-mono font-semibold">
+                    {allCustomers.length} Total Athletes
+                  </span>
+                </div>
+
+                {allCustomers.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-400 font-mono">
+                    No active athletes currently assigned. Front Desk Reception will allocate new athletes to your roster.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {allCustomers.slice(0, 6).map((cust) => (
+                      <div
+                        key={cust.id}
+                        className="p-4 rounded-2xl bg-[#090A0E] border border-white/[0.06] flex items-center justify-between gap-3 hover:border-purple-500/40 transition-all"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src={cust.avatar}
+                            alt={cust.name}
+                            className="w-10 h-10 rounded-xl object-cover border border-purple-500/30 shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <h4 className="text-xs sm:text-sm font-bold text-white truncate font-['Outfit',sans-serif]">
+                              {cust.name}
+                            </h4>
+                            <span className="text-[10px] text-purple-400 font-mono block truncate">
+                              {cust.membershipPlan}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleInspectCustomer(cust, "workout-plan")}
+                          className="px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600 text-purple-300 hover:text-white text-xs font-semibold transition-all cursor-pointer shrink-0"
+                        >
+                          View Plan
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Information Notice from Front Desk */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-purple-950/20 border border-purple-800/30 flex items-start gap-3.5 text-xs text-purple-200/90 leading-relaxed">
+                <ShieldCheck size={18} className="text-purple-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="text-white block font-semibold">
+                    Front Desk Concierge Duty Synchronization
+                  </strong>
+                  Your shift timings, active training zone, and break schedules are dynamically managed by the Gym Receptionist. Whenever reception updates your duty hours, your coach hub automatically synchronizes and updates the schedule in real time.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================================= */}
+          {/* 3. PROFILE SECTION (INLINE VIEW, AVATAR UPLOAD, & CERTIFICATE DOCUMENTS SYSTEM)           */}
           {/* ========================================================================================= */}
           {activeTab === "profile" && (
             <div className="space-y-6 animate-fadeIn">
