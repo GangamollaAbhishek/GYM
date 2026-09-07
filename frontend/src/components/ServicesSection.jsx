@@ -782,6 +782,8 @@ export function ServicesSection({
       envBlob(x, 256, 150, 120, "0,240,255", 0.35);
       const tx = new THREE.CanvasTexture(c);
       tx.mapping = THREE.EquirectangularReflectionMapping;
+      tx.flipY = false;
+      tx.premultiplyAlpha = false;
       const pmrem = new THREE.PMREMGenerator(renderer);
       scene.environment = pmrem.fromEquirectangular(tx).texture;
       tx.dispose();
@@ -819,6 +821,8 @@ export function ServicesSection({
       const t = new THREE.CanvasTexture(c);
       t.colorSpace = THREE.SRGBColorSpace;
       t.anisotropy = ANISO;
+      t.flipY = false;
+      t.premultiplyAlpha = false;
       return t;
     }
 
