@@ -778,24 +778,72 @@ export default function AdminDashboard({ user, onLogout }) {
           }));
         setReceptionistsList(liveReceptionists);
 
-        // 4. Synchronize Real Attendance Lists with pure genuine database records
-        setCustomerAttendanceList(
-          liveCustomers.map((c, idx) => ({
-            id: `LOG-C${101 + idx}`,
-            memberId: c.id || `TP-CUST-${101 + idx}`,
-            name: c.name,
-            email: c.email,
-            plan: c.plan || c.membershipPlan || "PRO MEMBERSHIP",
-            gate: idx % 2 === 0 ? "Turnstile Gate Alpha-1" : "Turnstile Gate Bravo-2",
-            timeIn: idx % 2 === 0 ? "06:30 AM" : "07:15 AM",
-            timeOut: idx % 3 === 0 ? "08:15 AM" : "--",
-            duration: idx % 3 === 0 ? "1h 15m" : "Active In Arena",
-            status: idx % 3 === 0 ? "Checked Out" : "Active Inside",
-            verification: "Biometric NFC Pass",
-            rfid: `RFID-${9000 + idx}`,
-            date: new Date().toISOString().slice(0, 10),
-          }))
-        );
+        // 4. Synchronize Real Attendance Lists with MongoDB database
+        try {
+          const attRes = await api.get("/api/attendance");
+          if (
+            attRes.data?.status === "success" &&
+            Array.isArray(attRes.data.data) &&
+            attRes.data.data.length > 0
+          ) {
+            const realLogs = attRes.data.data.map((l, idx) => ({
+              id: l.logId || `LOG-C${101 + idx}`,
+              memberId: l.customerId || `TP-CUST-${101 + idx}`,
+              name: l.name,
+              email: l.email || "",
+              phone: l.phone || "",
+              plan: l.plan || "PRO MEMBERSHIP",
+              gate: l.terminal || "Turnstile Gate Alpha-1",
+              timeIn: l.timeIn,
+              timeOut: l.timeOut || "--",
+              duration: l.status === "Checked Out" ? "1h 15m" : "Active In Arena",
+              status: l.status || "Active Inside",
+              verification: l.verification || "Manual OTP Verified",
+              rfid: l.otpCode ? `OTP-${l.otpCode}` : `RFID-${9000 + idx}`,
+              date: l.date || new Date().toISOString().slice(0, 10),
+            }));
+            setCustomerAttendanceList(realLogs);
+          } else {
+            setCustomerAttendanceList(
+              liveCustomers.map((c, idx) => ({
+                id: `LOG-C${101 + idx}`,
+                memberId: c.id || `TP-CUST-${101 + idx}`,
+                name: c.name,
+                email: c.email,
+                phone: c.phone,
+                plan: c.plan || c.membershipPlan || "PRO MEMBERSHIP",
+                gate: idx % 2 === 0 ? "Turnstile Gate Alpha-1" : "Turnstile Gate Bravo-2",
+                timeIn: idx % 2 === 0 ? "06:30 AM" : "07:15 AM",
+                timeOut: idx % 3 === 0 ? "08:15 AM" : "--",
+                duration: idx % 3 === 0 ? "1h 15m" : "Active In Arena",
+                status: idx % 3 === 0 ? "Checked Out" : "Active Inside",
+                verification: "Biometric NFC Pass",
+                rfid: `RFID-${9000 + idx}`,
+                date: new Date().toISOString().slice(0, 10),
+              }))
+            );
+          }
+        } catch (attErr) {
+          console.warn("Error fetching attendance logs in Admin:", attErr);
+          setCustomerAttendanceList(
+            liveCustomers.map((c, idx) => ({
+              id: `LOG-C${101 + idx}`,
+              memberId: c.id || `TP-CUST-${101 + idx}`,
+              name: c.name,
+              email: c.email,
+              phone: c.phone,
+              plan: c.plan || c.membershipPlan || "PRO MEMBERSHIP",
+              gate: idx % 2 === 0 ? "Turnstile Gate Alpha-1" : "Turnstile Gate Bravo-2",
+              timeIn: idx % 2 === 0 ? "06:30 AM" : "07:15 AM",
+              timeOut: idx % 3 === 0 ? "08:15 AM" : "--",
+              duration: idx % 3 === 0 ? "1h 15m" : "Active In Arena",
+              status: idx % 3 === 0 ? "Checked Out" : "Active Inside",
+              verification: "Biometric NFC Pass",
+              rfid: `RFID-${9000 + idx}`,
+              date: new Date().toISOString().slice(0, 10),
+            }))
+          );
+        }
 
         setTrainerAttendanceList(
           liveTrainers.map((t, idx) => ({
@@ -1000,6 +1048,32 @@ export default function AdminDashboard({ user, onLogout }) {
   useEffect(() => {
     fetchUsers();
     fetchPayments();
+    fetchEnquiries();
+
+    const handleSync = (e) => {
+      fetchUsers();
+      fetchPayments();
+      fetchEnquiries();
+
+      // Real-time toast alert when a new enquiry arrives from Reception Desk
+      if (e?.detail?.type === "NEW_ENQUIRY_LEAD" || e?.key === "titan_enquiry_sync_lead") {
+        try {
+          const payload = e?.detail || JSON.parse(localStorage.getItem("titan_enquiry_sync_lead") || "{}");
+          if (payload?.lead?.name) {
+            showToast(`📥 New Lead Received: ${payload.lead.name} (${payload.lead.goal || "Enquiry"})`);
+          }
+        } catch {}
+      }
+    };
+
+    window.addEventListener("titan_attendance_sync", handleSync);
+    window.addEventListener("titan_enquiry_sync", handleSync);
+    window.addEventListener("storage", handleSync);
+    return () => {
+      window.removeEventListener("titan_attendance_sync", handleSync);
+      window.removeEventListener("titan_enquiry_sync", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
   }, [activeTab]);
 
   // Live synchronization of assigned active athletes for selected coach
@@ -1854,6 +1928,112 @@ export default function AdminDashboard({ user, onLogout }) {
   ]);
 
   const [enquiriesList, setEnquiriesList] = useState([]);
+  const [showAddEnquiryModal, setShowAddEnquiryModal] = useState(false);
+  const [enquiryFilter, setEnquiryFilter] = useState("all");
+  const [enquirySearch, setEnquirySearch] = useState("");
+  const [newEnquiryForm, setNewEnquiryForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    goal: "Muscle Gain & Hypertrophy",
+    source: "Walk-in Visitor",
+    notes: "",
+  });
+
+  const fetchEnquiries = async () => {
+    try {
+      const res = await api.get("/api/enquiries");
+      if (res.data?.status === "success" && Array.isArray(res.data?.data)) {
+        setEnquiriesList(
+          res.data.data.map((enq) => ({
+            id: enq.enquiryId || (enq._id ? `ENQ-${String(enq._id).slice(-4)}` : `ENQ-${Math.floor(100 + Math.random() * 900)}`),
+            _id: enq._id,
+            enquiryId: enq.enquiryId,
+            name: enq.name,
+            email: enq.email && enq.email !== "N/A" ? enq.email : "N/A",
+            phone: enq.phone,
+            goal: enq.goal || "Muscle Gain & Strength",
+            source: enq.source || "Walk-in Visitor",
+            status: enq.status || "New Lead",
+            notes: enq.notes || "",
+            capturedBy: enq.capturedBy || "Front Desk Receptionist",
+            date: enq.date || (enq.createdAt ? enq.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+            createdAt: enq.createdAt,
+          }))
+        );
+      }
+    } catch (err) {
+      console.warn("Error fetching enquiries in Admin:", err);
+    }
+  };
+
+  const handleUpdateEnquiryStatus = async (targetId, newStatus) => {
+    try {
+      await api.put(`/api/enquiries/${targetId}`, { status: newStatus });
+      setEnquiriesList((prev) =>
+        prev.map((e) =>
+          e.id === targetId || e._id === targetId || e.enquiryId === targetId
+            ? { ...e, status: newStatus }
+            : e
+        )
+      );
+      showToast(`✓ Lead status updated to "${newStatus}"!`);
+    } catch (err) {
+      console.error("Error updating enquiry status:", err);
+      showToast("Failed to update lead status");
+    }
+  };
+
+  const handleDeleteEnquiry = async (targetId, name) => {
+    try {
+      await api.delete(`/api/enquiries/${targetId}`);
+      setEnquiriesList((prev) =>
+        prev.filter(
+          (e) => e.id !== targetId && e._id !== targetId && e.enquiryId !== targetId
+        )
+      );
+      showToast(`✓ Prospect lead for ${name} removed`);
+    } catch (err) {
+      console.error("Error deleting lead:", err);
+      showToast("Failed to delete enquiry lead");
+    }
+  };
+
+  const handleCreateAdminEnquiry = async (e) => {
+    e.preventDefault();
+    if (!newEnquiryForm.name || !newEnquiryForm.phone) {
+      showToast("Please enter prospect name and phone number");
+      return;
+    }
+    try {
+      const payload = {
+        name: newEnquiryForm.name,
+        phone: newEnquiryForm.phone,
+        email: newEnquiryForm.email || "N/A",
+        goal: newEnquiryForm.goal,
+        source: newEnquiryForm.source,
+        notes: newEnquiryForm.notes,
+        capturedBy: "Admin Command HQ",
+      };
+      const res = await api.post("/api/enquiries", payload);
+      if (res.data?.status === "success") {
+        fetchEnquiries();
+        setShowAddEnquiryModal(false);
+        setNewEnquiryForm({
+          name: "",
+          phone: "",
+          email: "",
+          goal: "Muscle Gain & Hypertrophy",
+          source: "Walk-in Visitor",
+          notes: "",
+        });
+        showToast(`✓ Prospect lead created for ${payload.name}!`);
+      }
+    } catch (err) {
+      console.error("Error creating enquiry from Admin:", err);
+      showToast(err.response?.data?.message || "Failed to create prospect lead");
+    }
+  };
 
   // ========================================================
   // REAL-TIME MULTI-DASHBOARD NOTIFICATION SYNTHESIS ENGINE
@@ -2036,17 +2216,17 @@ export default function AdminDashboard({ user, onLogout }) {
     // 6. Enquiries & Prospect Leads
     enquiriesList.forEach((enq, idx) => {
       list.push({
-        id: `NOTIF-ENQ-${enq.id || idx}`,
+        id: `NOTIF-ENQ-${enq.id || enq._id || idx}`,
         category: "enquiry",
         title: `New Prospect Lead: ${enq.name}`,
-        desc: `Prospect enquiry submitted for ${enq.goal || "Elite Membership"}. Contact: ${enq.phone || enq.email || "N/A"}. Status: ${enq.status || "New"}.`,
-        source: "Public Website / Enquiries",
+        desc: `Prospect lead registered for ${enq.goal || "Fitness Training"}. Contact: ${enq.phone || enq.email || "N/A"}. Status: ${enq.status || "New Lead"}.`,
+        source: enq.capturedBy || enq.source || "Reception Desk",
         time: enq.date || "Recent",
-        meta: `${enq.goal || "VIP Lead"} • ${enq.status || "New"}`,
+        meta: `${enq.goal || "Lead"} • ${enq.status || "New"}`,
         actionLabel: "View Enquiry",
         actionTab: "enquiry-management",
         priority: "High",
-        timestamp: Date.now() - idx * 1000 * 60 * 50,
+        timestamp: enq.createdAt ? new Date(enq.createdAt).getTime() : Date.now() - idx * 1000 * 60 * 50,
       });
     });
 
@@ -10199,83 +10379,343 @@ export default function AdminDashboard({ user, onLogout }) {
           {/* TAB 11: ENQUIRY MANAGEMENT */}
           {activeTab === "enquiry-management" && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="flex justify-between items-center">
+              {/* Header & Quick Actions */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight">
-                    Lead & Enquiry Pipeline
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Follow up on prospective athlete leads and website
-                    membership enquiries.
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-2 h-2 rounded-full bg-[#FF2E4C] animate-ping" />
+                    <h2 className="text-xl font-bold text-white tracking-tight">
+                      Lead & Enquiry Pipeline CRM
+                    </h2>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Real-time front desk prospect capture, website queries, and conversion pipeline.
                   </p>
                 </div>
-                <button
-                  onClick={() => {
-                    setModalType("enquiry");
-                    setShowAddModal(true);
-                  }}
-                  className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all"
-                >
-                  <Plus size={15} /> Add New Enquiry
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowAddEnquiryModal(true)}
+                    className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-lg shadow-red-500/20 cursor-pointer transition-all"
+                  >
+                    <Plus size={15} /> Add Prospect Lead
+                  </button>
+                </div>
               </div>
 
-              <div className="rounded-3xl bg-[#12161A] border border-white/10 overflow-hidden shadow-xl">
+              {/* Bento Stats Overview */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-[#121318] border border-[#202028] relative overflow-hidden">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-1">
+                    Total Leads
+                  </span>
+                  <span className="text-2xl font-black text-white font-mono">
+                    {enquiriesList.length}
+                  </span>
+                </div>
+                <div className="p-4 rounded-2xl bg-[#121318] border border-[#202028] relative overflow-hidden">
+                  <span className="text-[10px] font-mono text-blue-400 uppercase tracking-wider block mb-1">
+                    New Inquiries
+                  </span>
+                  <span className="text-2xl font-black text-blue-400 font-mono">
+                    {enquiriesList.filter((e) => e.status === "New Lead").length}
+                  </span>
+                </div>
+                <div className="p-4 rounded-2xl bg-[#121318] border border-[#202028] relative overflow-hidden">
+                  <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider block mb-1">
+                    In Follow-Up / Trial
+                  </span>
+                  <span className="text-2xl font-black text-amber-400 font-mono">
+                    {enquiriesList.filter((e) => ["Followed Up", "Trial Booked"].includes(e.status)).length}
+                  </span>
+                </div>
+                <div className="p-4 rounded-2xl bg-[#121318] border border-[#202028] relative overflow-hidden">
+                  <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider block mb-1">
+                    Converted Members
+                  </span>
+                  <span className="text-2xl font-black text-emerald-400 font-mono">
+                    {enquiriesList.filter((e) => e.status === "Converted").length}
+                  </span>
+                </div>
+              </div>
+
+              {/* Filters & Search */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#121318] p-3 rounded-2xl border border-[#202028]">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                  {["all", "New Lead", "Followed Up", "Trial Booked", "Converted", "Closed"].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setEnquiryFilter(status)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                        enquiryFilter === status
+                          ? "bg-[#FF2E4C] text-white shadow-md"
+                          : "bg-white/[0.04] text-slate-400 hover:text-white hover:bg-white/[0.08]"
+                      }`}
+                    >
+                      {status === "all" ? "All Pipeline" : status}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative min-w-[240px]">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={enquirySearch}
+                    onChange={(e) => setEnquirySearch(e.target.value)}
+                    placeholder="Search prospect name, phone, goal..."
+                    className="w-full pl-9 pr-3 py-2 bg-[#090C0E] border border-white/10 rounded-xl text-xs text-white outline-none focus:border-[#FF2E4C]"
+                  />
+                </div>
+              </div>
+
+              {/* Pipeline Leads Ledger */}
+              <div className="rounded-2xl bg-[#121318] border border-[#202028] overflow-hidden shadow-xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
+                    <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[10px] tracking-wider border-b border-[#202028]">
                       <tr>
                         <th className="p-4">Lead ID</th>
                         <th className="p-4">Prospect Name</th>
-                        <th className="p-4">Contact Details</th>
+                        <th className="p-4">Contact Info</th>
                         <th className="p-4">Fitness Goal</th>
+                        <th className="p-4">Source & Desk</th>
                         <th className="p-4">Date</th>
                         <th className="p-4">Pipeline Status</th>
-                        <th className="p-4 text-right">Action</th>
+                        <th className="p-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-slate-200">
-                      {enquiriesList.map((enq) => (
-                        <tr
-                          key={enq.id}
-                          className="hover:bg-white/5 transition-colors"
-                        >
-                          <td className="p-4 font-mono text-slate-400 text-[11px]">
-                            {enq.id}
-                          </td>
-                          <td className="p-4 font-semibold text-white">
-                            {enq.name}
-                          </td>
-                          <td className="p-4 text-slate-400">
-                            {enq.email}
-                            <br />
-                            {enq.phone}
-                          </td>
-                          <td className="p-4 text-[#FF2E4C] font-medium">
-                            {enq.goal}
-                          </td>
-                          <td className="p-4 text-slate-400">{enq.date}</td>
-                          <td className="p-4">
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-950/60 text-amber-400 border border-amber-800 text-[11px] font-medium">
-                              {enq.status}
-                            </span>
-                          </td>
-                          <td className="p-4 text-right">
-                            <button
-                              onClick={() =>
-                                showToast(`Converted ${enq.name} to member!`)
-                              }
-                              className="px-3 py-1.5 rounded-lg bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-medium hover:brightness-120 transition-all cursor-pointer"
-                            >
-                              Convert to Member
-                            </button>
+                      {enquiriesList
+                        .filter((enq) => {
+                          if (enquiryFilter !== "all" && enq.status !== enquiryFilter) return false;
+                          if (enquirySearch) {
+                            const query = enquirySearch.toLowerCase();
+                            return (
+                              (enq.name || "").toLowerCase().includes(query) ||
+                              (enq.phone || "").toLowerCase().includes(query) ||
+                              (enq.email || "").toLowerCase().includes(query) ||
+                              (enq.goal || "").toLowerCase().includes(query) ||
+                              (enq.id || "").toLowerCase().includes(query)
+                            );
+                          }
+                          return true;
+                        })
+                        .map((enq) => (
+                          <tr key={enq.id || enq._id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="p-4 font-mono text-slate-400 text-[11px]">
+                              {enq.id || enq.enquiryId}
+                            </td>
+                            <td className="p-4">
+                              <div className="font-semibold text-white">{enq.name}</div>
+                              {enq.notes && (
+                                <div className="text-[10px] text-slate-400 mt-0.5 line-clamp-1 italic">
+                                  "{enq.notes}"
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              <div className="text-white font-mono text-[11px]">{enq.phone}</div>
+                              <div className="text-[10px] text-slate-400">{enq.email}</div>
+                            </td>
+                            <td className="p-4 text-[#FF2E4C] font-semibold">
+                              {enq.goal}
+                            </td>
+                            <td className="p-4">
+                              <span className="px-2 py-0.5 rounded bg-white/[0.05] border border-white/10 text-[10px] text-slate-300">
+                                {enq.source || "Walk-in Visitor"}
+                              </span>
+                              <div className="text-[9px] text-slate-400 mt-0.5">
+                                by {enq.capturedBy || "Reception Desk"}
+                              </div>
+                            </td>
+                            <td className="p-4 text-slate-400 font-mono text-[11px]">
+                              {enq.date}
+                            </td>
+                            <td className="p-4">
+                              <select
+                                value={enq.status}
+                                onChange={(e) => handleUpdateEnquiryStatus(enq.id || enq._id, e.target.value)}
+                                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border outline-none cursor-pointer transition-all ${
+                                  enq.status === "New Lead"
+                                    ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                                    : enq.status === "Followed Up"
+                                    ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                    : enq.status === "Trial Booked"
+                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/30"
+                                    : enq.status === "Converted"
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                    : "bg-slate-500/10 text-slate-400 border-slate-500/30"
+                                }`}
+                              >
+                                <option value="New Lead">New Lead</option>
+                                <option value="Followed Up">Followed Up</option>
+                                <option value="Trial Booked">Trial Booked</option>
+                                <option value="Converted">Converted</option>
+                                <option value="Closed">Closed</option>
+                              </select>
+                            </td>
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {enq.status !== "Converted" && (
+                                  <button
+                                    onClick={() => {
+                                      handleUpdateEnquiryStatus(enq.id || enq._id, "Converted");
+                                      showToast(`✓ Marked ${enq.name} as Converted member!`);
+                                    }}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold hover:bg-emerald-500/30 transition-all cursor-pointer"
+                                  >
+                                    Convert
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteEnquiry(enq.id || enq._id, enq.name)}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                  title="Delete lead"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      {enquiriesList.length === 0 && (
+                        <tr>
+                          <td colSpan="8" className="p-8 text-center text-slate-400 text-xs font-mono">
+                            No prospect enquiry leads found. Front desk inquiries will appear here in real time.
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
+
+              {/* ADMIN ADD PROSPECT LEAD MODAL */}
+              {showAddEnquiryModal && (
+                <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                  <div className="w-full max-w-md bg-[#121318] border border-[#202028] rounded-2xl p-6 space-y-4 shadow-2xl animate-scaleUp relative">
+                    <button
+                      onClick={() => setShowAddEnquiryModal(false)}
+                      className="absolute top-5 right-5 text-slate-400 hover:text-white transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                    <div className="flex items-center gap-2.5 border-b border-white/10 pb-3">
+                      <div className="w-9 h-9 rounded-xl bg-[#FF2E4C]/10 border border-[#FF2E4C]/20 text-[#FF2E4C] flex items-center justify-center font-bold">
+                        <Users size={16} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white tracking-tight">
+                          Capture Prospect Lead
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          Register an enquiry into the CRM database.
+                        </p>
+                      </div>
+                    </div>
+
+                    <form onSubmit={handleCreateAdminEnquiry} className="space-y-3.5 text-xs">
+                      <div>
+                        <label className="text-slate-300 font-semibold mb-1 block">
+                          Prospect Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newEnquiryForm.name}
+                          onChange={(e) => setNewEnquiryForm({ ...newEnquiryForm, name: e.target.value })}
+                          placeholder="e.g. Ramesh Reddy"
+                          className="w-full px-3 py-2 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-semibold mb-1 block">
+                          Phone Number *
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={newEnquiryForm.phone}
+                          onChange={(e) => setNewEnquiryForm({ ...newEnquiryForm, phone: e.target.value })}
+                          placeholder="+91 98765 43210"
+                          className="w-full px-3 py-2 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-semibold mb-1 block">
+                          Email Address
+                        </label>
+                        <input
+                          type="email"
+                          value={newEnquiryForm.email}
+                          onChange={(e) => setNewEnquiryForm({ ...newEnquiryForm, email: e.target.value })}
+                          placeholder="ramesh@gmail.com"
+                          className="w-full px-3 py-2 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-slate-300 font-semibold mb-1 block">
+                            Fitness Goal
+                          </label>
+                          <select
+                            value={newEnquiryForm.goal}
+                            onChange={(e) => setNewEnquiryForm({ ...newEnquiryForm, goal: e.target.value })}
+                            className="w-full px-2.5 py-2 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C]"
+                          >
+                            <option value="Muscle Gain & Hypertrophy">Muscle Gain</option>
+                            <option value="Fat Loss & Cardio">Fat Loss</option>
+                            <option value="Personal Training (1-on-1)">1-on-1 PT</option>
+                            <option value="Elite VIP Access">Elite VIP</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-slate-300 font-semibold mb-1 block">
+                            Enquiry Source
+                          </label>
+                          <select
+                            value={newEnquiryForm.source}
+                            onChange={(e) => setNewEnquiryForm({ ...newEnquiryForm, source: e.target.value })}
+                            className="w-full px-2.5 py-2 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C]"
+                          >
+                            <option value="Walk-in Visitor">Walk-in Visitor</option>
+                            <option value="Instagram / Social">Instagram / Social</option>
+                            <option value="Member Referral">Member Referral</option>
+                            <option value="Website Booking">Website Booking</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-semibold mb-1 block">
+                          Internal Notes
+                        </label>
+                        <textarea
+                          rows="2"
+                          value={newEnquiryForm.notes}
+                          onChange={(e) => setNewEnquiryForm({ ...newEnquiryForm, notes: e.target.value })}
+                          placeholder="e.g. Interested in morning 6am batch and personal coach"
+                          className="w-full px-3 py-2 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C] resize-none"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2.5 pt-2 border-t border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => setShowAddEnquiryModal(false)}
+                          className="px-4 py-2 rounded-xl bg-white/[0.04] text-slate-300 hover:text-white text-xs font-semibold cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 rounded-xl bg-[#FF2E4C] hover:bg-[#ff1f3f] text-white text-xs font-semibold shadow-md cursor-pointer"
+                        >
+                          Save Lead
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -59,6 +59,7 @@ import {
   Target,
   Scale,
   HeartPulse,
+  Key,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLandingPageCMS } from "../context/LandingPageCMSContext";
@@ -89,20 +90,6 @@ export default function CustomerDashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState(tabFromUrl);
   const [activeSubTab, setActiveSubTab] = useState(subFromUrl);
   const [toast, setToast] = useState(null);
-
-  // Ensure staff accounts (Admin, Receptionist, Trainer) are redirected to their dedicated portals
-  useEffect(() => {
-    if (user) {
-      const role = (user.role || "").toLowerCase().trim();
-      if (role === "admin") {
-        navigate("/admin", { replace: true });
-      } else if (role === "receptionist") {
-        navigate("/receptionist", { replace: true });
-      } else if (role === "trainer") {
-        navigate("/trainer", { replace: true });
-      }
-    }
-  }, [user, navigate]);
 
   // Modals state
   const [chatModalTrainer, setChatModalTrainer] = useState(null);
@@ -1513,8 +1500,37 @@ export default function CustomerDashboard({ onLogout }) {
   };
 
   // ==========================================
-  // ATTENDANCE STATE & TURNSTILE RECORDS
+  // ATTENDANCE STATE & LIVE TURNSTILE OTP PASS (2:00 MINS VALIDITY)
   // ==========================================
+  const [activeCheckInOtp, setActiveCheckInOtp] = useState(null);
+  const [otpCopied, setOtpCopied] = useState(false);
+  const [otpSecondsLeft, setOtpSecondsLeft] = useState(120);
+
+  // Live countdown timer for active 2-minute OTP
+  useEffect(() => {
+    if (!activeCheckInOtp?.expiresAt) {
+      setOtpSecondsLeft(120);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const now = Date.now();
+      const diffMs = activeCheckInOtp.expiresAt - now;
+      const diffSec = Math.max(0, Math.ceil(diffMs / 1000));
+      setOtpSecondsLeft(diffSec);
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [activeCheckInOtp]);
+
+  const formatOtpTimer = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  };
+
   const [attendanceRecords, setAttendanceRecords] = useState([
     {
       id: "ATT-9921",
@@ -1546,71 +1562,172 @@ export default function CustomerDashboard({ onLogout }) {
       zone: "Functional HIIT & Turf Deck",
       status: "Completed",
     },
-    {
-      id: "ATT-9604",
-      date: "26 Aug 2026",
-      checkIn: "07:05 AM",
-      checkOut: "08:30 AM",
-      duration: "85 Mins",
-      gate: "Turnstile Gate A1",
-      zone: "Strength & Powerlifting Arena",
-      status: "Completed",
-    },
-    {
-      id: "ATT-9511",
-      date: "25 Aug 2026",
-      checkIn: "05:30 PM",
-      checkOut: "07:00 PM",
-      duration: "90 Mins",
-      gate: "Speed Gate B2",
-      zone: "Recovery Lounge & Hydro Suite",
-      status: "Completed",
-    },
-    {
-      id: "ATT-9410",
-      date: "24 Aug 2026",
-      checkIn: "07:10 AM",
-      checkOut: "08:25 AM",
-      duration: "75 Mins",
-      gate: "Turnstile Gate A1",
-      zone: "Strength & Powerlifting Arena",
-      status: "Completed",
-    },
   ]);
   const [selfCheckingIn, setSelfCheckingIn] = useState(false);
   const [attendanceMonthFilter, setAttendanceMonthFilter] =
     useState("Aug 2026");
 
-  const handleSelfCheckIn = () => {
+  // Fetch personal attendance records from MongoDB
+  const fetchMyAttendance = async () => {
+    try {
+      const res = await api.get("/api/attendance/my");
+      if (res.data?.status === "success" && Array.isArray(res.data.data) && res.data.data.length > 0) {
+        setAttendanceRecords(res.data.data);
+      }
+    } catch (e) {
+      console.warn("Could not fetch personal attendance logs:", e);
+    }
+  };
+
+  // Poll & listen for active Manual Login OTP requests sent by Receptionist
+  useEffect(() => {
+    fetchMyAttendance();
+
+    const checkActiveOtp = async () => {
+      const targetIdentifier = user?.id || user?._id || user?.email || fullName;
+      if (!targetIdentifier) return;
+
+      try {
+        const res = await api.get(`/api/attendance/active-otp/${encodeURIComponent(targetIdentifier)}`);
+        if (res.data?.status === "success" && res.data.data?.hasActiveOtp) {
+          setActiveCheckInOtp(res.data.data);
+        } else {
+          // Check local sync fallback
+          try {
+            const localOtpRaw = localStorage.getItem("titan_customer_otp_requested");
+            if (localOtpRaw) {
+              const localOtp = JSON.parse(localOtpRaw);
+              const isMatch =
+                (user?._id && String(localOtp.userId) === String(user._id)) ||
+                (user?.email && localOtp.email?.toLowerCase() === user.email.toLowerCase()) ||
+                (localOtp.name?.toLowerCase() === fullName.toLowerCase());
+              if (isMatch && localOtp.expiresAt > Date.now()) {
+                setActiveCheckInOtp({
+                  hasActiveOtp: true,
+                  otp: localOtp.otp || "489201",
+                  name: localOtp.name,
+                  customerId: localOtp.customerId,
+                  expiresAt: localOtp.expiresAt,
+                });
+                return;
+              }
+            }
+          } catch (e) {}
+          setActiveCheckInOtp(null);
+        }
+      } catch (err) {
+        // Fallback to local sync
+        try {
+          const localOtpRaw = localStorage.getItem("titan_customer_otp_requested");
+          if (localOtpRaw) {
+            const localOtp = JSON.parse(localOtpRaw);
+            const isMatch =
+              (user?._id && String(localOtp.userId) === String(user._id)) ||
+              (user?.email && localOtp.email?.toLowerCase() === user.email.toLowerCase()) ||
+              (localOtp.name?.toLowerCase() === fullName.toLowerCase());
+            if (isMatch && localOtp.expiresAt > Date.now()) {
+              setActiveCheckInOtp({
+                hasActiveOtp: true,
+                otp: localOtp.otp || "489201",
+                name: localOtp.name,
+                customerId: localOtp.customerId,
+                expiresAt: localOtp.expiresAt,
+              });
+            }
+          }
+        } catch (e) {}
+      }
+    };
+
+    checkActiveOtp();
+    const otpInterval = setInterval(checkActiveOtp, 2500);
+
+    // Event listener for real-time verification & check-in celebrations
+    const handleAttendanceSync = (e) => {
+      fetchMyAttendance();
+      setActiveCheckInOtp(null);
+      try {
+        localStorage.removeItem("titan_customer_otp_requested");
+      } catch (err) {}
+
+      // Trigger celebratory notification & confetti
+      try {
+        confetti({
+          particleCount: 120,
+          spread: 70,
+          origin: { y: 0.5 },
+        });
+      } catch (err) {}
+
+      showToast("⚡ Access Granted: Turnstile entry verified! Welcome to Titan Pulse Arena.", "gate");
+    };
+
+    window.addEventListener("titan_attendance_sync", handleAttendanceSync);
+    window.addEventListener("titan_customer_otp_sync", checkActiveOtp);
+    window.addEventListener("storage", checkActiveOtp);
+
+    return () => {
+      clearInterval(otpInterval);
+      window.removeEventListener("titan_attendance_sync", handleAttendanceSync);
+      window.removeEventListener("titan_customer_otp_sync", checkActiveOtp);
+      window.removeEventListener("storage", checkActiveOtp);
+    };
+  }, [user, fullName]);
+
+  const handleSelfCheckIn = async () => {
     setSelfCheckingIn(true);
-    setTimeout(() => {
+    try {
       const now = new Date();
       const timeStr = now.toLocaleTimeString("en-US", {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
       });
-      const dateStr = now.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
+      const dateStr = now.toISOString().split("T")[0];
+
+      const res = await api.post("/api/attendance/quick-checkin", {
+        customerId: `CUST-${(user?._id || "101").slice(-4)}`,
+        userId: user?._id || user?.id,
+        name: fullName,
+        email: user?.email,
+        phone: user?.phone,
+        plan: localMembershipPlan || "PRO MEMBERSHIP",
+        terminal: "Turnstile Gate Alpha-1 (Speed Gate Scanner)",
+        verification: "Biometric NFC Pass",
       });
+
       const newRecord = {
-        id: `ATT-${Math.floor(1000 + Math.random() * 9000)}`,
+        id: res.data?.data?.logId || `LOG-${Date.now().toString().slice(-4)}`,
         date: dateStr,
         checkIn: timeStr,
-        checkOut: "In Progress (Active Session)",
-        duration: "Active",
-        gate: "Turnstile Gate A1 (Speed Gate Scanner)",
+        checkOut: "--",
+        duration: "In Session",
+        gate: "Turnstile Gate Alpha-1 (Speed Gate Scanner)",
         zone: "Main Strength & Conditioning Arena",
         status: "Active Floor",
       };
+
       setAttendanceRecords((prev) => [newRecord, ...prev]);
+      
+      // Multi-dashboard broadcast
+      const syncPayload = { ...newRecord, name: fullName, syncTimestamp: Date.now() };
+      localStorage.setItem("titan_attendance_updated", JSON.stringify(syncPayload));
+      window.dispatchEvent(new CustomEvent("titan_attendance_sync", { detail: syncPayload }));
+
+      showToast(`🎉 Turnstile Biometric Access Verified! Checked in at ${timeStr}.`);
+    } catch (err) {
+      if (err.response?.data?.status === "already_checked_in" && err.response.data?.data) {
+        const d = err.response.data.data;
+        showToast(
+          `⚠️ Already Checked In: Previous check-in at ${d.previousCheckIn?.timeIn} (${d.timeElapsedStr}). Next entry eligible at ${d.nextEligibleTime} (${d.timeRemainingStr} remaining).`,
+          "error"
+        );
+      } else {
+        showToast(err.response?.data?.message || "❌ Turnstile access denied. Please contact reception.", "error");
+      }
+    } finally {
       setSelfCheckingIn(false);
-      showToast(
-        `🎉 Turnstile Biometric Access Verified! Checked in at ${timeStr}.`,
-      );
-    }, 600);
+    }
   };
 
   const [streakGraphMonths, setStreakGraphMonths] = useState(6);
@@ -2664,6 +2781,92 @@ export default function CustomerDashboard({ onLogout }) {
         {/* ========================================================= */}
         <div className="p-4 sm:p-6 md:p-8 space-y-8 flex-1 min-w-0 max-w-full">
           {/* ========================================================= */}
+          {/* LIVE FRONT DESK MANUAL LOGIN OTP PROMPT (ACTIVE DISPATCH) */}
+          {/* ========================================================= */}
+          {activeCheckInOtp?.hasActiveOtp && (
+            <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-amber-500/20 via-amber-600/10 to-[#121217] border-2 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.25)] space-y-4 relative overflow-hidden animate-fadeIn">
+              <div className="absolute -top-12 -right-12 w-40 h-40 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0 shadow-lg animate-pulse">
+                    <Key size={24} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        ● FRONT DESK VERIFICATION REQUEST
+                      </span>
+                      <span className="text-xs text-slate-400">Gate Turnstile A1</span>
+                      <span
+                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                          otpSecondsLeft > 0
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse"
+                            : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                        }`}
+                      >
+                        <Clock size={10} />
+                        {otpSecondsLeft > 0 ? `${formatOtpTimer(otpSecondsLeft)} remaining` : "EXPIRED"}
+                      </span>
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-white tracking-tight mt-1">
+                      Manual Check-In One-Time Password (OTP)
+                    </h3>
+                    <p className="text-xs text-slate-300">
+                      {otpSecondsLeft > 0
+                        ? "Provide this 4-digit verification code to the Receptionist. Valid for 2:00 minutes."
+                        : "⚠️ This verification code has expired. Please ask Receptionist to resend code."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* 4-Digit OTP Box with One-Click Copy & Link to Gate Pass */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 bg-[#0A0A0D]/90 border border-amber-500/40 rounded-2xl p-3 px-5 shadow-inner">
+                    <div className="text-center">
+                      <span className="text-[9px] uppercase font-mono tracking-widest text-slate-400 block mb-0.5">
+                        {otpSecondsLeft > 0 ? "YOUR 4-DIGIT OTP" : "CODE EXPIRED"}
+                      </span>
+                      <span
+                        className={`text-2xl sm:text-3xl font-black font-mono tracking-[0.25em] ${
+                          otpSecondsLeft > 0 ? "text-amber-400" : "text-slate-600 line-through"
+                        }`}
+                      >
+                        {activeCheckInOtp.otp}
+                      </span>
+                    </div>
+                    {otpSecondsLeft > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(activeCheckInOtp.otp);
+                          setOtpCopied(true);
+                          showToast("✓ OTP copied to clipboard!");
+                          setTimeout(() => setOtpCopied(false), 2500);
+                        }}
+                        className="p-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 hover:text-white transition-all cursor-pointer"
+                        title="Copy OTP"
+                      >
+                        {otpCopied ? <Check size={18} className="text-emerald-400" /> : <Download size={18} className="-rotate-90" />}
+                      </button>
+                    )}
+                  </div>
+
+                  {activeTab !== "attendance" && (
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange("attendance", "qr")}
+                      className="hidden md:flex px-3.5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-200 hover:text-white items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <span>Gate Pass</span>
+                      <ArrowRight size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
           {/* 1. PERSONAL INFORMATION SECTION                           */}
           {/* ========================================================= */}
           {activeTab === "personal" && (
@@ -3704,9 +3907,135 @@ export default function CustomerDashboard({ onLogout }) {
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-400 mt-1">
                       Scan this dynamic encrypted token at any Titan biometric
-                      optical turnstile scanner for contact-free entry.
+                      optical turnstile scanner, or use your 2-minute Front Desk OTP passcode below for manual entry.
                     </p>
                   </div>
+
+                  {/* LIVE 2:00-MINUTE FRONT DESK MANUAL LOGIN OTP SECTION */}
+                  {activeCheckInOtp?.hasActiveOtp ? (
+                    <div className="max-w-md mx-auto p-6 sm:p-7 rounded-3xl bg-gradient-to-b from-[#1c180e] via-[#12110c] to-[#0A0A0D] border-2 border-amber-500/60 shadow-[0_0_40px_rgba(245,158,11,0.28)] space-y-5 relative overflow-hidden animate-fadeIn">
+                      <div className="absolute -top-16 -right-16 w-44 h-44 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+
+                      {/* Header */}
+                      <div className="flex items-center justify-between pb-3.5 border-b border-amber-500/20">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
+                            <Key size={16} />
+                          </div>
+                          <div>
+                            <span className="font-black text-xs sm:text-sm text-amber-300 tracking-wider font-['Outfit',sans-serif] uppercase block">
+                              FRONT DESK OTP PASS
+                            </span>
+                            <span className="text-[10px] text-slate-400">Receptionist Manual Check-In</span>
+                          </div>
+                        </div>
+
+                        {/* Live 2:00 Min Countdown Badge */}
+                        <div
+                          className={`px-3 py-1 rounded-full text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-sm ${
+                            otpSecondsLeft > 0
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
+                              : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                          }`}
+                        >
+                          <Clock size={12} />
+                          <span>{otpSecondsLeft > 0 ? formatOtpTimer(otpSecondsLeft) : "EXPIRED"}</span>
+                        </div>
+                      </div>
+
+                      {/* Animated Progress Bar for 2-Minute Validity */}
+                      <div className="space-y-1">
+                        <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-1000 ease-linear rounded-full ${
+                              otpSecondsLeft > 30
+                                ? "bg-gradient-to-r from-amber-400 to-amber-500"
+                                : "bg-gradient-to-r from-rose-500 to-red-600 animate-pulse"
+                            }`}
+                            style={{ width: `${Math.max(0, Math.min(100, (otpSecondsLeft / 120) * 100))}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                          <span>Validity: 2:00 Mins</span>
+                          <span className={otpSecondsLeft <= 30 ? "text-rose-400 font-bold" : "text-amber-400"}>
+                            {otpSecondsLeft > 0 ? `${otpSecondsLeft}s left` : "Code expired"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 4-Digit Display Cells */}
+                      <div className="py-2">
+                        <div className="flex justify-center items-center gap-2.5 sm:gap-3.5">
+                          {String(activeCheckInOtp.otp || "----")
+                            .slice(0, 4)
+                            .padEnd(4, "-")
+                            .split("")
+                            .map((digit, idx) => (
+                              <div
+                                key={idx}
+                                className={`w-14 h-16 sm:w-16 sm:h-20 rounded-2xl flex items-center justify-center font-mono font-black text-2xl sm:text-3xl shadow-lg border transition-all ${
+                                  otpSecondsLeft > 0
+                                    ? "bg-[#0c0c10] border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                                    : "bg-slate-900/50 border-slate-800 text-slate-600 line-through"
+                                }`}
+                              >
+                                {digit}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+
+                      {/* Copy & Status Action */}
+                      <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5">
+                        {otpSecondsLeft > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard?.writeText(activeCheckInOtp.otp);
+                              setOtpCopied(true);
+                              showToast("✓ OTP copied to clipboard!");
+                              setTimeout(() => setOtpCopied(false), 2500);
+                            }}
+                            className="w-full py-2.5 px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                          >
+                            {otpCopied ? (
+                              <>
+                                <Check size={14} className="text-emerald-400" />
+                                <span className="text-emerald-400">Passcode Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Download size={14} className="-rotate-90" />
+                                <span>Copy 4-Digit Passcode</span>
+                              </>
+                            )}
+                          </button>
+                        ) : (
+                          <div className="w-full py-2.5 px-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium text-center">
+                            ⚠️ This OTP passcode has expired. Please ask the front desk to re-generate.
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-slate-400 text-center leading-relaxed">
+                        {otpSecondsLeft > 0
+                          ? "Share this 4-digit OTP passcode with the front desk receptionist for immediate manual turnstile check-in."
+                          : "Manual gate entry token timed out after 2:00 minutes for security."}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="max-w-md mx-auto p-4 rounded-2xl bg-[#111116] border border-white/[0.08] flex items-center justify-between gap-3 text-xs text-slate-400">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 shrink-0">
+                          <Key size={14} />
+                        </div>
+                        <span>Front Desk Manual Entry: Passcode will appear here when requested</span>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/10 shrink-0">
+                        2:00 Min Expiry
+                      </span>
+                    </div>
+                  )}
 
                   <div className="max-w-md mx-auto p-7 sm:p-8 rounded-3xl bg-gradient-to-b from-[#181824] to-[#0E0E14] border border-white/[0.12] shadow-2xl space-y-6 text-center">
                     <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
@@ -3759,21 +4088,6 @@ export default function CustomerDashboard({ onLogout }) {
                           ? membershipPlan
                           : "Pro Membership Pass"}
                       </span>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1 text-xs text-slate-400">
-                      <div className="flex justify-between">
-                        <span>Scanner Frequency:</span>{" "}
-                        <strong className="text-white font-mono">
-                          13.56 MHz RFID / NFC
-                        </strong>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Speed Gate Access:</span>{" "}
-                        <strong className="text-emerald-400 font-semibold">
-                          24/7 Turnstile Turnaround
-                        </strong>
-                      </div>
                     </div>
 
                     <button

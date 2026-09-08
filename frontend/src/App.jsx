@@ -436,6 +436,25 @@ function MainAppContent() {
             }
           />
           <Route
+            path="/customer"
+            element={
+              <ProtectedRoute
+                allowedRoles={[
+                  "customer",
+                  "CUSTOMER",
+                  "admin",
+                  "ADMIN",
+                  "trainer",
+                  "TRAINER",
+                  "receptionist",
+                  "RECEPTIONIST",
+                ]}
+              >
+                <CustomerDashboard user={user} onLogout={handleLogout} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/customer-portal"
             element={
               <ProtectedRoute
