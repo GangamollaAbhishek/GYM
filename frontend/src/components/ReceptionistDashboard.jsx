@@ -36,6 +36,7 @@ import {
   AlertTriangle,
   ChevronRight,
   Eye,
+  EyeOff,
   CheckSquare,
   Shield,
   Menu,
@@ -49,22 +50,38 @@ import {
   Award,
   Star,
   Pin,
+  Key,
+  Lock,
+  ShieldAlert,
+  Smartphone,
+  Settings,
+  Sliders,
+  Volume2,
+  Save,
+  Monitor,
+  RotateCcw,
+  Camera,
+  Upload,
+  Trash2,
+  Image,
 } from "lucide-react";
 import { useLandingPageCMS } from "../context/LandingPageCMSContext";
 import api from "../lib/api";
 import { cn } from "../lib/utils";
 import AdminNotificationsHub from "./AdminNotificationsHub";
 import ReceptionistOverviewDashboard from "./ReceptionistOverviewDashboard";
+import VerifyNumberModal from "./VerifyNumberModal";
 
 export default function ReceptionistDashboard({ user, onLogout }) {
   const navigate = useNavigate();
   const { cmsData } = useLandingPageCMS();
-  const [activeTab, setActiveTab] = useState("dashboard"); // 'dashboard' | 'checkin' | 'customers' | 'memberships' | 'renewals' | 'billing' | 'trainers' | 'enquiries'
+  const [activeTab, setActiveTab] = useState("dashboard"); // 'dashboard' | 'checkin' | 'customers' | 'memberships' | 'renewals' | 'billing' | 'trainers' | 'settings'
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState(null);
   const [headerNotifDropdownOpen, setHeaderNotifDropdownOpen] = useState(false);
   const notifDropdownRef = useRef(null);
+  const avatarFileInputRef = useRef(null);
 
   // Close notifications dropdown on outside click
   useEffect(() => {
@@ -104,6 +121,189 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   };
 
   // -------------------------------------------------------------
+  // SETTINGS STATE: PROFILE, CHANGE PASSWORD & GENERAL SETTINGS
+  // -------------------------------------------------------------
+  const [settingsActiveTab, setSettingsActiveTab] = useState("profile"); // 'profile' | 'password' | 'general'
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // 1. Profile Settings Form
+  const [profileForm, setProfileForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem("titan_reception_profile");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      name: user?.name || "Front Desk Concierge",
+      email: user?.email || "reception@titanpulse.com",
+      phone: user?.phone || "+91 98765 43210",
+      badgeId: "REC-8801",
+      shift: "Morning Shift (06:00 AM - 02:00 PM)",
+      avatar: user?.avatar || "",
+    };
+  });
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("Please select a valid image file (PNG, JPG, WebP)");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("Image size must be less than 10MB");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    showToast("☁️ Uploading profile photo to Cloudinary CDN...");
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64Data = reader.result;
+        try {
+          const res = await api.post("/api/upload", {
+            image: base64Data,
+            folder: "titan-gym/receptionist",
+          });
+
+          if (res.data?.status === "success" && res.data?.url) {
+            const uploadedUrl = res.data.url;
+            setProfileForm((prev) => {
+              const updated = { ...prev, avatar: uploadedUrl };
+              localStorage.setItem("titan_reception_profile", JSON.stringify(updated));
+              return updated;
+            });
+            showToast("✓ Profile photo uploaded to Cloudinary successfully!");
+          } else {
+            showToast(res.data?.message || "Failed to upload photo to Cloudinary.");
+          }
+        } catch (uploadErr) {
+          console.error("Cloudinary upload error:", uploadErr);
+          showToast(
+            uploadErr.response?.data?.message ||
+            "Failed to upload photo to Cloudinary CDN."
+          );
+        } finally {
+          setIsUploadingAvatar(false);
+        }
+      };
+      reader.onerror = () => {
+        showToast("Error reading image file.");
+        setIsUploadingAvatar(false);
+      };
+    } catch (err) {
+      console.error("File processing error:", err);
+      showToast("Failed to process photo.");
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setProfileForm((prev) => {
+      const updated = { ...prev, avatar: "" };
+      localStorage.setItem("titan_reception_profile", JSON.stringify(updated));
+      return updated;
+    });
+    if (avatarFileInputRef.current) {
+      avatarFileInputRef.current.value = "";
+    }
+    showToast("✓ Profile photo removed.");
+  };
+
+  const handleSaveProfile = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    try {
+      localStorage.setItem("titan_reception_profile", JSON.stringify(profileForm));
+      showToast("✓ Profile information updated successfully!");
+    } catch (err) {
+      showToast("Failed to save profile changes.");
+    }
+  };
+
+  // 2. Change Password Form
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passLoading, setPassLoading] = useState(false);
+
+  const handleChangePassword = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!passwordForm.currentPassword) {
+      showToast("Please enter your current password");
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      showToast("New password must be at least 6 characters long");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showToast("New passwords do not match");
+      return;
+    }
+    setPassLoading(true);
+    try {
+      const res = await api.post("/api/auth/change-password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      if (res.data?.status === "success") {
+        showToast("✓ Password updated and saved securely!");
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      } else {
+        showToast(res.data?.message || "Error updating password.");
+      }
+    } catch (err) {
+      console.error("Change password error:", err);
+      showToast(
+        err.response?.data?.message ||
+        "Failed to update password. Please verify current password."
+      );
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
+  // 3. General Settings Form
+  const defaultGeneralSettings = {
+    terminalName: "Front Desk Terminal 01 (Main Lobby Gate)",
+    shift: "Morning Shift (06:00 AM - 02:00 PM)",
+    timeFormat: "12-Hour (AM/PM)",
+    audioChime: true,
+    streamRefreshRate: "5s",
+  };
+
+  const [generalSettings, setGeneralSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem("titan_reception_general_settings");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return defaultGeneralSettings;
+  });
+
+  const handleSaveGeneralSettings = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    try {
+      localStorage.setItem(
+        "titan_reception_general_settings",
+        JSON.stringify(generalSettings)
+      );
+      showToast("✓ General settings updated successfully!");
+    } catch (err) {
+      showToast("Failed to save general settings.");
+    }
+  };
+
+  // -------------------------------------------------------------
   // 1. LIVE CUSTOMERS & TRAINERS FROM MONGODB DATABASE
   // -------------------------------------------------------------
   const [customers, setCustomers] = useState([]);
@@ -137,36 +337,88 @@ export default function ReceptionistDashboard({ user, onLogout }) {
           }));
         setCustomers(liveCustomers);
 
-        // Attendance logs initialized from customers
-        if (attendanceLogs.length === 0) {
-          setAttendanceLogs(
-            liveCustomers.slice(0, 8).map((c, idx) => ({
-              id: `LOG-${101 + idx}`,
-              name: c.name,
-              customerId: c.id,
-              plan: c.plan,
-              terminal: idx % 2 === 0 ? "Turnstile Gate Alpha-1" : "Turnstile Gate Bravo-2",
-              timeIn: idx % 2 === 0 ? "06:30 AM" : "07:15 AM",
-              timeOut: idx % 3 === 0 ? "08:15 AM" : "--",
-              status: idx % 3 === 0 ? "Checked Out" : "Active Inside",
-              verification: "Biometric NFC Pass",
-            }))
-          );
+        // Live Attendance logs fetched from MongoDB
+        try {
+          const attRes = await api.get("/api/attendance");
+          if (attRes.data?.status === "success" && attRes.data?.data && attRes.data.data.length > 0) {
+            setAttendanceLogs(attRes.data.data);
+          } else if (attendanceLogs.length === 0) {
+            setAttendanceLogs(
+              liveCustomers.slice(0, 8).map((c, idx) => ({
+                id: `LOG-${101 + idx}`,
+                name: c.name,
+                customerId: c.id,
+                plan: c.plan,
+                terminal: idx % 2 === 0 ? "Turnstile Gate Alpha-1" : "Turnstile Gate Bravo-2",
+                timeIn: idx % 2 === 0 ? "06:30 AM" : "07:15 AM",
+                timeOut: idx % 3 === 0 ? "08:15 AM" : "--",
+                status: idx % 3 === 0 ? "Checked Out" : "Active Inside",
+                verification: "Biometric NFC Pass",
+              }))
+            );
+          }
+        } catch (attErr) {
+          console.log("Using local attendance fallback:", attErr);
+        }
+
+        // Live Enquiries fetched from MongoDB
+        try {
+          const enqRes = await api.get("/api/enquiries");
+          if (enqRes.data?.status === "success" && Array.isArray(enqRes.data?.data)) {
+            setEnquiries(
+              enqRes.data.data.map((enq) => ({
+                id: enq.enquiryId || enq._id,
+                _id: enq._id,
+                name: enq.name,
+                email: enq.email,
+                phone: enq.phone,
+                goal: enq.goal,
+                source: enq.source,
+                status: enq.status,
+                notes: enq.notes,
+                capturedBy: enq.capturedBy,
+                date: enq.date || (enq.createdAt ? enq.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10)),
+                createdAt: enq.createdAt,
+              }))
+            );
+          }
+        } catch (enqErr) {
+          console.log("Using local enquiries fallback:", enqErr);
         }
 
         // Live Trainers
         const liveTrainers = allUsers
           .filter((u) => u.role === "trainer")
-          .map((u, idx) => ({
-            id: u.displayId || `TRN-${501 + idx}`,
-            userId: u.id,
-            name: u.name,
-            spec: u.spec || "Master Coach",
-            shift: u.shift || "06:00 AM - 02:00 PM",
-            clientsToday: liveCustomers.filter(c => c.assignedTrainer === u.id).length || idx * 2,
-            status: u.status || (idx % 3 === 0 ? "In Session" : "Available"),
-            phone: u.phone && u.phone !== "N/A" ? u.phone : "+91 98765 43210",
-          }));
+          .map((u, idx) => {
+            const realAssignedCount = liveCustomers.filter(
+              (c) =>
+                c.assignedTrainer === u.id ||
+                c.assignedTrainer === u.displayId ||
+                c.assignedTrainerName?.toLowerCase() === u.name?.toLowerCase()
+            ).length;
+
+            // Ensure trainer status is never a customer membership string
+            let trainerStatus = "Available";
+            if (u.trainerStatus) {
+              trainerStatus = u.trainerStatus;
+            } else if (u.status && !["No Membership", "Active", "Expired", "Due Soon"].includes(u.status)) {
+              trainerStatus = u.status;
+            }
+
+            return {
+              id: u.displayId || `TRN-${501 + idx}`,
+              userId: u.id,
+              name: u.name,
+              spec: u.spec || u.specialization || "Certified Strength & Conditioning Specialist",
+              shift: u.shift || "06:00 AM - 02:00 PM",
+              clientsToday: realAssignedCount,
+              status: trainerStatus,
+              phone: u.phone && u.phone !== "N/A" ? u.phone : "N/A",
+              email: u.email || "",
+              room: u.room || "Main Strength & Conditioning Arena",
+              rating: u.rating ? `${u.rating} ★` : "5.0 ★",
+            };
+          });
         setTrainers(liveTrainers);
 
         // Generate clean invoices
@@ -197,6 +449,19 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
   useEffect(() => {
     fetchData();
+
+    // Listen for live attendance and enquiry sync across tabs & dashboards
+    const handleSync = () => {
+      fetchData();
+    };
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("titan_attendance_sync", handleSync);
+    window.addEventListener("titan_enquiry_sync", handleSync);
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("titan_attendance_sync", handleSync);
+      window.removeEventListener("titan_enquiry_sync", handleSync);
+    };
   }, []);
 
   // -------------------------------------------------------------
@@ -208,6 +473,17 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [showEnquiryModal, setShowEnquiryModal] = useState(false);
+
+  // Manual Check-In OTP Verification Modal States
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [selectedOtpCustomer, setSelectedOtpCustomer] = useState(null);
+  const [otpInput, setOtpInput] = useState("");
+  const [isRequestingOtp, setIsRequestingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpSentSuccess, setOtpSentSuccess] = useState(false);
+  const [generatedOtpDebug, setGeneratedOtpDebug] = useState("");
+  const [alreadyCheckedInModalData, setAlreadyCheckedInModalData] = useState(null);
 
   // -------------------------------------------------------------
   // LIVE NOTIFICATIONS STATE & HANDLERS (Same style as Admin Hub)
@@ -282,8 +558,8 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       time: "3 hours ago",
       meta: "Prospect Lead",
       unread: false,
-      actionTab: "enquiries",
-      actionLabel: "Follow Up",
+      actionTab: "dashboard",
+      actionLabel: "View Dashboard",
     },
     {
       id: "NTF-REC-107",
@@ -430,11 +706,24 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     name: "",
     email: "",
     phone: "",
+    password: "TitanPass@2026",
     plan: "PRO MEMBERSHIP",
     duration: "Monthly",
     paymentMethod: "UPI / GPay",
     amount: 2499,
   });
+  const [showRegPassword, setShowRegPassword] = useState(false);
+
+  // Helper to generate secure temporary password for athlete
+  const generateNewPassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+    let pass = "TP-";
+    for (let i = 0; i < 6; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setRegForm((prev) => ({ ...prev, password: pass }));
+    showToast(`Generated temporary password: ${pass}`);
+  };
 
   // Renewal Form State
   const [renewForm, setRenewForm] = useState({
@@ -718,12 +1007,148 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     source: "Walk-in",
   });
 
-  // Quick Check-in input
+  // Quick Check-in & Search inputs
   const [quickCheckinInput, setQuickCheckinInput] = useState("");
+  const [turnstileSearchQuery, setTurnstileSearchQuery] = useState("");
+
+  // Live Filtered Attendance Logs for Gate Access Stream
+  const filteredAttendanceLogs = useMemo(() => {
+    if (!turnstileSearchQuery.trim()) return attendanceLogs;
+    const q = turnstileSearchQuery.toLowerCase().trim();
+    return attendanceLogs.filter(
+      (l) =>
+        (l.name && l.name.toLowerCase().includes(q)) ||
+        (l.customerId && l.customerId.toLowerCase().includes(q)) ||
+        (l.id && l.id.toLowerCase().includes(q)) ||
+        (l.plan && l.plan.toLowerCase().includes(q)) ||
+        (l.terminal && l.terminal.toLowerCase().includes(q)) ||
+        (l.status && l.status.toLowerCase().includes(q)) ||
+        (l.timeIn && l.timeIn.toLowerCase().includes(q))
+    );
+  }, [attendanceLogs, turnstileSearchQuery]);
+
+  // Live Filtered Customers Computation for Turnstile Search Bar
+  const filteredCheckinCustomers = useMemo(() => {
+    if (!quickCheckinInput.trim()) return [];
+    const q = quickCheckinInput.toLowerCase().trim();
+    return customers.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.id.toLowerCase().includes(q) ||
+        (c.phone && c.phone.includes(q)) ||
+        (c.email && c.email.toLowerCase().includes(q))
+    );
+  }, [customers, quickCheckinInput]);
+
+  // Handle Request Manual Login (OTP Generation & Dispatch)
+  const handleRequestManualLogin = async (customer) => {
+    const target = customer || filteredCheckinCustomers[0] || customers[0];
+    if (!target) {
+      showToast("❌ Please search and select a customer first.");
+      return;
+    }
+
+    setSelectedOtpCustomer(target);
+    setOtpInput("");
+    setOtpError("");
+    setOtpSentSuccess(false);
+    setShowOtpModal(true);
+    setIsRequestingOtp(true);
+
+    try {
+      const res = await api.post("/api/attendance/request-otp", {
+        customerId: target.id,
+        userId: target.userId,
+        name: target.name,
+        email: target.email,
+        phone: target.phone,
+        plan: target.plan,
+      });
+
+      if (res.data?.status === "success") {
+        setOtpSentSuccess(true);
+        if (res.data?.data?.debugOtp) {
+          setGeneratedOtpDebug(res.data.data.debugOtp);
+        }
+        showToast(`✓ Verification OTP sent to ${target.name}'s customer portal!`);
+
+        // Real-time broadcast to Customer Dashboard across tabs / windows
+        const syncPayload = {
+          customerId: target.id,
+          userId: target.userId,
+          name: target.name,
+          email: target.email,
+          otp: res.data.data?.debugOtp,
+          expiresAt: res.data.data?.expiresAt,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem("titan_customer_otp_requested", JSON.stringify(syncPayload));
+        window.dispatchEvent(new CustomEvent("titan_customer_otp_sync", { detail: syncPayload }));
+      } else {
+        setOtpError(res.data?.message || "Failed to dispatch verification OTP");
+      }
+    } catch (err) {
+      console.error("Error requesting OTP:", err);
+      if (err.response?.data?.status === "already_checked_in" && err.response.data?.data) {
+        setShowOtpModal(false);
+        setAlreadyCheckedInModalData(err.response.data.data);
+        showToast(`⚠️ ${target.name} is already checked in. 6-hour gap required.`);
+      } else {
+        setOtpError(err.response?.data?.message || "Error generating OTP. Please try again.");
+      }
+    } finally {
+      setIsRequestingOtp(false);
+    }
+  };
+
+  // Handle Verify Manual Login (OTP Verification & MongoDB Attendance Logging)
+  const handleVerifyManualLogin = async (e) => {
+    if (e) e.preventDefault();
+    if (!otpInput.trim() || otpInput.trim().length < 4) {
+      setOtpError("Please enter the complete verification OTP provided by the athlete");
+      return;
+    }
+    setIsVerifyingOtp(true);
+    setOtpError("");
+
+    try {
+      const res = await api.post("/api/attendance/verify-otp", {
+        customerId: selectedOtpCustomer?.id,
+        userId: selectedOtpCustomer?.userId,
+        name: selectedOtpCustomer?.name,
+        email: selectedOtpCustomer?.email,
+        phone: selectedOtpCustomer?.phone,
+        plan: selectedOtpCustomer?.plan,
+        otp: otpInput.trim(),
+        terminal: "Turnstile Gate Alpha-1 (Front Desk Manual)",
+      });
+
+      if (res.data?.status === "success" && res.data?.data) {
+        const newRecord = res.data.data;
+        setAttendanceLogs((prev) => [newRecord, ...prev.filter((l) => l.id !== newRecord.id)]);
+        showToast(`✓ Access Granted: ${newRecord.name} clocked in!`);
+        setShowOtpModal(false);
+        setOtpInput("");
+        fetchData();
+      } else {
+        setOtpError(res.data?.message || "Invalid OTP code");
+      }
+    } catch (err) {
+      console.error("Verify OTP Error:", err);
+      if (err.response?.data?.status === "already_checked_in" && err.response.data?.data) {
+        setShowOtpModal(false);
+        setAlreadyCheckedInModalData(err.response.data.data);
+      } else {
+        setOtpError(err.response?.data?.message || "Invalid or expired OTP code.");
+      }
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
 
   // Handle Quick RFID / Customer Scan Check-in
-  const handleQuickCheckin = (e) => {
-    e.preventDefault();
+  const handleQuickCheckin = async (e) => {
+    if (e) e.preventDefault();
     if (!quickCheckinInput.trim()) return;
 
     const matched = customers.find(
@@ -734,57 +1159,79 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     );
 
     if (matched) {
-      const newLog = {
-        id: `LOG-${Date.now().toString().slice(-4)}`,
-        name: matched.name,
-        customerId: matched.id,
-        plan: matched.plan,
-        terminal: "Turnstile Gate Alpha-1",
-        timeIn: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        timeOut: "--",
-        status: "Active Inside",
-        verification: "Live Biometric Pass",
-      };
-      setAttendanceLogs([newLog, ...attendanceLogs]);
-      showToast(`✓ Access Granted: ${matched.name} checked in!`);
-      setReceptionistNotifications((prev) => [
-        {
-          id: `NTF-REC-${Date.now().toString().slice(-4)}`,
-          title: `Athlete Check-In`,
-          desc: `${matched.name} checked in at Gate Terminal Alpha-1. NFC verification pass confirmed.`,
-          category: "checkin",
-          source: "Turnstile Sensor A1",
-          time: "Just now",
-          meta: matched.plan,
-          unread: true,
-          actionTab: "checkin",
-          actionLabel: "View Turnstile",
-        },
-        ...prev,
-      ]);
-      setQuickCheckinInput("");
+      try {
+        const res = await api.post("/api/attendance/quick-checkin", {
+          customerId: matched.id,
+          userId: matched.userId,
+          name: matched.name,
+          email: matched.email,
+          phone: matched.phone,
+          plan: matched.plan,
+          terminal: "Turnstile Gate Alpha-1",
+          verification: "Biometric NFC Pass",
+        });
+
+        const newLog = res.data?.data || {
+          id: `LOG-${Date.now().toString().slice(-4)}`,
+          name: matched.name,
+          customerId: matched.id,
+          plan: matched.plan,
+          terminal: "Turnstile Gate Alpha-1",
+          timeIn: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          timeOut: "--",
+          status: "Active Inside",
+          verification: "Biometric NFC Pass",
+        };
+
+        setAttendanceLogs((prev) => [newLog, ...prev.filter((l) => l.id !== newLog.id)]);
+        showToast(`✓ Access Granted: ${matched.name} checked in!`);
+
+        // Multi-dashboard broadcast
+        const syncPayload = { ...newLog, syncTimestamp: Date.now() };
+        localStorage.setItem("titan_attendance_updated", JSON.stringify(syncPayload));
+        window.dispatchEvent(new CustomEvent("titan_attendance_sync", { detail: syncPayload }));
+
+        setQuickCheckinInput("");
+      } catch (err) {
+        if (err.response?.data?.status === "already_checked_in" && err.response.data?.data) {
+          setAlreadyCheckedInModalData(err.response.data.data);
+          showToast(`⚠️ ${matched.name} is already checked in. 6-hour gap required.`);
+        } else {
+          showToast("Error checking in member.");
+        }
+      }
     } else {
       showToast("❌ No matching member found for check-in.");
     }
   };
 
   // Handle Member Check-out
-  const handleCheckoutMember = (logId, name) => {
+  const handleCheckoutMember = async (logId, name) => {
     const timeOutStr = new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
+
     setAttendanceLogs((prev) =>
       prev.map((log) => {
-        if (log.id === logId) {
+        if (log.id === logId || log.logId === logId) {
           return { ...log, timeOut: timeOutStr, status: "Checked Out" };
         }
         return log;
       })
     );
+
+    try {
+      await api.put(`/api/attendance/${logId}/checkout`);
+    } catch (e) {}
+
+    const syncPayload = { logId, name, timeOut: timeOutStr, status: "Checked Out", syncTimestamp: Date.now() };
+    localStorage.setItem("titan_attendance_updated", JSON.stringify(syncPayload));
+    window.dispatchEvent(new CustomEvent("titan_attendance_sync", { detail: syncPayload }));
+
     showToast(`✓ Check-out recorded for ${name} (${timeOutStr})`);
   };
 
@@ -796,6 +1243,10 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       return;
     }
 
+    const custPassword = (regForm.password && regForm.password.trim())
+      ? regForm.password.trim()
+      : `TitanPass@${Math.floor(1000 + Math.random() * 9000)}`;
+
     try {
       const res = await api.post("/api/users", {
         name: regForm.name,
@@ -806,16 +1257,22 @@ export default function ReceptionistDashboard({ user, onLogout }) {
         duration: regForm.duration,
         amount: Number(regForm.amount),
         paymentMethod: regForm.paymentMethod,
-        password: "Customer@123",
+        password: custPassword,
       });
 
       if (res.data?.status === "success" || res.data?.data) {
-        showToast(`✓ Onboarded ${regForm.name} with ${regForm.plan}!`);
+        const isEmailSent = res.data?.emailSent;
+        if (isEmailSent) {
+          showToast(`✓ Onboarded ${regForm.name} & credentials sent to email!`);
+        } else {
+          showToast(`✓ Onboarded ${regForm.name} with ${regForm.plan}!`);
+        }
+
         setReceptionistNotifications((prev) => [
           {
             id: `NTF-REC-${Date.now().toString().slice(-4)}`,
             title: `New Athlete Onboarded`,
-            desc: `${regForm.name} registered under ${regForm.plan} (${regForm.duration}). Initial payment recorded.`,
+            desc: `${regForm.name} registered under ${regForm.plan} (${regForm.duration}). Password assigned & ${isEmailSent ? 'emailed via SMTP' : 'recorded'}.`,
             category: "onboarding",
             source: "Front Desk Concierge",
             time: "Just now",
@@ -832,6 +1289,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
           name: "",
           email: "",
           phone: "",
+          password: "TitanPass@2026",
           plan: "PRO MEMBERSHIP",
           duration: "Monthly",
           paymentMethod: "UPI / GPay",
@@ -907,49 +1365,89 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   };
 
   // Handle New Enquiry Lead
-  const handleCreateEnquiry = (e) => {
+  const handleCreateEnquiry = async (e) => {
     e.preventDefault();
     if (!enquiryForm.name || !enquiryForm.phone) {
       showToast("Please enter name and phone.");
       return;
     }
 
-    const newEnq = {
-      id: `ENQ-${400 + enquiries.length + 1}`,
-      name: enquiryForm.name,
-      email: enquiryForm.email || "N/A",
-      phone: enquiryForm.phone,
-      goal: enquiryForm.goal,
-      source: enquiryForm.source,
-      status: "New Lead",
-      date: new Date().toISOString().split("T")[0],
-    };
+    try {
+      const payload = {
+        name: enquiryForm.name,
+        email: enquiryForm.email || "N/A",
+        phone: enquiryForm.phone,
+        goal: enquiryForm.goal || "Muscle Gain & Hypertrophy",
+        source: enquiryForm.source || "Walk-in Visitor",
+        notes: "",
+        capturedBy: "Front Desk Receptionist",
+      };
 
-    setEnquiries([newEnq, ...enquiries]);
-    setReceptionistNotifications((prev) => [
-      {
-        id: `NTF-REC-${Date.now().toString().slice(-4)}`,
-        title: `New Enquiry Lead`,
-        desc: `Prospect ${enquiryForm.name} inquired for ${enquiryForm.goal} (${enquiryForm.source}).`,
-        category: "enquiry",
-        source: "Reception Desk",
-        time: "Just now",
-        meta: "New Lead",
-        unread: true,
-        actionTab: "enquiries",
-        actionLabel: "Follow Up",
-      },
-      ...prev,
-    ]);
-    showToast(`✓ Lead captured for ${enquiryForm.name}!`);
-    setShowEnquiryModal(false);
-    setEnquiryForm({
-      name: "",
-      email: "",
-      phone: "",
-      goal: "Muscle Gain & Strength",
-      source: "Walk-in",
-    });
+      const res = await api.post("/api/enquiries", payload);
+      const savedLead = res.data?.data || {
+        ...payload,
+        id: `ENQ-${Date.now().toString().slice(-4)}`,
+        status: "New Lead",
+        date: new Date().toISOString().split("T")[0],
+      };
+
+      const formattedLead = {
+        id: savedLead.enquiryId || savedLead._id || `ENQ-${Date.now().toString().slice(-4)}`,
+        _id: savedLead._id,
+        name: savedLead.name,
+        email: savedLead.email,
+        phone: savedLead.phone,
+        goal: savedLead.goal,
+        source: savedLead.source,
+        status: savedLead.status || "New Lead",
+        notes: savedLead.notes || "",
+        capturedBy: savedLead.capturedBy || "Front Desk Receptionist",
+        date: savedLead.date || new Date().toISOString().split("T")[0],
+        createdAt: savedLead.createdAt || new Date().toISOString(),
+      };
+
+      setEnquiries((prev) => [formattedLead, ...prev]);
+
+      // Cross-tab / cross-dashboard broadcast so Admin Dashboard receives real-time alert & data
+      try {
+        const syncData = {
+          type: "NEW_ENQUIRY_LEAD",
+          lead: formattedLead,
+          timestamp: Date.now(),
+        };
+        localStorage.setItem("titan_enquiry_sync_lead", JSON.stringify(syncData));
+        window.dispatchEvent(new CustomEvent("titan_enquiry_sync", { detail: syncData }));
+      } catch (storageErr) {}
+
+      setReceptionistNotifications((prev) => [
+        {
+          id: `NTF-REC-${Date.now().toString().slice(-4)}`,
+          title: `New Enquiry Lead: ${formattedLead.name}`,
+          desc: `Prospect ${formattedLead.name} (${formattedLead.phone}) registered for ${formattedLead.goal} (${formattedLead.source}). Synced to Admin HQ.`,
+          category: "enquiry",
+          source: "Reception Desk",
+          time: "Just now",
+          meta: "Admin Synced",
+          unread: true,
+          actionTab: "dashboard",
+          actionLabel: "View Dashboard",
+        },
+        ...prev,
+      ]);
+
+      showToast(`✓ Lead captured for ${formattedLead.name} & dispatched to Admin Dashboard!`);
+      setShowEnquiryModal(false);
+      setEnquiryForm({
+        name: "",
+        email: "",
+        phone: "",
+        goal: "Muscle Gain & Hypertrophy",
+        source: "Walk-in Visitor",
+      });
+    } catch (err) {
+      console.error("Error creating enquiry lead:", err);
+      showToast(err.response?.data?.message || "Failed to save lead to database");
+    }
   };
 
   // Nav menu tabs matching Admin Dashboard taxonomy
@@ -964,6 +1462,12 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       label: "Turnstile Gate Access",
       icon: CalendarCheck,
       count: attendanceLogs.filter((l) => l.status === "Active Inside").length,
+    },
+    {
+      id: "manual-login",
+      label: "Manual Login",
+      icon: Key,
+      count: customers.length,
     },
     {
       id: "customers",
@@ -993,10 +1497,9 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       count: trainers.filter((t) => t.status === "Available").length,
     },
     {
-      id: "enquiries",
-      label: "Enquiry Management",
-      icon: HelpCircle,
-      count: enquiries.filter((e) => e.status === "New Lead").length,
+      id: "settings",
+      label: "Station Settings",
+      icon: Settings,
     },
   ];
 
@@ -1267,8 +1770,8 @@ export default function ReceptionistDashboard({ user, onLogout }) {
         data-lenis-prevent="true"
         className="flex-1 flex flex-col min-w-0 overflow-y-auto h-screen no-scrollbar bg-[#0A0A0D]"
       >
-        {/* Top Header Bar Matching Admin Dashboard */}
-        <header className="h-20 px-6 sm:px-10 border-b border-[#202028] bg-[#121217]/90 backdrop-blur-xl flex items-center justify-between gap-4 sticky top-0 z-20">
+        {/* Top Header Bar Matching Admin Dashboard with High Stacking Context */}
+        <header className="h-20 px-6 sm:px-10 border-b border-[#202028] bg-[#121217]/95 backdrop-blur-2xl flex items-center justify-between gap-4 sticky top-0 z-50">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -1291,7 +1794,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
           <div className="flex items-center gap-3">
             {/* Notification Bell Dropdown Button & Popover */}
-            <div className="relative" ref={notifDropdownRef}>
+            <div className="relative z-50" ref={notifDropdownRef}>
               <button
                 onClick={() => setHeaderNotifDropdownOpen(!headerNotifDropdownOpen)}
                 className={`relative p-2.5 rounded-xl border transition-all cursor-pointer ${
@@ -1317,7 +1820,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 6, scale: 0.98 }}
                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                    className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl bg-[#121217] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.85)] backdrop-blur-2xl z-50 overflow-hidden"
+                    className="absolute right-0 mt-3 w-80 sm:w-96 rounded-2xl bg-[#121217] border border-white/10 shadow-[0_30px_70px_rgba(0,0,0,0.95),0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-3xl z-[150] overflow-hidden"
                   >
                     {/* Header */}
                     <div className="p-3.5 border-b border-white/5 flex items-center justify-between bg-[#16161D]">
@@ -1474,46 +1977,65 @@ export default function ReceptionistDashboard({ user, onLogout }) {
           )}
 
           {/* ============================================================ */}
+          {/* ============================================================ */}
           {/* TAB 1: GATE CHECK-IN / CHECK-OUT TERMINAL                     */}
           {/* ============================================================ */}
           {activeTab === "checkin" && (
-            <div className="space-y-8 animate-fadeIn">
+            <div className="space-y-6 animate-fadeIn">
+              {/* Header Title */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight font-outfit">
+                      Turnstile Gate Access Stream
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FF2E4C]/15 text-[#FF2E4C] border border-[#FF2E4C]/30 font-mono">
+                      GATE A1 ONLINE
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Real-time biometric attendance stream, turnstile entry logs, and gate traffic monitor.
+                  </p>
+                </div>
+              </div>
+
               {/* Quick Stat Counters */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="p-6 rounded-2xl sm:rounded-3xl bg-[#121217] border border-[#202028] shadow-2xl flex items-center justify-between hover:border-white/10 transition-all">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
                   <div>
-                    <span className="text-xs font-semibold text-[#8E8E98] uppercase tracking-wider block mb-1">
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
                       Active In Arena
                     </span>
-                    <h3 className="text-3xl font-extrabold text-emerald-400 tracking-tight">
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-emerald-400 tracking-tight font-outfit">
                       {activeInsideCount}
                     </h3>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                    <UserCheck size={22} />
+                  <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <UserCheck size={20} />
                   </div>
                 </div>
 
-                <div className="p-6 rounded-2xl sm:rounded-3xl bg-[#121217] border border-[#202028] shadow-2xl flex items-center justify-between hover:border-white/10 transition-all">
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
                   <div>
-                    <span className="text-xs font-semibold text-[#8E8E98] uppercase tracking-wider block mb-1">
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
                       Today's Check-ins
                     </span>
-                    <h3 className="text-3xl font-extrabold text-white tracking-tight">
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-outfit">
                       {attendanceLogs.length}
                     </h3>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-                    <CalendarCheck size={22} />
+                  <div className="w-11 h-11 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white">
+                    <CalendarCheck size={20} />
                   </div>
                 </div>
 
-                <div className="p-6 rounded-2xl sm:rounded-3xl bg-[#121217] border border-[#202028] shadow-2xl flex items-center justify-between hover:border-white/10 transition-all">
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
                   <div>
-                    <span className="text-xs font-semibold text-[#8E8E98] uppercase tracking-wider block mb-1">
-                      Coaches On Floor
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
+                      Coaches On Duty
                     </span>
-                    <h3 className="text-3xl font-extrabold text-amber-400 tracking-tight">
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-amber-400 tracking-tight font-outfit">
                       {
                         trainers.filter(
                           (t) =>
@@ -1523,123 +2045,118 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                       }
                     </h3>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
-                    <Dumbbell size={22} />
+                  <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <Dumbbell size={20} />
                   </div>
                 </div>
 
-                <div className="p-6 rounded-2xl sm:rounded-3xl bg-[#121217] border border-[#202028] shadow-2xl flex items-center justify-between hover:border-white/10 transition-all">
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
                   <div>
-                    <span className="text-xs font-semibold text-[#8E8E98] uppercase tracking-wider block mb-1">
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
                       Due / Expiring
                     </span>
-                    <h3 className="text-3xl font-extrabold text-[#FF2E4C] tracking-tight">
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-[#FF2E4C] tracking-tight font-outfit">
                       {dueSoonCount}
                     </h3>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-[#FF2E4C]/10 border border-[#FF2E4C]/20 flex items-center justify-center text-[#FF2E4C]">
-                    <Clock size={22} />
+                  <div className="w-11 h-11 rounded-xl bg-[#FF2E4C]/10 border border-[#FF2E4C]/20 flex items-center justify-center text-[#FF2E4C]">
+                    <Clock size={20} />
                   </div>
                 </div>
               </div>
 
-              {/* Fast Barcode / Search Member Check-In Box */}
-              <div className="p-6 rounded-2xl sm:rounded-3xl bg-[#121217] border border-[#202028] shadow-2xl space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#FF2E4C]/10 text-[#FF2E4C] border border-[#FF2E4C]/20 flex items-center justify-center shrink-0">
-                      <QrCode size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-bold text-white tracking-tight">
-                        Biometric & Turnstile Gate Scanner Terminal
-                      </h3>
-                      <p className="text-xs text-slate-400">
-                        Scan RFID pass or enter Customer Name / Phone / ID (e.g. CUST-301).
-                      </p>
-                    </div>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono w-fit">
-                    ● Scanner Gate Terminal A1 Online
+              {/* Turnstile Access Stream Search Bar */}
+              <div className="p-3.5 sm:p-4 rounded-[20px] bg-[#121318] border border-white/[0.06] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="relative w-full sm:flex-1">
+                  <input
+                    type="text"
+                    placeholder="Search logs by Athlete Name, Member ID, Log ID, Plan, or Gate Terminal..."
+                    value={turnstileSearchQuery}
+                    onChange={(e) => setTurnstileSearchQuery(e.target.value)}
+                    className="w-full bg-[#0c0e12] border border-white/[0.08] focus:border-[#FF2E4C]/60 rounded-xl px-4 py-2.5 pl-10 pr-9 text-xs text-white placeholder-slate-500 outline-none transition-all shadow-inner font-sans"
+                  />
+                  <Search
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    size={15}
+                  />
+                  {turnstileSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setTurnstileSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <span className="text-xs text-slate-400 font-mono px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/5 font-outfit">
+                    Showing {filteredAttendanceLogs.length} of {attendanceLogs.length} logs
                   </span>
                 </div>
-
-                <form onSubmit={handleQuickCheckin} className="flex flex-col sm:flex-row gap-3">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      placeholder="Scan RFID badge or enter Customer Name / Phone / ID..."
-                      value={quickCheckinInput}
-                      onChange={(e) => setQuickCheckinInput(e.target.value)}
-                      className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-3 pl-11 text-xs text-white placeholder-slate-500 outline-none focus:border-[#FF2E4C] transition-colors"
-                    />
-                    <Search
-                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-                      size={16}
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="px-5 py-3 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
-                  >
-                    <UserCheck size={15} /> Grant Gate Entry
-                  </button>
-                </form>
               </div>
 
               {/* Attendance Log Table with Instant Check-out Action */}
-              <div className="rounded-2xl bg-[#121217] border border-[#202028] overflow-hidden shadow-2xl">
-                <div className="px-6 py-4.5 border-b border-[#202028] flex items-center justify-between bg-[#16161D]">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-[#FF2E4C]/10 text-[#FF2E4C] border border-[#FF2E4C]/20 flex items-center justify-center">
-                      <CalendarCheck size={16} />
+              <div className="group rounded-[20px] bg-[#121318] border border-white/[0.06] overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)]">
+                <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between bg-[#14151d]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#FF2E4C]/10 text-[#FF2E4C] border border-[#FF2E4C]/20 flex items-center justify-center">
+                      <CalendarCheck size={17} />
                     </div>
                     <div>
-                      <h3 className="text-sm font-bold text-white tracking-normal">
-                        Live Turnstile Access Stream
+                      <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2 font-outfit">
+                        <span>Live Turnstile Access Stream</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E4C] opacity-70 group-hover:opacity-100 transition-opacity" />
                       </h3>
                       <p className="text-[11px] text-slate-400 font-normal">
                         Real-time visitor biometric entries & exit logs
                       </p>
                     </div>
                   </div>
-                  <span className="text-xs text-slate-300 font-mono bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/5">
-                    Today's Session Logs
+                  <span className="text-xs text-slate-300 font-mono bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/5 font-outfit font-bold">
+                    Today's Session Logs ({filteredAttendanceLogs.length})
                   </span>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse min-w-[880px]">
-                    <thead className="bg-[#181820] text-[#8E8E98] uppercase font-bold text-[11px] tracking-wider border-b border-[#202028]">
+                    <thead className="bg-[#14151d] text-[#8E8E98] uppercase font-bold text-[10px] sm:text-[11px] tracking-wider border-b border-white/[0.06] font-outfit">
                       <tr>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Log ID</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Athlete / Member</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Membership Pass</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Gate Terminal</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Clock In</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Clock Out</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Status</th>
-                        <th className="px-6 py-3.5 text-right whitespace-nowrap">Actions</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Log ID</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Athlete / Member</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Membership Pass</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Gate Terminal</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Clock In</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Clock Out</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Status</th>
+                        <th className="px-5 py-3.5 text-right whitespace-nowrap">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#202028] text-slate-200">
-                      {attendanceLogs.map((log) => (
+                    <tbody className="divide-y divide-white/[0.04] text-slate-200">
+                      {filteredAttendanceLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-outfit">
+                            No turnstile logs found {turnstileSearchQuery ? `matching "${turnstileSearchQuery}"` : "for today"}.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredAttendanceLogs.map((log) => (
                         <tr
                           key={log.id}
                           className="hover:bg-white/[0.02] transition-colors"
                         >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="font-mono text-xs font-bold text-slate-300 bg-white/[0.04] px-2.5 py-1 rounded-md border border-white/5">
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <span className="font-mono text-xs font-bold text-slate-300 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/5">
                               {log.id}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-5 py-3.5 whitespace-nowrap">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center font-bold text-xs text-white uppercase shrink-0">
+                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center font-bold text-xs text-white uppercase shrink-0 font-outfit">
                                 {log.name.charAt(0)}
                               </div>
                               <div className="flex flex-col min-w-0">
-                                <span className="font-bold text-white text-xs leading-snug">
+                                <span className="font-bold text-white text-xs leading-snug font-outfit">
                                   {log.name}
                                 </span>
                                 <span className="text-[10px] text-[#FF2E4C] font-mono font-medium">
@@ -1648,24 +2165,24 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-200">
+                          <td className="px-5 py-3.5 whitespace-nowrap font-medium text-slate-200">
                             {log.plan}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-slate-400">
+                          <td className="px-5 py-3.5 whitespace-nowrap text-slate-400">
                             {log.terminal}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap font-mono font-semibold text-emerald-400">
+                          <td className="px-5 py-3.5 whitespace-nowrap font-mono font-bold text-[#00ffba]">
                             {log.timeIn}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-400">
+                          <td className="px-5 py-3.5 whitespace-nowrap font-mono text-slate-400">
                             {log.timeOut}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-5 py-3.5 whitespace-nowrap">
                             <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase whitespace-nowrap ${
                                 log.status === "Active Inside"
-                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                  : "bg-white/[0.05] text-slate-400 border border-white/10"
+                                  ? "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60"
+                                  : "bg-white/[0.04] text-slate-400 border border-white/5"
                               }`}
                             >
                               <span
@@ -1678,13 +2195,13 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                               {log.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                          <td className="px-5 py-3.5 text-right whitespace-nowrap">
                             {log.status === "Active Inside" ? (
                               <button
                                 onClick={() =>
                                   handleCheckoutMember(log.id, log.name)
                                 }
-                                className="px-3.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                                className="px-3 py-1 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition-all cursor-pointer shadow-sm font-outfit"
                               >
                                 Clock Out
                               </button>
@@ -1695,7 +2212,364 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                             )}
                           </td>
                         </tr>
+                      )))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ============================================================ */}
+          {/* TAB 1.5: MANUAL MEMBER LOGIN & OTP CHECK-IN CONSOLE          */}
+          {/* ============================================================ */}
+          {activeTab === "manual-login" && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_#F59E0B]" />
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight font-outfit">
+                      Manual Member Login & Verification
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 font-mono">
+                      OTP CONSOLE
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Authenticate athletes by Name, Phone, or Member ID and dispatch live OTP security pass for gate clock-in.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setActiveTab("checkin")}
+                    className="px-4 py-2.5 rounded-xl bg-[#181820] hover:bg-[#20202a] border border-white/10 text-slate-300 hover:text-white font-semibold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-sm font-outfit"
+                  >
+                    <CalendarCheck size={15} className="text-cyan-400" /> Scanner Terminal
+                  </button>
+                  <button
+                    onClick={() => setShowRegModal(true)}
+                    className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer font-outfit"
+                  >
+                    <UserPlus size={15} /> + New Athlete
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Stat Counters */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
+                      Registered Athletes
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight font-outfit">
+                      {customers.length}
+                    </h3>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white">
+                    <Users size={20} />
+                  </div>
+                </div>
+
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
+                      Manual Logins Today
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-amber-400 tracking-tight font-outfit">
+                      {attendanceLogs.filter((l) => (l.verification || "").toLowerCase().includes("manual")).length}
+                    </h3>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <Key size={20} />
+                  </div>
+                </div>
+
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
+                      Active In Arena
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-emerald-400 tracking-tight font-outfit">
+                      {activeInsideCount}
+                    </h3>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <UserCheck size={20} />
+                  </div>
+                </div>
+
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
+                      Gate Terminal
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight font-outfit">
+                      Alpha-1
+                    </h3>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-white">
+                    <ShieldCheck size={20} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Manual Login Search & Action Card */}
+              <div className="group p-5 sm:p-6 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.10] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-5 relative transition-all">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-inner">
+                      <Key size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2 font-outfit">
+                        <span>Front Desk Manual Login Console</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E4C] opacity-70 group-hover:opacity-100 transition-opacity" />
+                      </h3>
+                      <p className="text-[11px] text-slate-400 font-normal">
+                        Search athlete by Name, Phone, Email or ID to generate security OTP for gate clock-in.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-emerald-400 text-[10px] font-mono font-bold w-fit flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    ● Scanner Terminal Alpha-1 Online
+                  </span>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search Athlete by Name, Phone, or Member ID (e.g. nani, rahul, CUST-301)..."
+                    value={quickCheckinInput}
+                    onChange={(e) => setQuickCheckinInput(e.target.value)}
+                    autoFocus
+                    className="w-full bg-[#0c0e12] border border-white/[0.08] focus:border-[#FF2E4C]/60 rounded-xl px-4 py-3 pl-11 pr-11 text-xs text-white placeholder-slate-500 outline-none transition-all shadow-inner font-sans"
+                  />
+                  <Search
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                    size={16}
+                  />
+                  {quickCheckinInput && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickCheckinInput("")}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer p-1"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Filtered Matching Athletes List */}
+                <div className="p-3.5 sm:p-4 rounded-[16px] bg-[#0c0e12]/80 border border-white/[0.06] shadow-inner space-y-3">
+                  <div className="flex items-center justify-between px-1 pb-2 border-b border-white/[0.04]">
+                    <span className="text-[11px] font-bold text-[#FF2E4C] uppercase tracking-wider flex items-center gap-2 font-mono">
+                      <Users size={13} className="text-[#FF2E4C]" />
+                      <span>
+                        MATCHING ATHLETES (
+                        {quickCheckinInput.trim() ? filteredCheckinCustomers.length : customers.length}
+                        )
+                      </span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Click "Manual Login" to dispatch OTP
+                    </span>
+                  </div>
+
+                  {(quickCheckinInput.trim() ? filteredCheckinCustomers : customers).length === 0 ? (
+                    <div className="p-6 text-center text-slate-400 text-xs space-y-1.5 font-outfit">
+                      <AlertCircle size={22} className="mx-auto text-slate-500" />
+                      <p>
+                        No registered athlete found matching "<span className="text-white font-semibold">{quickCheckinInput}</span>".
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="max-h-[360px] overflow-y-auto space-y-2 no-scrollbar pr-1">
+                      {(quickCheckinInput.trim() ? filteredCheckinCustomers : customers).map((cust) => (
+                        <div
+                          key={cust.id || cust.userId}
+                          className="p-3 rounded-xl bg-[#14151d] hover:bg-[#1a1c26] border border-white/[0.04] hover:border-amber-500/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group/row"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF2E4C]/20 to-white/5 border border-[#FF2E4C]/30 text-[#FF2E4C] font-bold text-xs flex items-center justify-center shrink-0 font-outfit">
+                              {cust.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-white group-hover/row:text-amber-300 transition-colors truncate font-outfit">
+                                  {cust.name}
+                                </span>
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/[0.05] text-slate-300 border border-white/10">
+                                  {cust.id}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
+                                <span className="text-slate-300 font-medium">{cust.name}</span>
+                                <span>•</span>
+                                <span className="text-emerald-400 font-semibold uppercase truncate max-w-[200px]">
+                                  {cust.plan}
+                                </span>
+                                {cust.phone && cust.phone !== "N/A" && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-slate-400">{cust.phone}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+                            {/* Manual Login Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleRequestManualLogin(cust)}
+                              className="px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-sm font-outfit"
+                              title="Send OTP to customer page and verify manual login"
+                            >
+                              <Key size={13} className="text-amber-400" />
+                              <span>Manual Login</span>
+                            </button>
+                          </div>
+                        </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Today's Manual Check-in Logs Table */}
+              <div className="group rounded-[20px] bg-[#121318] border border-white/[0.06] overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)]">
+                <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between bg-[#14151d]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                      <Key size={17} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-2 font-outfit">
+                        <span>Today's Manual OTP Logins Ledger</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E4C] opacity-70 group-hover:opacity-100 transition-opacity" />
+                      </h3>
+                      <p className="text-[11px] text-slate-400 font-normal">
+                        Verified manual front-desk attendance logs & session timestamps
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-amber-300 font-mono bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 font-outfit font-bold">
+                    {attendanceLogs.filter((l) => (l.verification || "").toLowerCase().includes("manual")).length} Entries Today
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse min-w-[880px]">
+                    <thead className="bg-[#14151d] text-[#8E8E98] uppercase font-bold text-[10px] sm:text-[11px] tracking-wider border-b border-white/[0.06] font-outfit">
+                      <tr>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Log ID</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Athlete / Member</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Membership Pass</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Gate Terminal</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Clock In</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Clock Out</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Status</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap">Verification</th>
+                        <th className="px-5 py-3.5 whitespace-nowrap text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04] text-slate-200">
+                      {attendanceLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="px-6 py-10 text-center text-slate-500 font-outfit">
+                            No attendance records recorded yet today.
+                          </td>
+                        </tr>
+                      ) : (
+                        attendanceLogs.map((log) => (
+                          <tr
+                            key={log.id || log._id}
+                            className="hover:bg-white/[0.02] transition-colors"
+                          >
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span className="font-mono text-xs font-bold text-slate-300 bg-white/[0.04] px-2 py-0.5 rounded-md border border-white/5">
+                                {log.id}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center font-bold text-xs text-white uppercase shrink-0 font-outfit">
+                                  {log.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <span className="font-bold text-white text-xs leading-snug block font-outfit">{log.name}</span>
+                                  <span className="text-[10px] text-[#FF2E4C] font-mono font-medium">
+                                    {log.customerId}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap font-medium text-slate-200">
+                              {log.plan}
+                            </td>
+                            <td className="px-5 py-3.5 text-slate-400 whitespace-nowrap">
+                              {log.terminal}
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap font-mono font-bold text-[#00ffba]">
+                              {log.timeIn}
+                            </td>
+                            <td className="px-5 py-3.5 text-slate-400 font-mono whitespace-nowrap">
+                              {log.timeOut || "--"}
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase whitespace-nowrap ${
+                                  log.status === "Active Inside"
+                                    ? "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60"
+                                    : "bg-white/[0.04] text-slate-400 border border-white/5"
+                                }`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    log.status === "Active Inside"
+                                      ? "bg-emerald-400 shadow-[0_0_6px_#10B981]"
+                                      : "bg-slate-500"
+                                  }`}
+                                />
+                                {log.status}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <span
+                                className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded border ${
+                                  (log.verification || "").toLowerCase().includes("manual")
+                                    ? "bg-amber-950/60 text-amber-300 border-amber-800/60"
+                                    : "bg-white/[0.05] text-slate-300 border-white/10"
+                                }`}
+                              >
+                                {log.verification || "Manual OTP"}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                              {log.status === "Active Inside" ? (
+                                <button
+                                  onClick={() =>
+                                    handleCheckoutMember(log.id, log.name)
+                                  }
+                                  className="px-3 py-1 rounded-lg bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition-all cursor-pointer shadow-sm font-outfit"
+                                >
+                                  Clock Out
+                                </button>
+                              ) : (
+                                <span className="text-slate-500 text-xs font-mono font-medium">
+                                  Completed
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -1710,7 +2584,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight">
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight font-outfit">
                     Customer Search & Management
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
@@ -1719,7 +2593,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 </div>
                 <button
                   onClick={() => setShowRegModal(true)}
-                  className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer font-outfit"
                 >
                   <UserPlus size={15} /> Register New Customer
                 </button>
@@ -1855,10 +2729,10 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             <div className="space-y-6 animate-fadeIn">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight">
+                  <h2 className="font-outfit font-extrabold text-white tracking-tight text-xl sm:text-2xl">
                     Membership Plans Catalog
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-400 font-normal mt-0.5">
                     Official packages, pricing structures, and included facility privileges.
                   </p>
                 </div>
@@ -1869,23 +2743,19 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   const isFirst = idx === 0;
                   const isSecond = idx === 1;
                   const borderClass = isFirst
-                    ? "border-[#FF2E4C]/40 shadow-2xl"
+                    ? "border-[#FF2E4C]/40 shadow-xl"
                     : isSecond
-                    ? "border-cyan-500/30 shadow-xl"
-                    : "border-purple-500/30 shadow-xl";
+                    ? "border-white/[0.12] shadow-lg"
+                    : "border-white/[0.06] shadow-lg";
                   const badgeClass = isFirst
                     ? "bg-[#FF2E4C] text-white"
-                    : isSecond
-                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                    : "bg-purple-500/10 text-purple-400 border border-purple-500/20";
+                    : "bg-white/[0.06] text-slate-200 border border-white/10";
                   const priceColorClass = isFirst
                     ? "text-[#FF2E4C]"
-                    : isSecond
-                    ? "text-cyan-400"
-                    : "text-purple-400";
+                    : "text-white";
                   const buttonClass = isFirst
-                    ? "bg-[#FF2E4C] hover:brightness-110 text-white shadow-lg shadow-[#FF2E4C]/20"
-                    : "bg-[#181820] border border-white/10 hover:border-white/20 text-white";
+                    ? "bg-[#FF2E4C] hover:brightness-110 text-white shadow-md shadow-[#FF2E4C]/20"
+                    : "bg-[#14151D] border border-white/10 hover:border-white/20 text-white";
 
                   // Extract perks / services
                   const perksList = Array.isArray(plan.services) && plan.services.length > 0
@@ -1904,24 +2774,24 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   return (
                     <div
                       key={plan.id || plan.name || idx}
-                      className={`p-6 rounded-2xl sm:rounded-3xl bg-[#121217] border ${borderClass} space-y-4 relative flex flex-col justify-between`}
+                      className={`p-6 rounded-[20px] bg-[#121318] border ${borderClass} shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-4 relative flex flex-col justify-between`}
                     >
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <span
-                            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${badgeClass}`}
+                            className={`font-outfit px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}
                           >
                             {plan.badge || (isFirst ? "MOST POPULAR" : isSecond ? "VIP STATUS" : "MASTER COACHING")}
                           </span>
                           {plan.duration && (
-                            <span className="text-[10px] font-mono text-slate-400 uppercase">
+                            <span className="font-outfit text-[10px] text-slate-400 uppercase font-semibold">
                               {plan.duration}
                             </span>
                           )}
                         </div>
 
                         <div>
-                          <h3 className="text-xl font-bold text-white tracking-tight">
+                          <h3 className="font-outfit font-extrabold text-white tracking-tight text-xl">
                             {plan.name}
                           </h3>
                           {plan.subBadge && (
@@ -1931,7 +2801,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                           )}
                         </div>
 
-                        <div className={`text-3xl font-extrabold tracking-tight ${priceColorClass}`}>
+                        <div className={`font-outfit text-3xl font-extrabold tracking-tight ${priceColorClass}`}>
                           ₹{monthlyPrice.toLocaleString()}{" "}
                           <span className="text-xs font-normal text-slate-400">
                             / month
@@ -1939,12 +2809,12 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                         </div>
 
                         {plan.annualPrice && (
-                          <div className="text-[11px] text-slate-400 font-mono -mt-2">
+                          <div className="font-outfit text-[11px] text-slate-400 font-medium -mt-2">
                             Annual: ₹{Number(plan.annualPrice).toLocaleString()}/yr
                           </div>
                         )}
 
-                        <ul className="space-y-2 text-xs text-slate-300 border-t border-[#202028] pt-4">
+                        <ul className="space-y-2 text-xs text-slate-300 border-t border-white/[0.06] pt-4">
                           {perksList.slice(0, 5).map((perk, pIdx) => (
                             <li key={pIdx} className="flex items-center gap-2">
                               <Check size={15} className="text-emerald-400 shrink-0" />
@@ -1963,7 +2833,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                           }));
                           setShowRegModal(true);
                         }}
-                        className={`w-full py-2.5 rounded-xl font-semibold text-xs transition-all cursor-pointer mt-4 ${buttonClass}`}
+                        className={`w-full py-2.5 rounded-xl font-outfit font-semibold text-xs transition-all cursor-pointer mt-4 ${buttonClass}`}
                       >
                         Register Member on this Plan
                       </button>
@@ -1982,19 +2852,19 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               {/* Header & Quick Action */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <h2 className="font-outfit font-extrabold text-white tracking-tight text-xl sm:text-2xl flex items-center gap-2">
                     <span>Membership Renewals & Extensions</span>
-                    <span className="text-xs font-normal text-slate-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-0.5 rounded-full">
+                    <span className="text-xs font-normal text-slate-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-0.5 rounded-full font-sans">
                       Front Desk Concierge
                     </span>
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-400 font-normal mt-0.5">
                     Extend memberships for existing athletes, handle pass renewals, and dispatch WhatsApp renewal notices.
                   </p>
                 </div>
                 <button
                   onClick={() => openRenewalModal(customers[0] || null)}
-                  className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
+                  className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer shrink-0"
                 >
                   <RotateCw size={15} /> Renew Existing Client
                 </button>
@@ -2004,109 +2874,109 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div
                   onClick={() => setRenewalFilter("all")}
-                  className={`p-5 rounded-2xl bg-[#121217] border transition-all cursor-pointer shadow-xl ${
+                  className={`p-5 rounded-[20px] bg-[#121318] border transition-all cursor-pointer shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] ${
                     renewalFilter === "all"
-                      ? "border-blue-500/50 bg-blue-950/20 shadow-[0_0_15px_rgba(59,130,246,0.15)]"
-                      : "border-white/[0.08] hover:border-white/[0.15]"
+                      ? "border-white/30 bg-[#171821]"
+                      : "border-white/[0.06] hover:border-white/[0.12]"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-slate-400 block mb-1">
+                      <span className="font-outfit text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1">
                         All Registered Clients
                       </span>
-                      <h3 className="text-2xl font-bold text-white">
-                        {customers.length} Members
+                      <h3 className="font-outfit font-extrabold text-white text-2xl sm:text-3xl tracking-tight">
+                        {customers.length}
                       </h3>
                     </div>
-                    <Users className="text-blue-400" size={24} />
+                    <Users className="text-slate-400" size={24} />
                   </div>
-                  <span className="text-[10px] text-slate-400 mt-2 block">
+                  <span className="text-[11px] text-slate-400 mt-2 block">
                     Total membership holders
                   </span>
                 </div>
 
                 <div
                   onClick={() => setRenewalFilter("due")}
-                  className={`p-5 rounded-2xl bg-[#121217] border transition-all cursor-pointer shadow-xl ${
+                  className={`p-5 rounded-[20px] bg-[#121318] border transition-all cursor-pointer shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] ${
                     renewalFilter === "due"
-                      ? "border-amber-500/50 bg-amber-950/20 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
-                      : "border-amber-500/30 hover:border-amber-500/50"
+                      ? "border-amber-500/50 bg-[#1c1810]"
+                      : "border-amber-500/20 hover:border-amber-500/40"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-amber-400 block mb-1">
+                      <span className="font-outfit text-[11px] font-bold text-amber-400 uppercase tracking-wider block mb-1">
                         Due within 7 Days
                       </span>
-                      <h3 className="text-2xl font-bold text-white">
-                        {customers.filter((c) => c.status === "Due Soon").length} Members
+                      <h3 className="font-outfit font-extrabold text-white text-2xl sm:text-3xl tracking-tight">
+                        {customers.filter((c) => c.status === "Due Soon").length}
                       </h3>
                     </div>
                     <AlertTriangle className="text-amber-400" size={24} />
                   </div>
-                  <span className="text-[10px] text-amber-400/80 mt-2 block">
+                  <span className="text-[11px] text-amber-400/80 mt-2 block">
                     Follow-up priority
                   </span>
                 </div>
 
                 <div
                   onClick={() => setRenewalFilter("expired")}
-                  className={`p-5 rounded-2xl bg-[#121217] border transition-all cursor-pointer shadow-xl ${
+                  className={`p-5 rounded-[20px] bg-[#121318] border transition-all cursor-pointer shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] ${
                     renewalFilter === "expired"
-                      ? "border-[#FF2E4C]/50 bg-rose-950/20 shadow-[0_0_15px_rgba(255,46,76,0.15)]"
-                      : "border-[#FF2E4C]/30 hover:border-[#FF2E4C]/50"
+                      ? "border-[#FF2E4C]/50 bg-[#201416]"
+                      : "border-[#FF2E4C]/20 hover:border-[#FF2E4C]/40"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-[#FF2E4C] block mb-1">
+                      <span className="font-outfit text-[11px] font-bold text-[#FF2E4C] uppercase tracking-wider block mb-1">
                         Expired Memberships
                       </span>
-                      <h3 className="text-2xl font-bold text-white">
-                        {customers.filter((c) => c.status === "Expired").length} Members
+                      <h3 className="font-outfit font-extrabold text-white text-2xl sm:text-3xl tracking-tight">
+                        {customers.filter((c) => c.status === "Expired").length}
                       </h3>
                     </div>
                     <AlertCircle className="text-[#FF2E4C]" size={24} />
                   </div>
-                  <span className="text-[10px] text-[#FF2E4C]/80 mt-2 block">
+                  <span className="text-[11px] text-[#FF2E4C]/80 mt-2 block">
                     Pass lapsed · Renewal required
                   </span>
                 </div>
 
                 <div
                   onClick={() => setRenewalFilter("active")}
-                  className={`p-5 rounded-2xl bg-[#121217] border transition-all cursor-pointer shadow-xl ${
+                  className={`p-5 rounded-[20px] bg-[#121318] border transition-all cursor-pointer shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] ${
                     renewalFilter === "active"
-                      ? "border-emerald-500/50 bg-emerald-950/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                      : "border-emerald-500/30 hover:border-emerald-500/50"
+                      ? "border-emerald-500/50 bg-[#0d1c16]"
+                      : "border-emerald-500/20 hover:border-emerald-500/40"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-semibold text-emerald-400 block mb-1">
+                      <span className="font-outfit text-[11px] font-bold text-emerald-400 uppercase tracking-wider block mb-1">
                         Active In Good Standing
                       </span>
-                      <h3 className="text-2xl font-bold text-white">
-                        {customers.filter((c) => c.status === "Active").length} Members
+                      <h3 className="font-outfit font-extrabold text-white text-2xl sm:text-3xl tracking-tight">
+                        {customers.filter((c) => c.status === "Active").length}
                       </h3>
                     </div>
                     <CheckCircle className="text-emerald-400" size={24} />
                   </div>
-                  <span className="text-[10px] text-emerald-400/80 mt-2 block">
+                  <span className="text-[11px] text-emerald-400/80 mt-2 block">
                     Eligible for advance extension
                   </span>
                 </div>
               </div>
 
               {/* Filter & Search Bar */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#121217] p-3 rounded-2xl border border-[#202028]">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-[#121318] p-3 rounded-2xl border border-white/[0.06]">
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
                   <button
                     onClick={() => setRenewalFilter("all")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-xl font-outfit text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                       renewalFilter === "all"
-                        ? "bg-white/10 text-white font-semibold shadow-sm"
+                        ? "bg-white/10 text-white shadow-sm"
                         : "text-slate-400 hover:text-white"
                     }`}
                   >
@@ -2114,9 +2984,9 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   </button>
                   <button
                     onClick={() => setRenewalFilter("due")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-xl font-outfit text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                       renewalFilter === "due"
-                        ? "bg-amber-500/20 text-amber-300 font-semibold border border-amber-500/30"
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
                         : "text-slate-400 hover:text-amber-400"
                     }`}
                   >
@@ -2124,9 +2994,9 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   </button>
                   <button
                     onClick={() => setRenewalFilter("expired")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-xl font-outfit text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                       renewalFilter === "expired"
-                        ? "bg-rose-500/20 text-rose-300 font-semibold border border-rose-500/30"
+                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
                         : "text-slate-400 hover:text-rose-400"
                     }`}
                   >
@@ -2134,9 +3004,9 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   </button>
                   <button
                     onClick={() => setRenewalFilter("active")}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer whitespace-nowrap ${
+                    className={`px-3 py-1.5 rounded-xl font-outfit text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                       renewalFilter === "active"
-                        ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                         : "text-slate-400 hover:text-emerald-400"
                     }`}
                   >
@@ -2168,10 +3038,10 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               </div>
 
               {/* Renewal Action Table */}
-              <div className="rounded-2xl bg-[#121217] border border-[#202028] overflow-hidden shadow-2xl">
+              <div className="rounded-[20px] bg-[#121318] border border-white/[0.06] overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)]">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse min-w-[920px]">
-                    <thead className="bg-[#181820] text-[#8E8E98] uppercase font-bold text-[11px] tracking-wider border-b border-[#202028]">
+                    <thead className="bg-[#14151D] text-[#8E8E98] uppercase font-outfit font-bold text-[10px] sm:text-[11px] tracking-wider border-b border-white/[0.06]">
                       <tr>
                         <th className="px-6 py-3.5 whitespace-nowrap">Member ID</th>
                         <th className="px-6 py-3.5 whitespace-nowrap">Athlete Name</th>
@@ -2182,7 +3052,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                         <th className="px-6 py-3.5 text-right whitespace-nowrap">Renewal Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#202028] text-slate-200">
+                    <tbody className="divide-y divide-white/[0.06] text-slate-200">
                       {customers
                         .filter((c) => {
                           const q = renewalSearch.toLowerCase();
@@ -2216,7 +3086,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                   {c.name.charAt(0)}
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className="font-bold text-white text-xs">
+                                  <span className="font-outfit font-bold text-white text-xs">
                                     {c.name}
                                   </span>
                                   <span className="text-[10px] text-slate-400 font-normal truncate max-w-[150px]">
@@ -2230,7 +3100,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
-                                <span className="text-slate-200 font-medium">
+                                <span className="font-outfit text-slate-200 font-semibold">
                                   {c.plan}
                                 </span>
                                 <span className="text-[10px] text-slate-400">
@@ -2294,7 +3164,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                               </button>
                               <button
                                 onClick={() => openRenewalModal(c)}
-                                className="px-3.5 py-1.5 rounded-lg bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs transition-all cursor-pointer shadow-sm inline-flex items-center gap-1.5"
+                                className="px-3.5 py-1.5 rounded-lg bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs transition-all cursor-pointer shadow-sm inline-flex items-center gap-1.5"
                               >
                                 <RotateCw size={12} />
                                 <span>Process Renewal</span>
@@ -2336,29 +3206,29 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <h2 className="font-outfit font-extrabold text-white tracking-tight text-xl sm:text-2xl flex items-center gap-2">
                     <span>Payment & Billing</span>
-                    <span className="text-xs font-normal text-slate-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-0.5 rounded-full">
+                    <span className="text-xs font-normal text-slate-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-0.5 rounded-full font-sans">
                       GST & Settlements
                     </span>
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-400 font-normal mt-0.5">
                     Record membership fees via UPI, Card, Cash, manage athlete transactions, and review official tax receipts.
                   </p>
                 </div>
                 <button
                   onClick={() => setShowRegModal(true)}
-                  className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
                 >
                   <CreditCard size={15} /> Collect New Payment
                 </button>
               </div>
 
               {/* Invoices List */}
-              <div className="rounded-2xl bg-[#121217] border border-[#202028] overflow-hidden shadow-2xl">
+              <div className="rounded-[20px] bg-[#121318] border border-white/[0.06] overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)]">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse min-w-[920px]">
-                    <thead className="bg-[#181820] text-[#8E8E98] uppercase font-bold text-[11px] tracking-wider border-b border-[#202028]">
+                    <thead className="bg-[#14151D] text-[#8E8E98] uppercase font-outfit font-bold text-[10px] sm:text-[11px] tracking-wider border-b border-white/[0.06]">
                       <tr>
                         <th className="px-6 py-3.5 whitespace-nowrap">Invoice #</th>
                         <th className="px-6 py-3.5 whitespace-nowrap">Athlete / Customer</th>
@@ -2371,7 +3241,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                         <th className="px-6 py-3.5 text-right whitespace-nowrap">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#202028] text-slate-200">
+                    <tbody className="divide-y divide-white/[0.06] text-slate-200">
                       {invoices.map((inv) => (
                         <tr
                           key={inv.id}
@@ -2388,7 +3258,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                 {inv.customerName.charAt(0)}
                               </div>
                               <div className="flex flex-col min-w-0">
-                                <span className="font-bold text-white text-xs leading-snug">
+                                <span className="font-outfit font-bold text-white text-xs leading-snug">
                                   {inv.customerName}
                                 </span>
                                 <span className="text-[10px] text-slate-400 font-mono">
@@ -2397,7 +3267,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-slate-200 font-medium">
+                          <td className="px-6 py-4 whitespace-nowrap font-outfit text-slate-200 font-medium">
                             {inv.plan}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap font-mono text-slate-400">
@@ -2424,7 +3294,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                 setSelectedInvoice(inv);
                                 setShowInvoiceModal(true);
                               }}
-                              className="px-3.5 py-1.5 rounded-lg bg-[#181820] border border-white/10 hover:border-[#FF2E4C] text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                              className="px-3.5 py-1.5 rounded-lg bg-[#14151D] border border-white/10 hover:border-[#FF2E4C] text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
                             >
                               <FileText size={13} /> View Receipt
                             </button>
@@ -2445,60 +3315,60 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             <div className="space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <h2 className="font-outfit font-extrabold text-white tracking-tight text-xl sm:text-2xl flex items-center gap-2">
                     <span>Trainer & Coach Schedule Management</span>
-                    <span className="text-xs font-normal text-slate-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-0.5 rounded-full">
+                    <span className="text-xs font-normal text-slate-400 bg-white/[0.04] border border-white/[0.08] px-2.5 py-0.5 rounded-full font-sans">
                       Duty Command
                     </span>
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-400 font-normal mt-0.5">
                     Live duty shifts, certified coach specializations, client rosters, and session allocations.
                   </p>
                 </div>
               </div>
 
               {trainers.length === 0 ? (
-                <div className="p-12 rounded-3xl bg-[#121217] border border-[#202028] text-center space-y-3 shadow-xl">
+                <div className="p-12 rounded-[20px] bg-[#121318] border border-white/[0.06] text-center space-y-3 shadow-xl">
                   <Dumbbell className="mx-auto text-slate-500" size={32} />
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-slate-400 font-medium">
                     No registered trainers/coaches found in database roster.
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {trainers.map((t) => (
                     <div
                       key={t.id}
-                      className="p-6 rounded-3xl bg-[#121217] border border-[#202028] space-y-4 shadow-xl hover:border-[#FF2E4C]/40 transition-all flex flex-col justify-between"
+                      className="group p-5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] transition-all flex flex-col justify-between space-y-4"
                     >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF2E4C] to-[#E50914] text-white font-bold text-lg flex items-center justify-center shadow-md shrink-0">
-                              {t.name.charAt(0)}
+                      <div className="space-y-3.5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FF2E4C]/25 to-white/5 border border-[#FF2E4C]/40 text-[#FF2E4C] font-bold text-base flex items-center justify-center shrink-0 shadow-sm font-outfit">
+                              {t.name.charAt(0).toUpperCase()}
                             </div>
-                            <div>
-                              <h3 className="text-base font-bold text-white">
+                            <div className="min-w-0">
+                              <h3 className="font-outfit font-extrabold text-white text-base tracking-tight truncate">
                                 {t.name}
                               </h3>
-                              <span className="text-xs font-medium text-[#FF2E4C] block">
+                              <span className="text-[11px] font-medium text-[#FF2E4C] block truncate font-sans">
                                 {t.spec}
                               </span>
                             </div>
                           </div>
                           <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase whitespace-nowrap shrink-0 ${
                               t.status === "Available"
-                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                ? "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60"
                                 : t.status === "In Session"
-                                  ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                  : "bg-[#181820] text-slate-400 border border-white/5"
+                                  ? "bg-amber-950/60 text-amber-400 border border-amber-800/60"
+                                  : "bg-white/[0.04] text-slate-400 border border-white/5"
                             }`}
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${
                                 t.status === "Available"
-                                  ? "bg-emerald-400"
+                                  ? "bg-emerald-400 shadow-[0_0_6px_#10B981]"
                                   : t.status === "In Session"
                                     ? "bg-amber-400"
                                     : "bg-slate-400"
@@ -2508,38 +3378,38 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                           </span>
                         </div>
 
-                        <div className="p-3.5 rounded-2xl bg-[#0A0A0D] border border-white/5 space-y-2 text-xs text-slate-400">
-                          <div className="flex justify-between">
-                            <span>Assigned Shift:</span>{" "}
-                            <strong className="text-purple-400 font-semibold">
+                        <div className="p-3.5 rounded-[14px] bg-[#0c0e12]/80 border border-white/[0.06] space-y-2 text-xs text-slate-400 font-sans shadow-inner">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] text-slate-400 font-medium">Assigned Shift:</span>{" "}
+                            <strong className="text-slate-200 font-semibold font-mono text-xs">
                               {t.shift}
                             </strong>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Training Arena:</span>{" "}
-                            <strong className="text-slate-200 truncate max-w-[170px]">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] text-slate-400 font-medium">Training Arena:</span>{" "}
+                            <strong className="text-slate-200 truncate max-w-[170px] text-xs font-medium">
                               {t.room || "Main Strength Arena"}
                             </strong>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Active Athletes:</span>{" "}
-                            <strong className="text-emerald-400 font-bold">
-                              {t.clientsToday || 2} Athletes
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] text-slate-400 font-medium">Active Athletes:</span>{" "}
+                            <strong className="text-emerald-400 font-bold font-mono text-xs">
+                              {t.clientsToday ?? 0} {(t.clientsToday === 1) ? 'Athlete' : 'Athletes'}
                             </strong>
                           </div>
-                          <div className="flex justify-between">
-                            <span>Coach Rating:</span>{" "}
-                            <strong className="text-amber-400 font-semibold">
-                              {t.rating || "4.9 ★"}
+                          <div className="flex justify-between items-center">
+                            <span className="text-[11px] text-slate-400 font-medium">Coach Rating:</span>{" "}
+                            <strong className="text-amber-400 font-bold font-mono text-xs">
+                              {t.rating || "5.0 ★"}
                             </strong>
                           </div>
                         </div>
                       </div>
 
-                      <div className="pt-2">
+                      <div className="pt-1">
                         <button
                           onClick={() => handleOpenCoachSchedule(t)}
-                          className="w-full py-2.5 rounded-xl bg-[#181820] border border-white/10 hover:border-[#FF2E4C] text-white text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm hover:bg-[#FF2E4C]"
+                          className="w-full py-2.5 rounded-xl bg-[#14151D] hover:bg-[#FF2E4C] border border-white/[0.08] hover:border-[#FF2E4C] text-slate-200 hover:text-white text-xs font-outfit font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
                         >
                           <Calendar size={14} />
                           Manage Schedule & Clients
@@ -2558,19 +3428,19 @@ export default function ReceptionistDashboard({ user, onLogout }) {
           {activeTab === "coach-schedule" && (
             <div className="space-y-6 animate-fadeIn pb-16">
               {/* Back Navigation & Coach Overview Card */}
-              <div className="p-6 rounded-3xl bg-[#121217] border border-[#202028] shadow-2xl space-y-5">
+              <div className="p-6 rounded-[20px] bg-[#121318] border border-white/[0.06] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-5">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => setActiveTab("trainers")}
-                      className="p-2.5 rounded-xl bg-[#0A0A0D] border border-white/10 text-slate-300 hover:text-white hover:border-[#FF2E4C] transition-all cursor-pointer flex items-center gap-2 text-xs font-semibold"
+                      className="p-2.5 rounded-xl bg-[#0A0A0D] border border-white/10 text-slate-300 hover:text-white hover:border-[#FF2E4C] transition-all cursor-pointer flex items-center gap-2 text-xs font-outfit font-semibold"
                     >
                       <ArrowRight className="rotate-180" size={15} /> Back to Trainers
                     </button>
                     <div className="h-6 w-[1px] bg-white/10 hidden sm:block" />
                     <div>
                       <div className="flex items-center gap-2.5">
-                        <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
+                        <h2 className="text-xl sm:text-2xl font-outfit font-extrabold text-white tracking-tight">
                           {selectedCoach?.name || "Coach"}
                         </h2>
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[11px] font-bold">
@@ -2586,7 +3456,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setShowAssignClientModal(true)}
-                      className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-bold text-xs flex items-center gap-2 shadow-[0_0_12px_rgba(255,46,76,0.4)] transition-all cursor-pointer"
+                      className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
                     >
                       <UserPlus size={15} /> Assign New Athlete
                     </button>
@@ -2596,34 +3466,34 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 {/* KPI Metrics Row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t border-white/5">
                   <div className="p-4 rounded-2xl bg-[#0A0A0D] border border-white/5 space-y-1">
-                    <span className="text-[11px] text-slate-400 font-mono block">
+                    <span className="font-outfit text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block">
                       ASSIGNED SHIFT
                     </span>
-                    <h4 className="text-base sm:text-lg font-bold text-purple-400">
+                    <h4 className="font-outfit text-base sm:text-lg font-bold text-white">
                       {coachShiftForm.shift}
                     </h4>
                   </div>
                   <div className="p-4 rounded-2xl bg-[#0A0A0D] border border-white/5 space-y-1">
-                    <span className="text-[11px] text-slate-400 font-mono block">
+                    <span className="font-outfit text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block">
                       ACTIVE ATHLETES
                     </span>
-                    <h4 className="text-base sm:text-lg font-bold text-emerald-400">
+                    <h4 className="font-outfit text-base sm:text-lg font-bold text-emerald-400">
                       {coachClients.active.length} Athletes
                     </h4>
                   </div>
                   <div className="p-4 rounded-2xl bg-[#0A0A0D] border border-white/5 space-y-1">
-                    <span className="text-[11px] text-slate-400 font-mono block">
+                    <span className="font-outfit text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block">
                       GRADUATED / PAST
                     </span>
-                    <h4 className="text-base sm:text-lg font-bold text-amber-400">
+                    <h4 className="font-outfit text-base sm:text-lg font-bold text-slate-300">
                       {coachClients.past.length} Completed
                     </h4>
                   </div>
                   <div className="p-4 rounded-2xl bg-[#0A0A0D] border border-white/5 space-y-1">
-                    <span className="text-[11px] text-slate-400 font-mono block">
+                    <span className="font-outfit text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block">
                       COACH RATING
                     </span>
-                    <h4 className="text-base sm:text-lg font-bold text-yellow-400">
+                    <h4 className="font-outfit text-base sm:text-lg font-bold text-amber-400">
                       {selectedCoach?.rating || "4.9 ★"}
                     </h4>
                   </div>
@@ -2631,24 +3501,24 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               </div>
 
               {/* 1. SHIFT & TIMINGS SCHEDULER CONFIGURATION */}
-              <div className="p-6 rounded-3xl bg-[#121217] border border-[#202028] shadow-xl space-y-5">
+              <div className="p-6 rounded-[20px] bg-[#121318] border border-white/[0.06] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-[#201416] border border-[#FF2E4C]/30 flex items-center justify-center text-[#FF2E4C]">
                       <Clock size={20} />
                     </div>
                     <div>
-                      <h3 className="text-base font-bold text-white tracking-tight">
+                      <h3 className="font-outfit font-extrabold text-white text-base tracking-tight">
                         Shift Timings & Working Hours Setup
                       </h3>
-                      <p className="text-xs text-slate-400">
+                      <p className="text-xs text-slate-400 font-normal">
                         Configure weekly availability, designated training room, and duty shift hours.
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={handleSaveCoachShift}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-outfit font-semibold text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
                   >
                     <Check size={14} /> Save Timings
                   </button>
@@ -2657,7 +3527,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {/* Shift Selector */}
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300 block">
+                    <label className="font-outfit text-xs font-semibold text-slate-300 block">
                       Shift Timing Window
                     </label>
                     <select
@@ -2687,7 +3557,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
                   {/* Designated Area */}
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300 block">
+                    <label className="font-outfit text-xs font-semibold text-slate-300 block">
                       Assigned Arena / Zone
                     </label>
                     <select
@@ -2717,7 +3587,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
                   {/* Rest / Break Slot */}
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300 block">
+                    <label className="font-outfit text-xs font-semibold text-slate-300 block">
                       Scheduled Break Time
                     </label>
                     <input
@@ -2737,7 +3607,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
                 {/* Working Days Toggles */}
                 <div className="space-y-2 pt-2 border-t border-white/5">
-                  <label className="text-xs font-semibold text-slate-300 block">
+                  <label className="font-outfit text-xs font-semibold text-slate-300 block">
                     Weekly Working Days
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -2757,7 +3627,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                 days: newDays,
                               });
                             }}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                            className={`px-4 py-2 rounded-xl font-outfit text-xs font-bold transition-all cursor-pointer ${
                               isSelected
                                 ? "bg-[#FF2E4C] text-white shadow-[0_0_10px_rgba(255,46,76,0.4)]"
                                 : "bg-[#0A0A0D] border border-white/10 text-slate-400 hover:text-white"
@@ -2778,10 +3648,10 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setCoachClientTab("active")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                      className={`px-4 py-2 rounded-xl font-outfit text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                         coachClientTab === "active"
                           ? "bg-[#FF2E4C] text-white shadow-md"
-                          : "bg-[#121217] border border-white/10 text-slate-400 hover:text-white"
+                          : "bg-[#121318] border border-white/10 text-slate-400 hover:text-white"
                       }`}
                     >
                       <UserCheck size={15} /> Active Clients (
@@ -2789,34 +3659,24 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                     </button>
                     <button
                       onClick={() => setCoachClientTab("past")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                      className={`px-4 py-2 rounded-xl font-outfit text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer ${
                         coachClientTab === "past"
                           ? "bg-[#FF2E4C] text-white shadow-md"
-                          : "bg-[#121217] border border-white/10 text-slate-400 hover:text-white"
+                          : "bg-[#121318] border border-white/10 text-slate-400 hover:text-white"
                       }`}
                     >
                       <History size={15} /> Past Clients (
                       {coachClients.past.length})
-                    </button>
-                    <button
-                      onClick={() => setCoachClientTab("calendar")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                        coachClientTab === "calendar"
-                          ? "bg-[#FF2E4C] text-white shadow-md"
-                          : "bg-[#121217] border border-white/10 text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      <Calendar size={15} /> Weekly Schedule Grid
                     </button>
                   </div>
                 </div>
 
                 {/* SUB-VIEW A: ACTIVE CLIENTS */}
                 {coachClientTab === "active" && (
-                  <div className="rounded-3xl bg-[#121217] border border-[#202028] overflow-hidden shadow-xl">
+                  <div className="rounded-[20px] bg-[#121318] border border-white/[0.06] overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)]">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
-                        <thead className="bg-[#181820] text-[#8E8E98] uppercase font-bold text-[11px] tracking-wider border-b border-[#202028]">
+                        <thead className="bg-[#14151D] text-[#8E8E98] uppercase font-outfit font-bold text-[10px] sm:text-[11px] tracking-wider border-b border-white/[0.06]">
                           <tr>
                             <th className="p-4">Athlete ID</th>
                             <th className="p-4">Athlete Name</th>
@@ -2827,12 +3687,12 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                             <th className="p-4 text-right">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#202028] text-slate-200">
+                        <tbody className="divide-y divide-white/[0.06] text-slate-200">
                           {coachClients.active.length === 0 ? (
                             <tr>
                               <td
                                 colSpan="7"
-                                className="p-8 text-center text-slate-400"
+                                className="p-8 text-center text-slate-400 font-medium"
                               >
                                 No active athletes assigned yet. Click "Assign New Athlete" to assign a member.
                               </td>
@@ -2847,20 +3707,20 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                   {client.id}
                                 </td>
                                 <td className="p-4">
-                                  <span className="font-bold text-white block">
+                                  <span className="font-outfit font-bold text-white block text-xs">
                                     {client.name}
                                   </span>
                                   <span className="text-[11px] text-slate-400 font-mono">
                                     {client.email}
                                   </span>
                                 </td>
-                                <td className="p-4 font-semibold text-slate-200">
+                                <td className="p-4 font-outfit font-semibold text-slate-200">
                                   {client.program}
                                 </td>
                                 <td className="p-4 text-slate-300">
                                   {client.goal}
                                 </td>
-                                <td className="p-4 text-purple-400 font-mono">
+                                <td className="p-4 text-slate-300 font-mono">
                                   {client.slot}
                                 </td>
                                 <td className="p-4">
@@ -2929,25 +3789,25 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
                 {/* SUB-VIEW B: PAST CLIENTS */}
                 {coachClientTab === "past" && (
-                  <div className="rounded-3xl bg-[#121217] border border-[#202028] overflow-hidden shadow-xl">
+                  <div className="rounded-[20px] bg-[#121318] border border-white/[0.06] overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)]">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs">
-                        <thead className="bg-[#181820] text-[#8E8E98] uppercase font-bold text-[11px] tracking-wider border-b border-[#202028]">
+                        <thead className="bg-[#14151D] text-[#8E8E98] uppercase font-outfit font-bold text-[10px] sm:text-[11px] tracking-wider border-b border-white/[0.06]">
                           <tr>
                             <th className="p-4">Record ID</th>
                             <th className="p-4">Athlete Name</th>
                             <th className="p-4">Completed Program</th>
-                            <th className="p-4">Outcome & PR Transformation</th>
+                            <th className="p-4">Outcome & Transformation</th>
                             <th className="p-4">Completion Date</th>
                             <th className="p-4">Rating</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#202028] text-slate-200">
+                        <tbody className="divide-y divide-white/[0.06] text-slate-200">
                           {coachClients.past.length === 0 ? (
                             <tr>
                               <td
                                 colSpan="6"
-                                className="p-8 text-center text-slate-400"
+                                className="p-8 text-center text-slate-400 font-medium"
                               >
                                 No past graduated athletes in record yet.
                               </td>
@@ -2961,13 +3821,13 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                 <td className="p-4 font-mono text-slate-400 font-semibold">
                                   {client.id}
                                 </td>
-                                <td className="p-4 font-bold text-white">
+                                <td className="p-4 font-outfit font-bold text-white text-xs">
                                   {client.name}
-                                  <span className="text-[11px] text-slate-400 font-mono block">
+                                  <span className="text-[11px] text-slate-400 font-mono block font-normal">
                                     {client.email}
                                   </span>
                                 </td>
-                                <td className="p-4 font-semibold text-slate-300">
+                                <td className="p-4 font-outfit font-semibold text-slate-300">
                                   {client.program}
                                 </td>
                                 <td className="p-4 text-emerald-400 font-medium">
@@ -2987,199 +3847,542 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                     </div>
                   </div>
                 )}
-
-                {/* SUB-VIEW C: WEEKLY SCHEDULE MATRIX */}
-                {coachClientTab === "calendar" && (
-                  <div className="p-6 rounded-3xl bg-[#121217] border border-[#202028] shadow-xl space-y-4">
-                    <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                      <Calendar size={16} className="text-[#FF2E4C]" /> Weekly
-                      Athlete Slot Matrix ({coachShiftForm.shift})
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {[
-                        "Monday",
-                        "Tuesday",
-                        "Wednesday",
-                        "Thursday",
-                        "Friday",
-                        "Saturday",
-                      ].map((day) => (
-                        <div
-                          key={day}
-                          className="p-4 rounded-2xl bg-[#0A0A0D] border border-white/5 space-y-3"
-                        >
-                          <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                            <span className="font-bold text-white text-xs uppercase">
-                              {day}
-                            </span>
-                            <span className="text-[10px] text-purple-400 font-mono">
-                              06:00 - 14:00
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {coachClients.active.length > 0 ? (
-                              coachClients.active.map((client, cIdx) => (
-                                <div
-                                  key={cIdx}
-                                  className="p-2.5 rounded-xl bg-[#141419] border border-emerald-500/30 flex justify-between items-center"
-                                >
-                                  <div>
-                                    <span className="text-xs font-bold text-white block">
-                                      {client.slot.split("(")[0] || "07:00 AM - 08:00 AM"}
-                                    </span>
-                                    <span className="text-[10px] text-emerald-400">
-                                      {client.name} ({client.program})
-                                    </span>
-                                  </div>
-                                  <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 text-[9px] font-mono">
-                                    Booked
-                                  </span>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="p-2.5 rounded-xl bg-[#141419] border border-white/5 flex justify-between items-center">
-                                <div>
-                                  <span className="text-xs text-slate-400 block">
-                                    Available Slot
-                                  </span>
-                                  <span className="text-[10px] text-slate-500">
-                                    Open for Active Members
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => setShowAssignClientModal(true)}
-                                  className="px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#FF2E4C] text-white text-[9px] font-mono transition-colors cursor-pointer"
-                                >
-                                  + Book
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           )}
 
           {/* ============================================================ */}
-          {/* TAB 7: ENQUIRY LEADS MANAGEMENT                              */}
+          {/* TAB 7: SETTINGS (PROFILE, CHANGE PASSWORD, GENERAL SETTINGS) */}
           {/* ============================================================ */}
-          {activeTab === "enquiries" && (
-            <div className="space-y-6 animate-fadeIn">
-              <div className="flex items-center justify-between">
+          {activeTab === "settings" && (
+            <div className="space-y-6 animate-fadeIn pb-16">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-white tracking-tight">
-                    Visitor & Lead Enquiry Management
+                  <h2 className="font-outfit font-extrabold text-white tracking-tight text-xl sm:text-2xl flex items-center gap-2.5">
+                    <Settings className="text-[#FF2E4C]" size={24} />
+                    Account & Station Settings
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Capture prospect inquiries, track follow-ups, and convert leads into gym members.
+                  <p className="text-xs text-slate-400 font-normal mt-0.5">
+                    Manage your receptionist profile, update login credentials, and configure front desk station preferences.
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowEnquiryModal(true)}
-                  className="px-4 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
-                >
-                  <Plus size={15} /> + New Enquiry
-                </button>
-              </div>
 
-              <div className="rounded-2xl bg-[#121217] border border-[#202028] overflow-hidden shadow-2xl">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse min-w-[880px]">
-                    <thead className="bg-[#181820] text-[#8E8E98] uppercase font-bold text-[11px] tracking-wider border-b border-[#202028]">
-                      <tr>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Enquiry ID</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Lead Name</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Contact Details</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Fitness Goal</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Source</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Date</th>
-                        <th className="px-6 py-3.5 whitespace-nowrap">Status</th>
-                        <th className="px-6 py-3.5 text-right whitespace-nowrap">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#202028] text-slate-200">
-                      {enquiries.map((enq) => (
-                        <tr
-                          key={enq.id}
-                          className="hover:bg-white/[0.02] transition-colors"
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="font-mono text-xs font-bold text-[#FF2E4C] bg-[#FF2E4C]/10 px-2.5 py-1 rounded-md border border-[#FF2E4C]/20">
-                              {enq.id}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center font-bold text-xs text-white uppercase shrink-0">
-                                {enq.name.charAt(0)}
-                              </div>
-                              <span className="font-bold text-white text-xs">
-                                {enq.name}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-slate-300">
-                            <span className="block font-medium font-mono">{enq.phone}</span>
-                            <span className="text-[11px] text-slate-400 font-mono">
-                              {enq.email}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-slate-200 font-medium">{enq.goal}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-slate-400">{enq.source}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-slate-400 font-mono">
-                            {enq.date}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap ${
-                                enq.status === "Converted"
-                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                  : enq.status === "Trial Booked"
-                                    ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                                    : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  enq.status === "Converted"
-                                    ? "bg-emerald-400"
-                                    : enq.status === "Trial Booked"
-                                      ? "bg-cyan-400"
-                                      : "bg-amber-400"
-                                }`}
-                              />
-                              {enq.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right whitespace-nowrap">
-                            <button
-                              onClick={() => {
-                                setRegForm({
-                                  name: enq.name,
-                                  email: enq.email !== "N/A" ? enq.email : "",
-                                  phone: enq.phone,
-                                  plan: "PRO MEMBERSHIP",
-                                  duration: "Monthly",
-                                  paymentMethod: "UPI / GPay",
-                                  amount: 2499,
-                                });
-                                setShowRegModal(true);
-                              }}
-                              className="px-3.5 py-1.5 rounded-lg bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs transition-all cursor-pointer whitespace-nowrap shadow-sm"
-                            >
-                              Convert to Member
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                {/* Sub-tab Navigation */}
+                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#0A0A0D] border border-white/10 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setSettingsActiveTab("profile")}
+                    className={`px-3.5 py-2 rounded-lg font-outfit text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                      settingsActiveTab === "profile"
+                        ? "bg-[#FF2E4C] text-white shadow-md"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <User size={14} /> Profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsActiveTab("password")}
+                    className={`px-3.5 py-2 rounded-lg font-outfit text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                      settingsActiveTab === "password"
+                        ? "bg-[#FF2E4C] text-white shadow-md"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Key size={14} /> Change Password
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsActiveTab("general")}
+                    className={`px-3.5 py-2 rounded-lg font-outfit text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                      settingsActiveTab === "general"
+                        ? "bg-[#FF2E4C] text-white shadow-md"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Sliders size={14} /> General Settings
+                  </button>
                 </div>
               </div>
+
+              {/* 1. PROFILE SETTINGS */}
+              {settingsActiveTab === "profile" && (
+                <div className="space-y-6 animate-fadeIn">
+                  {/* Profile Summary Card with Avatar */}
+                  <div className="p-6 rounded-[20px] bg-[#121318] border border-white/[0.06] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+                    <div className="flex items-center gap-4">
+                      {profileForm.avatar ? (
+                        <div className="relative w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#FF2E4C] shadow-[0_0_15px_rgba(255,46,76,0.3)] shrink-0">
+                          <img
+                            src={profileForm.avatar}
+                            alt={profileForm.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF2E4C] to-[#800F2F] border border-[#FF2E4C]/40 flex items-center justify-center font-outfit font-extrabold text-2xl text-white shadow-lg shrink-0">
+                          {profileForm.name.charAt(0) || "R"}
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2.5">
+                          <h3 className="font-outfit font-extrabold text-white text-lg sm:text-xl tracking-tight">
+                            {profileForm.name}
+                          </h3>
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase tracking-wider">
+                            ON DUTY
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 font-mono">
+                          Badge: {profileForm.badgeId} • Front Desk Receptionist
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="px-4 py-2 rounded-xl bg-[#0A0A0D] border border-white/5 text-right">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-outfit block">
+                        ASSIGNED SHIFT (ADMIN ONLY)
+                      </span>
+                      <span className="text-xs font-semibold text-emerald-400 font-outfit">
+                        {profileForm.shift || "Morning Shift (06:00 AM - 02:00 PM)"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Profile Photo Uploader Card (Cloudinary CDN) */}
+                  <div className="p-6 rounded-[20px] bg-[#121318] border border-white/[0.06] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <Camera className="text-[#FF2E4C]" size={18} />
+                        <h4 className="font-outfit font-bold text-white text-sm">
+                          Receptionist Profile Picture
+                        </h4>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-mono font-bold">
+                        ☁️ Cloudinary CDN Synced
+                      </span>
+                    </div>
+
+                    <input
+                      type="file"
+                      ref={avatarFileInputRef}
+                      onChange={handleAvatarUpload}
+                      accept="image/png, image/jpeg, image/webp"
+                      className="hidden"
+                    />
+
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 pt-1">
+                      {/* Avatar Preview */}
+                      <div className="relative group shrink-0">
+                        {profileForm.avatar ? (
+                          <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-[#FF2E4C] shadow-lg">
+                            <img
+                              src={profileForm.avatar}
+                              alt="Receptionist Profile"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#1E202B] to-[#121318] border border-white/10 flex flex-col items-center justify-center text-slate-400 group-hover:border-[#FF2E4C]/50 transition-all">
+                            <User size={32} className="text-slate-500 mb-1" />
+                            <span className="text-[10px] font-semibold text-slate-500">No Photo</span>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => avatarFileInputRef.current?.click()}
+                          disabled={isUploadingAvatar}
+                          className="absolute -bottom-2 -right-2 p-2 rounded-xl bg-[#FF2E4C] text-white hover:brightness-110 shadow-lg cursor-pointer transition-all disabled:opacity-50"
+                          title="Change Profile Photo"
+                        >
+                          <Camera size={14} />
+                        </button>
+                      </div>
+
+                      {/* Instructions & Actions */}
+                      <div className="space-y-3 flex-1 text-center sm:text-left">
+                        <div>
+                          <h5 className="font-outfit font-bold text-white text-xs sm:text-sm">
+                            Upload your official concierge headshot
+                          </h5>
+                          <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                            Upload a clear, professional photo. Your photo is automatically optimized, compressed, and stored securely in Cloudinary CDN storage.
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => avatarFileInputRef.current?.click()}
+                            disabled={isUploadingAvatar}
+                            className="px-4 py-2 rounded-xl bg-[#FF2E4C] hover:brightness-110 disabled:opacity-50 text-white font-outfit font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                          >
+                            {isUploadingAvatar ? (
+                              <>
+                                <RotateCw className="animate-spin" size={13} />
+                                Uploading to Cloudinary...
+                              </>
+                            ) : (
+                              <>
+                                <Upload size={13} />
+                                Upload New Photo
+                              </>
+                            )}
+                          </button>
+
+                          {profileForm.avatar && (
+                            <button
+                              type="button"
+                              onClick={handleRemoveAvatar}
+                              disabled={isUploadingAvatar}
+                              className="px-3.5 py-2 rounded-xl bg-[#0A0A0D] border border-white/10 hover:border-red-500/40 text-slate-300 hover:text-red-400 font-outfit font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                            >
+                              <Trash2 size={13} />
+                              Remove Photo
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Profile Edit Form */}
+                  <form
+                    onSubmit={handleSaveProfile}
+                    className="p-6 sm:p-8 rounded-[20px] bg-[#121318] border border-white/[0.06] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-6"
+                  >
+                    <div className="flex items-center gap-2.5 border-b border-white/[0.06] pb-4">
+                      <User className="text-[#FF2E4C]" size={18} />
+                      <h4 className="font-outfit font-bold text-white text-sm">
+                        Personal & Professional Information
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <label className="font-outfit text-xs font-semibold text-slate-300 mb-1.5 block">
+                          Full Name
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.name}
+                          onChange={(e) =>
+                            setProfileForm({ ...profileForm, name: e.target.value })
+                          }
+                          required
+                          className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-outfit text-xs font-semibold text-slate-300 mb-1.5 block">
+                          Email Address
+                        </label>
+                        <input
+                          type="email"
+                          value={profileForm.email}
+                          onChange={(e) =>
+                            setProfileForm({ ...profileForm, email: e.target.value })
+                          }
+                          required
+                          className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-outfit text-xs font-semibold text-slate-300 mb-1.5 block">
+                          Contact Phone
+                        </label>
+                        <input
+                          type="tel"
+                          value={profileForm.phone}
+                          onChange={(e) =>
+                            setProfileForm({ ...profileForm, phone: e.target.value })
+                          }
+                          required
+                          className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C] font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="font-outfit text-xs font-semibold text-slate-300">
+                            Staff Badge ID
+                          </label>
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                            <Lock size={10} className="text-[#FF2E4C]" /> Fixed (Admin Only)
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          value={profileForm.badgeId}
+                          readOnly
+                          disabled
+                          className="w-full bg-[#0A0A0D]/60 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-slate-300 font-mono cursor-not-allowed select-none opacity-80"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="font-outfit text-xs font-semibold text-slate-300">
+                            Assigned Duty Shift Timings
+                          </label>
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                            <Lock size={10} className="text-[#FF2E4C]" /> Fixed (Admin Only)
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          value={profileForm.shift || "Morning Shift (06:00 AM - 02:00 PM)"}
+                          readOnly
+                          disabled
+                          className="w-full bg-[#0A0A0D]/60 border border-white/5 rounded-xl px-4 py-2.5 text-xs text-emerald-400 font-mono cursor-not-allowed select-none opacity-80"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="submit"
+                        className="px-6 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                      >
+                        <Save size={14} /> Save Profile Changes
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* 2. CHANGE PASSWORD */}
+              {settingsActiveTab === "password" && (
+                <div className="space-y-6 animate-fadeIn max-w-2xl">
+                  <form
+                    onSubmit={handleChangePassword}
+                    className="p-6 sm:p-8 rounded-[20px] bg-[#121318] border border-white/[0.06] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-6"
+                  >
+                    <div className="flex items-center gap-2.5 border-b border-white/[0.06] pb-4">
+                      <Lock className="text-[#FF2E4C]" size={18} />
+                      <div>
+                        <h4 className="font-outfit font-bold text-white text-sm">
+                          Update Account Password
+                        </h4>
+                        <p className="text-[11px] text-slate-400 font-normal">
+                          Ensure your front desk access remains secure by using a strong password.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="font-outfit text-xs font-semibold text-slate-300 mb-1.5 block">
+                          Current Password
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="••••••••"
+                          value={passwordForm.currentPassword}
+                          onChange={(e) =>
+                            setPasswordForm({
+                              ...passwordForm,
+                              currentPassword: e.target.value,
+                            })
+                          }
+                          required
+                          className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-outfit text-xs font-semibold text-slate-300 mb-1.5 block">
+                          New Password
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="At least 6 characters"
+                          value={passwordForm.newPassword}
+                          onChange={(e) =>
+                            setPasswordForm({
+                              ...passwordForm,
+                              newPassword: e.target.value,
+                            })
+                          }
+                          required
+                          className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-outfit text-xs font-semibold text-slate-300 mb-1.5 block">
+                          Confirm New Password
+                        </label>
+                        <input
+                          type="password"
+                          placeholder="Re-enter new password"
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) =>
+                            setPasswordForm({
+                              ...passwordForm,
+                              confirmPassword: e.target.value,
+                            })
+                          }
+                          required
+                          className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-[#0A0A0D] border border-white/5 space-y-1.5 text-xs text-slate-400">
+                      <p className="font-outfit font-semibold text-slate-300 text-[11px]">
+                        Password Requirements:
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 text-[11px]">
+                        <li>Minimum 6 characters in length</li>
+                        <li>Include numbers or special characters for enhanced security</li>
+                      </ul>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="submit"
+                        disabled={passLoading}
+                        className="px-6 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 disabled:opacity-50 text-white font-outfit font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                      >
+                        {passLoading ? (
+                          <>
+                            <RotateCw className="animate-spin" size={14} /> Updating...
+                          </>
+                        ) : (
+                          <>
+                            <Key size={14} /> Update Password
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {/* 3. GENERAL SETTINGS */}
+              {settingsActiveTab === "general" && (
+                <div className="space-y-6 animate-fadeIn">
+                  <form
+                    onSubmit={handleSaveGeneralSettings}
+                    className="p-6 sm:p-8 rounded-[20px] bg-[#121318] border border-white/[0.06] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-6"
+                  >
+                    <div className="flex items-center gap-2.5 border-b border-white/[0.06] pb-4">
+                      <Sliders className="text-[#FF2E4C]" size={18} />
+                      <h4 className="font-outfit font-bold text-white text-sm">
+                        Station Terminal & Display Preferences
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div>
+                        <label className="font-outfit text-xs font-semibold text-slate-300 mb-1.5 block">
+                          Reception Desk Terminal Name
+                        </label>
+                        <input
+                          type="text"
+                          value={generalSettings.terminalName}
+                          onChange={(e) =>
+                            setGeneralSettings({
+                              ...generalSettings,
+                              terminalName: e.target.value,
+                            })
+                          }
+                          required
+                          className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="font-outfit text-xs font-semibold text-slate-300 mb-1.5 block">
+                          Clock / Time Format
+                        </label>
+                        <select
+                          value={generalSettings.timeFormat}
+                          onChange={(e) =>
+                            setGeneralSettings({
+                              ...generalSettings,
+                              timeFormat: e.target.value,
+                            })
+                          }
+                          className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        >
+                          <option value="12-Hour (AM/PM)">12-Hour Format (AM / PM)</option>
+                          <option value="24-Hour (Military)">24-Hour Military Format</option>
+                        </select>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="font-outfit text-xs font-semibold text-slate-300 mb-1.5 block">
+                          Turnstile Live Stream Auto-Sync Rate
+                        </label>
+                        <select
+                          value={generalSettings.streamRefreshRate}
+                          onChange={(e) =>
+                            setGeneralSettings({
+                              ...generalSettings,
+                              streamRefreshRate: e.target.value,
+                            })
+                          }
+                          className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                        >
+                          <option value="3s">Every 3 Seconds (Ultra-Fast)</option>
+                          <option value="5s">Every 5 Seconds (Standard)</option>
+                          <option value="10s">Every 10 Seconds</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Audio Check-in Chime Toggle */}
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-[#0A0A0D] border border-white/5">
+                      <div>
+                        <h5 className="font-outfit font-bold text-white text-xs flex items-center gap-2">
+                          <Volume2 size={15} className="text-[#FF2E4C]" />
+                          Check-in Audio Chime & Verification Beep
+                        </h5>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Play clear verification acoustic tone on successful member check-in passage.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setGeneralSettings({
+                            ...generalSettings,
+                            audioChime: !generalSettings.audioChime,
+                          })
+                        }
+                        className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
+                          generalSettings.audioChime
+                            ? "bg-[#FF2E4C]"
+                            : "bg-slate-700"
+                        }`}
+                      >
+                        <span
+                          className={`block w-4 h-4 rounded-full bg-white transition-transform ${
+                            generalSettings.audioChime
+                              ? "translate-x-6"
+                              : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="submit"
+                        className="px-6 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+                      >
+                        <Save size={14} /> Save General Settings
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
             </div>
           )}
 
@@ -3191,7 +4394,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       {/* ============================================================ */}
       {showRegModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-lg bg-[#121217] border border-[#202028] rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+          <div className="relative w-full max-w-lg bg-[#121318] border border-white/[0.06] rounded-[20px] p-6 sm:p-8 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-6">
             <button
               onClick={() => setShowRegModal(false)}
               className="absolute top-6 right-6 text-slate-400 hover:text-white"
@@ -3202,18 +4405,18 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <UserPlus className="text-[#FF2E4C]" size={20} />
-                <h3 className="text-lg font-bold text-white tracking-tight">
+                <h3 className="font-outfit font-extrabold text-white tracking-tight text-xl">
                   Register New Athlete
                 </h3>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 font-normal">
                 Onboard a member, assign membership pass, and record initial payment.
               </p>
             </div>
 
             <form onSubmit={handleRegisterCustomer} className="space-y-4">
               <div>
-                <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                   Full Name
                 </label>
                 <input
@@ -3230,7 +4433,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Email Address
                   </label>
                   <input
@@ -3245,7 +4448,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Phone Number
                   </label>
                   <input
@@ -3261,9 +4464,54 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 </div>
               </div>
 
+              {/* Password Setting Section (Auto-dispatched to Athlete via SMTP) */}
+              <div className="bg-[#15161D] border border-white/[0.08] rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-outfit text-xs text-slate-200 font-semibold flex items-center gap-1.5">
+                    <Key size={13} className="text-[#FF2E4C]" />
+                    <span>Set Login Password</span>
+                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-md font-mono flex items-center gap-1">
+                      <Mail size={10} />
+                      SMTP Auto-Sent
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={generateNewPassword}
+                    className="text-[11px] font-semibold text-[#FF2E4C] hover:text-[#ff526d] flex items-center gap-1 cursor-pointer transition-colors bg-[#FF2E4C]/10 px-2 py-0.5 rounded-lg border border-[#FF2E4C]/20"
+                  >
+                    <Sparkles size={11} />
+                    Auto-Generate
+                  </button>
+                </div>
+                <div className="relative flex items-center">
+                  <input
+                    type={showRegPassword ? "text" : "password"}
+                    placeholder="Enter or generate customer temporary password..."
+                    value={regForm.password}
+                    onChange={(e) =>
+                      setRegForm({ ...regForm, password: e.target.value })
+                    }
+                    required
+                    className="w-full bg-[#0A0A0D] border border-white/10 rounded-xl px-3.5 py-2.5 pr-10 text-xs text-white font-mono tracking-wider outline-none focus:border-[#FF2E4C]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegPassword(!showRegPassword)}
+                    className="absolute right-3 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    {showRegPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                  <Mail size={11} className="text-[#FF2E4C] shrink-0" />
+                  <span>This password will be dispatched to the customer's email via SMTP upon registration.</span>
+                </p>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Membership Plan
                   </label>
                   <select
@@ -3284,7 +4532,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Duration
                   </label>
                   <select
@@ -3306,7 +4554,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Payment Method
                   </label>
                   <select
@@ -3324,7 +4572,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Amount Settled (₹)
                   </label>
                   <input
@@ -3340,7 +4588,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs transition-all cursor-pointer mt-2 shadow-md"
+                className="w-full py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs transition-all cursor-pointer mt-2 shadow-md"
               >
                 Complete Registration & Issue Biometric Pass
               </button>
@@ -3354,7 +4602,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       {/* ============================================================ */}
       {showRenewModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-lg bg-[#121217] border border-[#202028] rounded-2xl p-6 sm:p-7 shadow-2xl space-y-5">
+          <div className="relative w-full max-w-lg bg-[#121318] border border-white/[0.06] rounded-[20px] p-6 sm:p-7 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-5">
             <button
               onClick={() => setShowRenewModal(false)}
               className="absolute top-6 right-6 text-slate-400 hover:text-white transition-colors"
@@ -3369,10 +4617,10 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   <RotateCw size={16} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white tracking-tight">
+                  <h3 className="font-outfit font-extrabold text-white tracking-tight text-xl">
                     Renew Client Membership
                   </h3>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 font-normal">
                     Extend passes for existing athletes & record subscription settlements.
                   </p>
                 </div>
@@ -3382,7 +4630,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             <form onSubmit={handleRenewSubmit} className="space-y-4">
               {/* Select Existing Client */}
               <div>
-                <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                   Select Registered Client / Member
                 </label>
                 <select
@@ -3417,12 +4665,12 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               {selectedCustomer && (
                 <div className="p-3.5 rounded-xl bg-[#0A0A0D] border border-white/10 flex items-center justify-between text-xs">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#FF2E4C]/20 to-[#FF2E4C]/5 border border-[#FF2E4C]/30 flex items-center justify-center font-bold text-xs text-[#FF2E4C] uppercase shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#FF2E4C]/20 to-[#FF2E4C]/5 border border-[#FF2E4C]/30 flex items-center justify-center font-outfit font-bold text-xs text-[#FF2E4C] uppercase shrink-0">
                       {selectedCustomer.name.charAt(0)}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-white text-xs">
+                        <span className="font-outfit font-bold text-white text-xs">
                           {selectedCustomer.name}
                         </span>
                         <span className="font-mono text-[10px] text-[#FF2E4C] bg-[#FF2E4C]/10 px-1.5 py-0.2 rounded border border-[#FF2E4C]/20">
@@ -3446,7 +4694,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               {/* Plan & Duration Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Renewal Plan Tier
                   </label>
                   <select
@@ -3471,7 +4719,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Extension Term
                   </label>
                   <select
@@ -3497,7 +4745,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               {/* Payment Method & Amount Settled */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Payment Method
                   </label>
                   <select
@@ -3518,7 +4766,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 </div>
 
                 <div>
-                  <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                  <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                     Total Amount (₹)
                   </label>
                   <input
@@ -3550,13 +4798,13 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 <button
                   type="button"
                   onClick={() => setShowRenewModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-outfit font-semibold text-slate-300 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
                 >
                   <RotateCw size={14} />
                   <span>Confirm & Extend Membership</span>
@@ -3572,7 +4820,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       {/* ============================================================ */}
       {showInvoiceModal && selectedInvoice && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-xl bg-[#121217] border border-[#202028] rounded-2xl p-8 shadow-2xl space-y-6">
+          <div className="relative w-full max-w-xl bg-[#121318] border border-white/[0.06] rounded-[20px] p-8 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-6">
             <button
               onClick={() => setShowInvoiceModal(false)}
               className="absolute top-6 right-6 text-slate-400 hover:text-white"
@@ -3581,9 +4829,9 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             </button>
 
             {/* Printable Invoice Header */}
-            <div className="flex justify-between items-start border-b border-[#202028] pb-6">
+            <div className="flex justify-between items-start border-b border-white/[0.06] pb-6">
               <div>
-                <span className="font-bebas text-3xl text-white tracking-wider">
+                <span className="font-outfit font-extrabold text-2xl text-white tracking-wider">
                   {cmsData?.brand?.name || "TITAN•PULSE"}
                 </span>
                 <p className="text-[10px] text-slate-400 font-mono">
@@ -3612,7 +4860,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               <span className="text-[10px] text-slate-400 uppercase font-semibold block">
                 Billed To:
               </span>
-              <h4 className="text-base font-bold text-white">
+              <h4 className="font-outfit font-bold text-white text-base">
                 {selectedInvoice.customerName}
               </h4>
               <p className="text-slate-400 font-mono">
@@ -3622,7 +4870,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
             {/* Line Items */}
             <div className="space-y-2 text-xs">
-              <div className="flex justify-between py-2 border-b border-[#202028] text-[#8E8E98] uppercase text-[10px] font-bold tracking-wider">
+              <div className="flex justify-between py-2 border-b border-white/[0.06] text-[#8E8E98] uppercase text-[10px] font-bold tracking-wider font-outfit">
                 <span>Description</span>
                 <span>Amount</span>
               </div>
@@ -3638,7 +4886,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   ₹{selectedInvoice.tax.toLocaleString()}
                 </span>
               </div>
-              <div className="flex justify-between py-3 border-t border-[#202028] text-base font-bold text-emerald-400 font-mono">
+              <div className="flex justify-between py-3 border-t border-white/[0.06] text-base font-bold text-emerald-400 font-mono">
                 <span>Total Paid ({selectedInvoice.paymentMethod})</span>
                 <span>₹{selectedInvoice.total.toLocaleString()}</span>
               </div>
@@ -3650,7 +4898,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 onClick={() => {
                   window.print();
                 }}
-                className="flex-1 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
+                className="flex-1 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer"
               >
                 <Printer size={15} /> Print Official Receipt
               </button>
@@ -3659,7 +4907,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   showToast("✓ Invoice receipt downloaded!");
                   setShowInvoiceModal(false);
                 }}
-                className="px-4 py-2.5 rounded-xl bg-[#181820] border border-white/10 hover:border-white/20 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-[#14151D] border border-white/10 hover:border-white/20 text-white font-outfit font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 <Download size={15} /> Download PDF
               </button>
@@ -3673,7 +4921,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       {/* ============================================================ */}
       {showEnquiryModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="relative w-full max-w-md bg-[#121217] border border-[#202028] rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+          <div className="relative w-full max-w-md bg-[#121318] border border-white/[0.06] rounded-[20px] p-6 sm:p-8 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] space-y-6">
             <button
               onClick={() => setShowEnquiryModal(false)}
               className="absolute top-6 right-6 text-slate-400 hover:text-white"
@@ -3684,18 +4932,18 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <HelpCircle className="text-[#FF2E4C]" size={20} />
-                <h3 className="text-lg font-bold text-white tracking-tight">
+                <h3 className="font-outfit font-extrabold text-white tracking-tight text-xl">
                   Capture Prospect Lead
                 </h3>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 font-normal">
                 Record visitor details and fitness goals for front desk follow-up.
               </p>
             </div>
 
             <form onSubmit={handleCreateEnquiry} className="space-y-4">
               <div>
-                <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                   Prospect Name
                 </label>
                 <input
@@ -3711,7 +4959,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                   Phone Number
                 </label>
                 <input
@@ -3727,7 +4975,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                   Email (Optional)
                 </label>
                 <input
@@ -3742,7 +4990,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                   Primary Fitness Goal
                 </label>
                 <select
@@ -3768,7 +5016,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 font-semibold mb-1.5 block">
+                <label className="font-outfit text-xs text-slate-300 font-semibold mb-1.5 block">
                   Enquiry Source
                 </label>
                 <select
@@ -3787,7 +5035,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs shadow-md transition-all cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs shadow-md transition-all cursor-pointer"
               >
                 Save Prospect Lead
               </button>
@@ -3801,13 +5049,13 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       {/* ============================================================ */}
       {showAssignClientModal && (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-lg rounded-3xl bg-[#121217] border border-[#202028] p-6 sm:p-8 space-y-6 shadow-2xl animate-scaleUp">
+          <div className="w-full max-w-lg rounded-[20px] bg-[#121318] border border-white/[0.06] p-6 sm:p-8 space-y-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] animate-scaleUp">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
-                <h3 className="text-xl font-black text-white uppercase tracking-tight">
+                <h3 className="font-outfit font-extrabold text-white tracking-tight text-xl">
                   Assign Athlete to Coach
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-400 mt-0.5 font-normal">
                   Allocate a registered member to {selectedCoach?.name || "Coach"}
                 </p>
               </div>
@@ -3921,7 +5169,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               className="space-y-4"
             >
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                <label className="font-outfit text-xs font-semibold text-slate-300 block mb-1.5">
                   Select Active Gym Member
                 </label>
                 <select
@@ -3958,7 +5206,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                  <label className="font-outfit text-xs font-semibold text-slate-300 block mb-1.5">
                     Session Slot Timing
                   </label>
                   <select
@@ -3980,7 +5228,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                  <label className="font-outfit text-xs font-semibold text-slate-300 block mb-1.5">
                     Training Days
                   </label>
                   <select
@@ -4001,7 +5249,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+                <label className="font-outfit text-xs font-semibold text-slate-300 block mb-1.5">
                   Target Coaching Goal & Focus
                 </label>
                 <input
@@ -4022,18 +5270,168 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 <button
                   type="button"
                   onClick={() => setShowAssignClientModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-outfit font-semibold text-slate-300 hover:text-white transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-outfit font-semibold text-xs shadow-md transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Check size={14} /> Confirm Allocation
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 6: MANUAL CHECK-IN HYPER PROCESS ORBIT VERIFICATION   */}
+      {/* ============================================================ */}
+      {showOtpModal && selectedOtpCustomer && (
+        <VerifyNumberModal
+          customer={selectedOtpCustomer}
+          onClose={() => {
+            setShowOtpModal(false);
+            setOtpInput("");
+            setOtpError("");
+          }}
+          onVerifiedSuccess={(newRecord) => {
+            setAttendanceLogs((prev) => [
+              newRecord,
+              ...prev.filter((l) => l.id !== newRecord.id),
+            ]);
+            showToast(
+              `✓ Access Granted: ${newRecord.name} checked in at ${newRecord.timeIn}!`
+            );
+
+            setReceptionistNotifications((prev) => [
+              {
+                id: `NTF-REC-${Date.now().toString().slice(-4)}`,
+                title: `Manual OTP Check-In Verified`,
+                desc: `${newRecord.name} (${newRecord.customerId}) authenticated and clocked in at Turnstile Gate Alpha-1.`,
+                category: "checkin",
+                source: "Front Desk Concierge",
+                time: "Just now",
+                meta: newRecord.timeIn,
+                unread: true,
+                actionTab: "manual-login",
+                actionLabel: "View Log",
+              },
+              ...prev,
+            ]);
+
+            // Real-time multi-dashboard broadcast
+            const syncPayload = {
+              ...newRecord,
+              syncTimestamp: Date.now(),
+            };
+            localStorage.setItem(
+              "titan_attendance_updated",
+              JSON.stringify(syncPayload)
+            );
+            window.dispatchEvent(
+              new CustomEvent("titan_attendance_sync", { detail: syncPayload })
+            );
+
+            fetchData();
+          }}
+          onResendOtp={() => handleRequestManualLogin(selectedOtpCustomer)}
+        />
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 7: 6-HOUR COOLDOWN ALREADY CHECKED IN WARNING MODAL    */}
+      {/* ============================================================ */}
+      {alreadyCheckedInModalData && (
+        <div className="fixed inset-0 z-[220] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="relative w-full max-w-md p-6 sm:p-7 rounded-[20px] bg-[#121318] border border-amber-500/40 shadow-[0_0_40px_rgba(245,158,11,0.25)] text-center space-y-5 animate-fadeIn">
+            <button
+              type="button"
+              onClick={() => setAlreadyCheckedInModalData(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Warning Icon Badge */}
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border-2 border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto shadow-lg">
+              <Clock size={28} className="animate-pulse" />
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 inline-block">
+                ● 6-HOUR COOLDOWN ACTIVE
+              </span>
+              <h3 className="font-outfit font-extrabold text-white tracking-tight text-xl">
+                Athlete Already Checked In
+              </h3>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto font-normal">
+                Gym attendance security policy requires a minimum 6-hour interval between access admissions.
+              </p>
+            </div>
+
+            {/* Previous Check-In Timing & Cooldown Details Card */}
+            <div className="p-4 rounded-xl bg-[#090C0E] border border-white/10 text-left space-y-3">
+              <div className="flex items-center gap-3 pb-3 border-b border-white/[0.08]">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-white/5 border border-amber-500/40 text-amber-300 font-outfit font-bold text-sm flex items-center justify-center shrink-0">
+                  {alreadyCheckedInModalData.previousCheckIn?.name?.charAt(0) || "A"}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="font-outfit font-bold text-white text-sm truncate">
+                    {alreadyCheckedInModalData.previousCheckIn?.name}
+                  </h4>
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    ID: #{alreadyCheckedInModalData.previousCheckIn?.customerId || "CUST-001"} • {alreadyCheckedInModalData.previousCheckIn?.plan || "PRO PASS"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">
+                    Previous Check-In
+                  </span>
+                  <strong className="text-amber-300 font-mono text-xs block">
+                    {alreadyCheckedInModalData.previousCheckIn?.timeIn} ({alreadyCheckedInModalData.timeElapsedStr})
+                  </strong>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                  <span className="text-[10px] uppercase font-mono text-slate-400 block mb-0.5">
+                    Terminal Gate
+                  </span>
+                  <strong className="text-white font-mono text-xs block truncate">
+                    {alreadyCheckedInModalData.previousCheckIn?.terminal || "Gate Alpha-1"}
+                  </strong>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 col-span-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-mono text-amber-300 block">
+                        Next Eligible Entry
+                      </span>
+                      <strong className="text-white font-mono text-xs">
+                        {alreadyCheckedInModalData.nextEligibleTime}
+                      </strong>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      {alreadyCheckedInModalData.timeRemainingStr} remaining
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setAlreadyCheckedInModalData(null)}
+              className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-outfit font-extrabold text-xs sm:text-sm shadow-md transition-all cursor-pointer"
+            >
+              Acknowledge & Close
+            </button>
           </div>
         </div>
       )}

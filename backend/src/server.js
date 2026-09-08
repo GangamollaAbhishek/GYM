@@ -23,7 +23,10 @@ const User = require('./models/User');
 const Feedback = require('./models/Feedback');
 const Payment = require('./models/Payment');
 const CMS = require('./models/CMS');
+const Attendance = require('./models/Attendance');
+const Enquiry = require('./models/Enquiry');
 const { authenticateToken, authorizeRoles } = require('./middleware/authMiddleware');
+const { sendWelcomeCredentialsEmail } = require('./utils/mailer');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
@@ -62,6 +65,7 @@ const autoSeedAdmin = async () => {
     // Normalize any legacy 'member' role to 'customer'
     await User.updateMany({ role: 'member' }, { $set: { role: 'customer' } });
 
+    // 1. Seed Primary Admin User
     const adminEmail = 'abhigangamolla@gmail.com';
     const existingAdmin = await User.findOne({ email: adminEmail });
     if (!existingAdmin) {
@@ -76,12 +80,44 @@ const autoSeedAdmin = async () => {
       await admin.save();
       console.log('👑 Original Admin user (abhishek / abhigangamolla@gmail.com) seeded in database!');
     } else {
-      // Ensure admin has admin role
       if (existingAdmin.role !== 'admin') {
         existingAdmin.role = 'admin';
         await existingAdmin.save();
       }
       console.log('👑 Original Admin user (abhishek / abhigangamolla@gmail.com) verified in database.');
+    }
+
+    // 2. Seed Receptionist Account
+    const recEmail = 'receptionist@titangym.com';
+    let recUser = await User.findOne({ email: recEmail });
+    if (!recUser) {
+      recUser = new User({
+        name: 'Front Desk Receptionist',
+        email: recEmail,
+        password: 'Reception@2026',
+        phone: '+91 9876500001',
+        role: 'receptionist',
+      });
+      await recUser.save();
+      console.log('🛎️ Default Receptionist account (receptionist@titangym.com / Reception@2026) seeded.');
+    }
+
+    // Clean up any legacy dummy customer seeds from MongoDB
+    await User.deleteMany({ email: 'customer@titangym.com' });
+
+    // 4. Seed Trainer Account
+    const trainerEmail = 'trainer@titangym.com';
+    let trainerUser = await User.findOne({ email: trainerEmail });
+    if (!trainerUser) {
+      trainerUser = new User({
+        name: 'Coach Marcus Vance',
+        email: trainerEmail,
+        password: 'Trainer@2026',
+        phone: '+91 9876500002',
+        role: 'trainer',
+      });
+      await trainerUser.save();
+      console.log('🔥 Default Trainer account (trainer@titangym.com / Trainer@2026) seeded.');
     }
   } catch (err) {
     console.error('⚠️ Auto-seed admin error:', err.message);
@@ -1372,12 +1408,14 @@ app.post('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist'
       amountPaid = Number(amount) || 0;
     }
 
+    const assignedPassword = (password && password.trim()) ? password.trim() : 'TitanPass@123';
+
     const newUser = new User({
       name: name.trim(),
       email: lowerEmail,
       phone: (phone || '').trim(),
       role: (role || 'customer').toLowerCase().trim(),
-      password: (password || 'DefaultPass123!').trim(),
+      password: assignedPassword,
       membershipPlan,
       membershipStatus,
       membershipDuration,
@@ -1389,9 +1427,30 @@ app.post('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist'
 
     await newUser.save();
 
+    // Dispatch welcome credentials email to the new athlete
+    let emailStatus = { success: false };
+    try {
+      emailStatus = await sendWelcomeCredentialsEmail({
+        to: newUser.email,
+        name: newUser.name,
+        email: newUser.email,
+        password: assignedPassword,
+        plan: newUser.membershipPlan,
+        duration: newUser.membershipDuration,
+        membershipExpiry: newUser.membershipExpiry,
+        amountPaid: newUser.amountPaid,
+        paymentMethod: newUser.paymentMethod
+      });
+    } catch (mailErr) {
+      console.error('Failed to dispatch welcome email:', mailErr.message);
+    }
+
     res.status(201).json({
       status: 'success',
-      message: 'User created successfully',
+      message: emailStatus?.success
+        ? 'User created successfully and credentials sent to email!'
+        : 'User created successfully',
+      emailSent: emailStatus?.success || false,
       data: {
         id: newUser._id.toString(),
         name: newUser.name,
@@ -1982,6 +2041,671 @@ app.get('/api/payments', authenticateToken, authorizeRoles('admin', 'receptionis
   } catch (error) {
     console.error('Fetch payments error:', error);
     res.status(500).json({ status: 'error', message: 'Failed to fetch payment records' });
+  }
+});
+
+// ==========================================
+// ATTENDANCE, TURNSTILE & MANUAL OTP CHECK-IN
+// ==========================================
+
+// Global in-memory OTP request cache with auto-expiry
+const activeOtpMap = new Map();
+
+// Helper to cleanup expired OTPs
+const cleanupExpiredOtps = () => {
+  const now = Date.now();
+  for (const [key, val] of activeOtpMap.entries()) {
+    if (val.expiresAt < now) {
+      activeOtpMap.delete(key);
+    }
+  }
+};
+
+// Check if athlete has checked in within the last 6 hours (6-hour gap cooldown)
+const check6HourCooldown = async ({ customerId, userId, email, name }) => {
+  try {
+    const COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours in milliseconds
+    const sixHoursAgo = new Date(Date.now() - COOLDOWN_MS);
+
+    const orClauses = [];
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      orClauses.push({ userId: new mongoose.Types.ObjectId(userId) });
+    }
+    if (customerId && String(customerId).trim()) {
+      orClauses.push({ customerId: String(customerId).trim() });
+    }
+    if (email && email.trim()) {
+      orClauses.push({ email: email.toLowerCase().trim() });
+    }
+    if (name && name.trim()) {
+      orClauses.push({ name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } });
+    }
+
+    if (orClauses.length === 0) return { isBlocked: false };
+
+    // Find latest attendance record within last 6 hours
+    const recentRecord = await Attendance.findOne({
+      $or: orClauses,
+      status: { $ne: 'Cancelled' },
+      $or: [
+        { checkInTimestamp: { $gte: sixHoursAgo } },
+        { createdAt: { $gte: sixHoursAgo } }
+      ]
+    }).sort({ checkInTimestamp: -1, createdAt: -1 });
+
+    if (recentRecord) {
+      const checkInTime = recentRecord.checkInTimestamp || recentRecord.createdAt || new Date();
+      const checkInMs = new Date(checkInTime).getTime();
+      const elapsedMs = Math.max(0, Date.now() - checkInMs);
+
+      if (elapsedMs < COOLDOWN_MS) {
+        const remainingMs = COOLDOWN_MS - elapsedMs;
+        const remainingHours = Math.floor(remainingMs / (1000 * 60 * 60));
+        const remainingMinutes = Math.ceil((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+
+        const nextEligibleDate = new Date(checkInMs + COOLDOWN_MS);
+        const nextEligibleTime = nextEligibleDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+
+        const elapsedHours = Math.floor(elapsedMs / (1000 * 60 * 60));
+        const elapsedMinutes = Math.floor((elapsedMs % (1000 * 60 * 60)) / (1000 * 60));
+        const timeElapsedStr = elapsedHours > 0 
+          ? `${elapsedHours} hr ${elapsedMinutes} mins ago` 
+          : `${elapsedMinutes} mins ago`;
+
+        const timeRemainingStr = remainingHours > 0 
+          ? `${remainingHours}h ${remainingMinutes}m` 
+          : `${remainingMinutes} mins`;
+
+        return {
+          isBlocked: true,
+          previousCheckIn: {
+            logId: recentRecord.logId,
+            timeIn: recentRecord.timeIn,
+            date: recentRecord.date,
+            terminal: recentRecord.terminal || 'Turnstile Gate Alpha-1',
+            status: recentRecord.status,
+            verification: recentRecord.verification,
+            checkInTimestamp: recentRecord.checkInTimestamp || recentRecord.createdAt,
+            name: recentRecord.name,
+            customerId: recentRecord.customerId,
+            plan: recentRecord.plan
+          },
+          timeElapsedStr,
+          timeRemainingStr,
+          nextEligibleTime,
+          remainingHours,
+          remainingMinutes,
+          message: `Athlete ${recentRecord.name} is already checked in at ${recentRecord.timeIn} (${timeElapsedStr}). Minimum 6-hour gap required between check-ins. Next check-in eligible at ${nextEligibleTime} (${timeRemainingStr} remaining).`
+        };
+      }
+    }
+
+    return { isBlocked: false };
+  } catch (err) {
+    console.error('Cooldown check error:', err);
+    return { isBlocked: false };
+  }
+};
+
+// POST /api/attendance/request-otp - Generate & dispatch manual check-in OTP for customer
+app.post('/api/attendance/request-otp', async (req, res) => {
+  try {
+    const { customerId, userId, name, email, phone, plan } = req.body;
+    if (!name && !customerId && !userId && !email) {
+      return res.status(400).json({ status: 'error', message: 'Customer identifier is required' });
+    }
+
+    cleanupExpiredOtps();
+
+    // 6-Hour Cooldown Validation
+    const cooldownStatus = await check6HourCooldown({ customerId, userId, name, email });
+    if (cooldownStatus.isBlocked) {
+      console.warn(`⛔ Check-in blocked for ${name}: Already checked in (${cooldownStatus.timeElapsedStr})`);
+      return res.status(400).json({
+        status: 'already_checked_in',
+        message: cooldownStatus.message,
+        data: cooldownStatus
+      });
+    }
+
+    // Generate secure 4-digit numeric OTP matching orbit verification console
+    const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    const expiresAt = Date.now() + 2 * 60 * 1000; // Exactly 2:00 minutes validity
+
+    const otpData = {
+      otp: generatedOtp,
+      customerId: customerId || `CUST-${Math.floor(100 + Math.random() * 900)}`,
+      userId: userId ? String(userId) : null,
+      name: name || 'Valued Athlete',
+      email: email || '',
+      phone: phone || '',
+      plan: plan || 'PRO MEMBERSHIP',
+      requestedAt: new Date().toISOString(),
+      expiresAt,
+      verified: false,
+    };
+
+    // Store by customerId, userId, and email for fast lookup
+    if (customerId) activeOtpMap.set(String(customerId).toLowerCase(), otpData);
+    if (userId) activeOtpMap.set(String(userId).toLowerCase(), otpData);
+    if (email) activeOtpMap.set(String(email).toLowerCase(), otpData);
+    activeOtpMap.set(name.toLowerCase().trim(), otpData);
+
+    console.log(`🔑 Manual Check-In OTP generated for ${name} (${customerId || userId}): [ ${generatedOtp} ] (Expires in 2:00 mins)`);
+
+    return res.status(200).json({
+      status: 'success',
+      message: `OTP successfully sent to customer portal for ${name}`,
+      data: {
+        customerId: otpData.customerId,
+        userId: otpData.userId,
+        name: otpData.name,
+        expiresAt: otpData.expiresAt,
+        requestedAt: otpData.requestedAt,
+        // In local development, also provide the OTP in debug payload for convenience
+        debugOtp: generatedOtp,
+      }
+    });
+  } catch (error) {
+    console.error('Request OTP Error:', error);
+    return res.status(500).json({ status: 'error', message: error.message || 'Failed to request check-in OTP' });
+  }
+});
+
+// GET /api/attendance/active-otp/:identifier - Retrieve pending check-in OTP for Customer Portal
+app.get('/api/attendance/active-otp/:identifier', (req, res) => {
+  try {
+    const rawId = req.params.identifier;
+    if (!rawId) {
+      return res.status(400).json({ status: 'error', message: 'Identifier required' });
+    }
+
+    cleanupExpiredOtps();
+
+    const lookupKey = rawId.toLowerCase().trim();
+    const active = activeOtpMap.get(lookupKey);
+
+    if (active && active.expiresAt > Date.now() && !active.verified) {
+      return res.status(200).json({
+        status: 'success',
+        data: {
+          hasActiveOtp: true,
+          otp: active.otp,
+          customerId: active.customerId,
+          name: active.name,
+          plan: active.plan,
+          expiresAt: active.expiresAt,
+          requestedAt: active.requestedAt,
+        }
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        hasActiveOtp: false,
+      }
+    });
+  } catch (error) {
+    console.error('Get Active OTP Error:', error);
+    return res.status(500).json({ status: 'error', message: 'Failed to check active OTP' });
+  }
+});
+
+// POST /api/attendance/verify-otp - Verify receptionist entered OTP & record attendance clock-in
+app.post('/api/attendance/verify-otp', async (req, res) => {
+  try {
+    const { customerId, userId, name, email, phone, plan, otp, terminal } = req.body;
+
+    if (!otp) {
+      return res.status(400).json({ status: 'error', message: 'OTP is required for manual verification' });
+    }
+
+    cleanupExpiredOtps();
+
+    const cleanOtp = String(otp).trim();
+    let matchedData = null;
+    let matchedKey = null;
+
+    // Search for matching OTP in active store
+    const keysToCheck = [
+      customerId ? String(customerId).toLowerCase() : null,
+      userId ? String(userId).toLowerCase() : null,
+      email ? String(email).toLowerCase() : null,
+      name ? name.toLowerCase().trim() : null,
+    ].filter(Boolean);
+
+    for (const key of keysToCheck) {
+      if (activeOtpMap.has(key)) {
+        const candidate = activeOtpMap.get(key);
+        if (candidate.otp === cleanOtp && candidate.expiresAt > Date.now()) {
+          matchedData = candidate;
+          matchedKey = key;
+          break;
+        }
+      }
+    }
+
+    // Fallback: search all active entries if user didn't provide specific key
+    if (!matchedData) {
+      for (const [k, v] of activeOtpMap.entries()) {
+        if (v.otp === cleanOtp && v.expiresAt > Date.now()) {
+          matchedData = v;
+          matchedKey = k;
+          break;
+        }
+      }
+    }
+
+    if (!matchedData) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid or expired OTP code. Please check the code or request a new one.'
+      });
+    }
+
+    // 6-Hour Cooldown Validation before finalizing attendance
+    const cooldownStatus = await check6HourCooldown({
+      customerId: matchedData.customerId || customerId,
+      userId: matchedData.userId || userId,
+      name: matchedData.name || name,
+      email: matchedData.email || email,
+    });
+
+    if (cooldownStatus.isBlocked) {
+      console.warn(`⛔ OTP verification blocked: ${matchedData.name} already checked in within 6 hrs`);
+      return res.status(400).json({
+        status: 'already_checked_in',
+        message: cooldownStatus.message,
+        data: cooldownStatus
+      });
+    }
+
+    // Current formatted clock-in time & date
+    const now = new Date();
+    const timeInStr = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+    const dateStr = now.toISOString().split('T')[0];
+    const logId = `LOG-${Date.now().toString().slice(-4)}`;
+
+    // Persist Attendance Record to MongoDB Atlas
+    const attendanceDoc = new Attendance({
+      logId,
+      customerId: matchedData.customerId || customerId || `CUST-301`,
+      userId: matchedData.userId || userId || null,
+      name: matchedData.name || name || 'Athlete Member',
+      email: matchedData.email || email || '',
+      phone: matchedData.phone || phone || '',
+      plan: matchedData.plan || plan || 'PRO MEMBERSHIP',
+      terminal: terminal || 'Turnstile Gate Alpha-1 (Front Desk Manual)',
+      timeIn: timeInStr,
+      timeOut: '--',
+      date: dateStr,
+      status: 'Active Inside',
+      verification: 'Manual OTP Verified',
+      otpCode: cleanOtp,
+      checkInTimestamp: now,
+    });
+
+    await attendanceDoc.save();
+
+    // Mark verified and clear from active store
+    matchedData.verified = true;
+    for (const [k, v] of activeOtpMap.entries()) {
+      if (v.otp === cleanOtp || v.customerId === matchedData.customerId) {
+        activeOtpMap.delete(k);
+      }
+    }
+
+    console.log(`✅ Customer ${attendanceDoc.name} checked in via OTP at ${timeInStr} (Log: ${logId})`);
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Access Granted: ${attendanceDoc.name} checked in successfully!`,
+      data: {
+        id: attendanceDoc.logId,
+        _id: attendanceDoc._id,
+        logId: attendanceDoc.logId,
+        customerId: attendanceDoc.customerId,
+        userId: attendanceDoc.userId,
+        name: attendanceDoc.name,
+        email: attendanceDoc.email,
+        phone: attendanceDoc.phone,
+        plan: attendanceDoc.plan,
+        terminal: attendanceDoc.terminal,
+        timeIn: attendanceDoc.timeIn,
+        timeOut: attendanceDoc.timeOut,
+        date: attendanceDoc.date,
+        status: attendanceDoc.status,
+        verification: attendanceDoc.verification,
+        checkInTimestamp: attendanceDoc.checkInTimestamp,
+      }
+    });
+  } catch (error) {
+    console.error('Verify OTP Error:', error);
+    return res.status(500).json({ status: 'error', message: error.message || 'Failed to verify OTP' });
+  }
+});
+
+// POST /api/attendance/quick-checkin - Direct RFID / Fast Scanner Check-In
+app.post('/api/attendance/quick-checkin', async (req, res) => {
+  try {
+    const { customerId, userId, name, email, phone, plan, terminal, verification } = req.body;
+    if (!name && !customerId && !userId) {
+      return res.status(400).json({ status: 'error', message: 'Member details required for check-in' });
+    }
+
+    // 6-Hour Cooldown Validation
+    const cooldownStatus = await check6HourCooldown({ customerId, userId, name, email });
+    if (cooldownStatus.isBlocked) {
+      return res.status(400).json({
+        status: 'already_checked_in',
+        message: cooldownStatus.message,
+        data: cooldownStatus
+      });
+    }
+
+    const now = new Date();
+    const timeInStr = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+    const dateStr = now.toISOString().split('T')[0];
+    const logId = `LOG-${Date.now().toString().slice(-4)}`;
+
+    const attendanceDoc = new Attendance({
+      logId,
+      customerId: customerId || `CUST-${Math.floor(100 + Math.random() * 900)}`,
+      userId: userId || null,
+      name: name || 'Athlete Member',
+      email: email || '',
+      phone: phone || '',
+      plan: plan || 'PRO MEMBERSHIP',
+      terminal: terminal || 'Turnstile Gate Alpha-1',
+      timeIn: timeInStr,
+      timeOut: '--',
+      date: dateStr,
+      status: 'Active Inside',
+      verification: verification || 'Biometric NFC Pass',
+      checkInTimestamp: now,
+    });
+
+    await attendanceDoc.save();
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Access Granted: ${attendanceDoc.name} checked in!`,
+      data: attendanceDoc
+    });
+  } catch (error) {
+    console.error('Quick checkin error:', error);
+    return res.status(500).json({ status: 'error', message: error.message || 'Failed to perform check-in' });
+  }
+});
+
+// GET /api/attendance - Fetch all attendance logs (For Receptionist & Admin Dashboards)
+app.get('/api/attendance', async (req, res) => {
+  try {
+    const logs = await Attendance.find()
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean()
+      .exec();
+
+    const formatted = logs.map(l => ({
+      id: l.logId || `LOG-${String(l._id).slice(-4)}`,
+      _id: l._id,
+      logId: l.logId || `LOG-${String(l._id).slice(-4)}`,
+      customerId: l.customerId,
+      userId: l.userId,
+      name: l.name,
+      email: l.email,
+      phone: l.phone,
+      plan: l.plan,
+      terminal: l.terminal,
+      timeIn: l.timeIn,
+      timeOut: l.timeOut,
+      date: l.date,
+      status: l.status,
+      verification: l.verification,
+      checkInTimestamp: l.checkInTimestamp || l.createdAt,
+    }));
+
+    return res.status(200).json({
+      status: 'success',
+      count: formatted.length,
+      data: formatted,
+    });
+  } catch (error) {
+    console.error('Fetch attendance error:', error);
+    return res.status(500).json({ status: 'error', message: 'Failed to fetch attendance logs' });
+  }
+});
+
+// GET /api/attendance/my - Fetch personal attendance logs for Customer Dashboard
+app.get('/api/attendance/my', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userEmail = req.user.email;
+
+    const logs = await Attendance.find({
+      $or: [{ userId }, { email: userEmail }]
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean()
+      .exec();
+
+    return res.status(200).json({
+      status: 'success',
+      count: logs.length,
+      data: logs.map(l => ({
+        id: l.logId || `LOG-${String(l._id).slice(-4)}`,
+        date: l.date,
+        checkIn: l.timeIn,
+        checkOut: l.timeOut,
+        duration: l.status === 'Checked Out' ? '1 hr 15 mins' : 'In Session',
+        gate: l.terminal,
+        zone: 'Main Strength & Conditioning Floor',
+        status: l.status === 'Active Inside' ? 'Active Floor' : 'Verified',
+        verification: l.verification,
+      }))
+    });
+  } catch (error) {
+    console.error('Fetch my attendance error:', error);
+    return res.status(500).json({ status: 'error', message: 'Failed to fetch your attendance history' });
+  }
+});
+
+// PUT /api/attendance/:id/checkout - Record Member Check-Out
+app.put('/api/attendance/:id/checkout', async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const now = new Date();
+    const timeOutStr = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    const updated = await Attendance.findOneAndUpdate(
+      { $or: [{ logId: targetId }, { _id: mongoose.isValidObjectId(targetId) ? targetId : null }] },
+      {
+        $set: {
+          status: 'Checked Out',
+          timeOut: timeOutStr,
+          checkOutTimestamp: now,
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ status: 'error', message: 'Attendance record not found' });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Check-out recorded for ${updated.name} at ${timeOutStr}`,
+      data: updated
+    });
+  } catch (error) {
+    console.error('Checkout error:', error);
+    return res.status(500).json({ status: 'error', message: 'Failed to record check-out' });
+  }
+});
+
+// ==========================================
+// PROSPECT LEADS & ENQUIRY CRM API ENDPOINTS
+// ==========================================
+
+// POST /api/enquiries - Capture new prospect lead
+app.post('/api/enquiries', async (req, res) => {
+  try {
+    const { name, phone, email, goal, source, notes, capturedBy } = req.body;
+
+    if (!name || !phone) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Prospect Name and Phone Number are required fields.',
+      });
+    }
+
+    const count = await Enquiry.countDocuments();
+    const nextSeq = String(count + 1).padStart(3, '0');
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const enquiryId = `ENQ-${nextSeq}-${randomSuffix}`;
+
+    const newEnquiry = new Enquiry({
+      enquiryId,
+      name: name.trim(),
+      phone: phone.trim(),
+      email: email && email.trim() ? email.trim() : 'N/A',
+      goal: goal || 'Muscle Gain & Strength',
+      source: source || 'Walk-in Visitor',
+      status: 'New Lead',
+      notes: notes || '',
+      capturedBy: capturedBy || 'Front Desk Receptionist',
+      date: new Date().toISOString().split('T')[0],
+    });
+
+    await newEnquiry.save();
+
+    console.log(`📥 [Enquiry API] New lead logged: ${newEnquiry.name} (${newEnquiry.enquiryId}) -> Synced to Admin Dashboard.`);
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Prospect lead captured successfully and dispatched to Admin Dashboard!',
+      data: newEnquiry,
+    });
+  } catch (error) {
+    console.error('Error creating prospect enquiry:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to save enquiry lead: ' + (error.message || 'Server error'),
+    });
+  }
+});
+
+// GET /api/enquiries - Fetch all prospect leads
+app.get('/api/enquiries', async (req, res) => {
+  try {
+    const enquiries = await Enquiry.find().sort({ createdAt: -1 });
+    return res.status(200).json({
+      status: 'success',
+      count: enquiries.length,
+      data: enquiries,
+    });
+  } catch (error) {
+    console.error('Error fetching enquiries:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to retrieve enquiries: ' + (error.message || 'Server error'),
+    });
+  }
+});
+
+// PUT /api/enquiries/:id - Update lead status or details
+app.put('/api/enquiries/:id', async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const { status, notes, goal, phone, email } = req.body;
+
+    const updateFields = {};
+    if (status) updateFields.status = status;
+    if (notes !== undefined) updateFields.notes = notes;
+    if (goal) updateFields.goal = goal;
+    if (phone) updateFields.phone = phone;
+    if (email) updateFields.email = email;
+
+    const updated = await Enquiry.findOneAndUpdate(
+      {
+        $or: [
+          { enquiryId: targetId },
+          { _id: mongoose.isValidObjectId(targetId) ? targetId : null },
+        ],
+      },
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Prospect lead record not found.',
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Lead updated successfully.',
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Error updating enquiry:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to update enquiry: ' + (error.message || 'Server error'),
+    });
+  }
+});
+
+// DELETE /api/enquiries/:id - Delete lead
+app.delete('/api/enquiries/:id', async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const deleted = await Enquiry.findOneAndDelete({
+      $or: [
+        { enquiryId: targetId },
+        { _id: mongoose.isValidObjectId(targetId) ? targetId : null },
+      ],
+    });
+
+    if (!deleted) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Prospect lead record not found.',
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Lead ${deleted.enquiryId} (${deleted.name}) removed successfully.`,
+    });
+  } catch (error) {
+    console.error('Error deleting enquiry:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to delete enquiry: ' + (error.message || 'Server error'),
+    });
   }
 });
 

@@ -36,7 +36,7 @@ export function FeatCard({ title, description, children, className = "" }) {
     >
       <div className="z-10 flex flex-col gap-1">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-white text-sm tracking-normal flex items-center gap-2">
+          <h3 className="font-outfit font-bold text-white text-sm tracking-normal flex items-center gap-2">
             {title}
           </h3>
           <span className="w-1.5 h-1.5 rounded-full bg-[#FF2E4C] opacity-70 group-hover:opacity-100 transition-opacity" />
@@ -490,7 +490,7 @@ export function Card3() {
     { agent: "Billing Concierge", action: "Priya Patel 6-mo Pro Renewal settled", status: "done", t: "1.4s" },
     { agent: "Biometric Scanner", action: "Verifying NFC pass token…", status: "running", t: "2.8s" },
     { agent: "Coach Shift Sync", action: "Coach Vikram checked in for Session 1", status: "waiting", t: "—" },
-    { agent: "Enquiry Desk", action: "Prospect Ankit trial pass queued", status: "idle", t: "—" },
+    { agent: "Station Gateway", action: "Turnstile Gate Alpha auto-released", status: "idle", t: "—" },
   ];
 
   const [activeIdx, setActiveIdx] = useState(0);
@@ -980,10 +980,10 @@ export default function ReceptionistOverviewDashboard({
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10B981]" />
-            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight font-outfit">
               Front Desk Concierge Mission Control
             </h2>
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FF2E4C]/15 text-[#FF2E4C] border border-[#FF2E4C]/30">
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FF2E4C]/15 text-[#FF2E4C] border border-[#FF2E4C]/30 font-mono">
               GATE A1 ONLINE
             </span>
           </div>
@@ -998,22 +998,22 @@ export default function ReceptionistOverviewDashboard({
             onClick={() => onNavigateTab("checkin")}
             className="p-3 rounded-xl bg-[#181820] border border-white/5 hover:border-emerald-500/40 transition-all text-left group cursor-pointer"
           >
-            <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+            <span className="text-[10px] text-[#8E8E98] uppercase font-bold tracking-wider block font-outfit">
               Active Inside
             </span>
-            <span className="text-lg font-bold text-emerald-400 font-mono group-hover:scale-105 inline-block transition-transform">
+            <span className="text-lg font-extrabold text-emerald-400 font-outfit tracking-tight group-hover:scale-105 inline-block transition-transform">
               {activeInsideCount} Athletes
             </span>
           </button>
 
           <button
             onClick={() => onNavigateTab("customers")}
-            className="p-3 rounded-xl bg-[#181820] border border-white/5 hover:border-cyan-500/40 transition-all text-left group cursor-pointer"
+            className="p-3 rounded-xl bg-[#181820] border border-white/5 hover:border-white/20 transition-all text-left group cursor-pointer"
           >
-            <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+            <span className="text-[10px] text-[#8E8E98] uppercase font-bold tracking-wider block font-outfit">
               Total Members
             </span>
-            <span className="text-lg font-bold text-cyan-400 font-mono group-hover:scale-105 inline-block transition-transform">
+            <span className="text-lg font-extrabold text-white font-outfit tracking-tight group-hover:scale-105 inline-block transition-transform">
               {customersCount} Total
             </span>
           </button>
@@ -1022,22 +1022,22 @@ export default function ReceptionistOverviewDashboard({
             onClick={() => onNavigateTab("renewals")}
             className="p-3 rounded-xl bg-[#181820] border border-white/5 hover:border-amber-500/40 transition-all text-left group cursor-pointer"
           >
-            <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+            <span className="text-[10px] text-[#8E8E98] uppercase font-bold tracking-wider block font-outfit">
               Pending Renewals
             </span>
-            <span className="text-lg font-bold text-amber-400 font-mono group-hover:scale-105 inline-block transition-transform">
+            <span className="text-lg font-extrabold text-amber-400 font-outfit tracking-tight group-hover:scale-105 inline-block transition-transform">
               {dueSoonCount} Due Soon
             </span>
           </button>
 
           <button
             onClick={() => onNavigateTab("billing")}
-            className="p-3 rounded-xl bg-[#181820] border border-white/5 hover:border-purple-500/40 transition-all text-left group cursor-pointer"
+            className="p-3 rounded-xl bg-[#181820] border border-white/5 hover:border-white/20 transition-all text-left group cursor-pointer"
           >
-            <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+            <span className="text-[10px] text-[#8E8E98] uppercase font-bold tracking-wider block font-outfit">
               Payment & Billing
             </span>
-            <span className="text-lg font-bold text-purple-400 font-mono group-hover:scale-105 inline-block transition-transform">
+            <span className="text-lg font-extrabold text-[#FF2E4C] font-outfit tracking-tight group-hover:scale-105 inline-block transition-transform">
               {invoicesCount} Settled
             </span>
           </button>
