@@ -71,6 +71,7 @@ import { cn } from "../lib/utils";
 import AdminNotificationsHub from "./AdminNotificationsHub";
 import ReceptionistOverviewDashboard from "./ReceptionistOverviewDashboard";
 import VerifyNumberModal from "./VerifyNumberModal";
+import ThermalReceiptPrinter from "./ThermalReceiptPrinter";
 
 export default function ReceptionistDashboard({ user, onLogout }) {
   const navigate = useNavigate();
@@ -79,6 +80,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState(null);
+  const [receiptModalData, setReceiptModalData] = useState(null);
   const [headerNotifDropdownOpen, setHeaderNotifDropdownOpen] = useState(false);
   const notifDropdownRef = useRef(null);
   const avatarFileInputRef = useRef(null);
@@ -340,8 +342,13 @@ export default function ReceptionistDashboard({ user, onLogout }) {
         // Live Attendance logs fetched from MongoDB
         try {
           const attRes = await api.get("/api/attendance");
+          const todayStr = new Date().toISOString().split("T")[0];
           if (attRes.data?.status === "success" && attRes.data?.data && attRes.data.data.length > 0) {
-            setAttendanceLogs(attRes.data.data);
+            const normalized = attRes.data.data.map((l) => ({
+              ...l,
+              status: (l.date && l.date < todayStr && l.status === "Active Inside") ? "Inactive" : (l.status || "Active Inside"),
+            }));
+            setAttendanceLogs(normalized);
           } else if (attendanceLogs.length === 0) {
             setAttendanceLogs(
               liveCustomers.slice(0, 8).map((c, idx) => ({
@@ -354,6 +361,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 timeOut: idx % 3 === 0 ? "08:15 AM" : "--",
                 status: idx % 3 === 0 ? "Checked Out" : "Active Inside",
                 verification: "Biometric NFC Pass",
+                date: todayStr,
               }))
             );
           }
@@ -386,9 +394,14 @@ export default function ReceptionistDashboard({ user, onLogout }) {
           console.log("Using local enquiries fallback:", enqErr);
         }
 
-        // Live Trainers
+        // Live Trainers (Exclude dummy test seeds)
         const liveTrainers = allUsers
-          .filter((u) => u.role === "trainer")
+          .filter(
+            (u) =>
+              u.role === "trainer" &&
+              u.email !== "trainer@titangym.com" &&
+              !u.name?.toLowerCase().includes("marcus vance")
+          )
           .map((u, idx) => {
             const realAssignedCount = liveCustomers.filter(
               (c) =>
@@ -1235,6 +1248,145 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     showToast(`✓ Check-out recorded for ${name} (${timeOutStr})`);
   };
 
+  // Download official tax invoice document (HTML/PDF format)
+  const handleDownloadInvoice = (inv) => {
+    const invId = inv.id || `INV-${Date.now().toString().slice(-6)}`;
+    const dateStr = inv.date || new Date().toLocaleDateString("en-IN");
+    const amount = Number(inv.total || inv.amount || 4999);
+    const baseAmount = inv.amount || Math.round(amount / 1.18);
+    const gstAmount = inv.tax || (amount - baseAmount);
+    const custName = inv.customerName || "Titan Athlete";
+    const custId = inv.customerId || "CUST-301";
+    const planName = inv.plan || "Titan Elite Membership";
+    const method = inv.paymentMethod || "UPI / Online Payment";
+
+    const invoiceHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Tax Invoice - ${invId} - Titan Pulse</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background: #0A0A0D; color: #F1F5F9; padding: 40px 20px; display: flex; justify-content: center; }
+    .invoice-card { width: 100%; max-width: 680px; background: #141419; border: 1px solid #202028; border-radius: 20px; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7); }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #202028; padding-bottom: 24px; margin-bottom: 28px; }
+    .logo-row { display: flex; align-items: center; gap: 12px; }
+    .logo-badge { width: 44px; height: 44px; border-radius: 12px; background: linear-gradient(135deg, #FF1E27, #B30006); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 900; font-size: 20px; }
+    .brand-name { font-size: 20px; font-weight: 900; color: #FFFFFF; letter-spacing: 0.5px; }
+    .brand-tag { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+    .meta-box { text-align: right; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 11px; font-weight: 700; background: rgba(16,185,129,0.15); color: #34D399; border: 1px solid rgba(16,185,129,0.4); text-transform: uppercase; letter-spacing: 0.5px; }
+    .inv-id { font-size: 16px; font-weight: 800; color: #FFFFFF; font-family: monospace; margin-top: 8px; }
+    .inv-date { font-size: 12px; color: #94A3B8; margin-top: 2px; }
+    .grid-info { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 32px; background: #090C0E; border: 1px solid #1C2024; border-radius: 14px; padding: 18px; }
+    .label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748B; letter-spacing: 0.5px; margin-bottom: 6px; font-family: monospace; }
+    .val-primary { font-size: 14px; font-weight: 700; color: #F8FAFC; }
+    .val-sub { font-size: 12px; color: #94A3B8; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+    th { text-align: left; padding: 12px; background: #090C0E; font-size: 11px; text-transform: uppercase; color: #64748B; font-weight: 700; letter-spacing: 0.5px; border-top: 1px solid #202028; border-bottom: 1px solid #202028; }
+    td { padding: 16px 12px; font-size: 13px; border-bottom: 1px solid #1C2024; }
+    .totals-wrapper { display: flex; justify-content: flex-end; margin-bottom: 32px; }
+    .totals-box { width: 280px; }
+    .t-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: #94A3B8; }
+    .t-row.grand { border-top: 1px solid #202028; padding-top: 12px; margin-top: 6px; font-size: 16px; font-weight: 800; color: #34D399; }
+    .footer { border-top: 1px solid #202028; padding-top: 20px; text-align: center; font-size: 11px; color: #64748B; line-height: 1.6; }
+    .print-btn { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 10px 20px; background: #FF2E4C; color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: 12px; cursor: pointer; }
+    @media print {
+      body { background: #fff !important; color: #000 !important; padding: 0; }
+      .invoice-card { border: none; box-shadow: none; max-width: 100%; padding: 20px; background: #fff !important; }
+      .grid-info { background: #f8fafc !important; border: 1px solid #e2e8f0 !important; }
+      .brand-name, .val-primary, .inv-id, strong { color: #000 !important; }
+      th { background: #f1f5f9 !important; color: #475569 !important; border-color: #cbd5e1 !important; }
+      td { border-color: #e2e8f0 !important; color: #000 !important; }
+      .val-sub, .inv-date, .brand-tag, .t-row { color: #475569 !important; }
+      .t-row.grand { color: #059669 !important; border-color: #cbd5e1 !important; }
+      .print-btn { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-card">
+    <div class="header">
+      <div class="logo-row">
+        <div class="logo-badge">⚡</div>
+        <div>
+          <div class="brand-name">TITAN PULSE FITNESS</div>
+          <div class="brand-tag">High Performance Arena • GSTIN: 36AAACT1114Q1Z8</div>
+        </div>
+      </div>
+      <div class="meta-box">
+        <span class="status-badge">PAID & VERIFIED</span>
+        <div class="inv-id">${invId}</div>
+        <div class="inv-date">${dateStr}</div>
+      </div>
+    </div>
+
+    <div class="grid-info">
+      <div>
+        <div class="label">Billed To</div>
+        <div class="val-primary">${custName}</div>
+        <div class="val-sub">Member ID: #${custId}</div>
+        <div class="val-sub">Billing Entity: Athlete Account</div>
+      </div>
+      <div>
+        <div class="label">Payment Breakdown</div>
+        <div class="val-primary">Gateway: ${method}</div>
+        <div class="val-sub">Status: Settled & Cleared</div>
+        <div class="val-sub">Turnstile Access: Biometric Enabled</div>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th style="text-align: center;">Qty</th>
+          <th style="text-align: right;">Unit Price</th>
+          <th style="text-align: right;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong style="color: #F8FAFC;">${planName}</strong>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 2px;">Official Arena Facility & Biometric Turnstile Pass</div>
+          </td>
+          <td style="text-align: center;">1</td>
+          <td style="text-align: right;">₹${amount.toLocaleString("en-IN")}</td>
+          <td style="text-align: right; font-weight: 700; color: #F8FAFC;">₹${amount.toLocaleString("en-IN")}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="totals-wrapper">
+      <div class="totals-box">
+        <div class="t-row"><span>Base Amount:</span><span>₹${baseAmount.toLocaleString("en-IN")}</span></div>
+        <div class="t-row"><span>GST (18% Included):</span><span>₹${gstAmount.toLocaleString("en-IN")}</span></div>
+        <div class="t-row grand"><span>Total Settled:</span><span>₹${amount.toLocaleString("en-IN")}</span></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>Official computer-generated Tax Invoice issued by Titan Pulse Reception Desk.</div>
+      <div>Support: reception@titanpulse.fit • Front Desk Helpline: +91 98765 43210</div>
+      <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([invoiceHtml], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Invoice_${invId}_${custName.replace(/[^a-zA-Z0-9]/g, "_")}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast(`✓ Downloaded Tax Invoice for ${custName} (${invId})`);
+  };
+
   // Handle New Customer Registration & Onboarding with Membership
   const handleRegisterCustomer = async (e) => {
     e.preventDefault();
@@ -1450,6 +1602,8 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     }
   };
 
+  const todayDateStr = new Date().toISOString().split("T")[0];
+
   // Nav menu tabs matching Admin Dashboard taxonomy
   const navTabs = [
     {
@@ -1461,7 +1615,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       id: "checkin",
       label: "Turnstile Gate Access",
       icon: CalendarCheck,
-      count: attendanceLogs.filter((l) => l.status === "Active Inside").length,
+      count: attendanceLogs.filter((l) => l.status === "Active Inside" && (!l.date || l.date === todayDateStr)).length,
     },
     {
       id: "manual-login",
@@ -1504,7 +1658,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   ];
 
   const activeInsideCount = attendanceLogs.filter(
-    (l) => l.status === "Active Inside"
+    (l) => l.status === "Active Inside" && (!l.date || l.date === todayDateStr)
   ).length;
 
   const dueSoonCount = customers.filter(
@@ -2127,7 +2281,6 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                         <th className="px-5 py-3.5 whitespace-nowrap">Membership Pass</th>
                         <th className="px-5 py-3.5 whitespace-nowrap">Gate Terminal</th>
                         <th className="px-5 py-3.5 whitespace-nowrap">Clock In</th>
-                        <th className="px-5 py-3.5 whitespace-nowrap">Clock Out</th>
                         <th className="px-5 py-3.5 whitespace-nowrap">Status</th>
                         <th className="px-5 py-3.5 text-right whitespace-nowrap">Actions</th>
                       </tr>
@@ -2135,7 +2288,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                     <tbody className="divide-y divide-white/[0.04] text-slate-200">
                       {filteredAttendanceLogs.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-outfit">
+                          <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-outfit">
                             No turnstile logs found {turnstileSearchQuery ? `matching "${turnstileSearchQuery}"` : "for today"}.
                           </td>
                         </tr>
@@ -2174,14 +2327,13 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                           <td className="px-5 py-3.5 whitespace-nowrap font-mono font-bold text-[#00ffba]">
                             {log.timeIn}
                           </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap font-mono text-slate-400">
-                            {log.timeOut}
-                          </td>
                           <td className="px-5 py-3.5 whitespace-nowrap">
                             <span
                               className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase whitespace-nowrap ${
                                 log.status === "Active Inside"
                                   ? "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60"
+                                  : log.status === "Inactive"
+                                  ? "bg-rose-950/30 text-slate-400 border border-white/10"
                                   : "bg-white/[0.04] text-slate-400 border border-white/5"
                               }`}
                             >
@@ -2205,6 +2357,10 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                               >
                                 Clock Out
                               </button>
+                            ) : log.status === "Inactive" ? (
+                              <span className="text-slate-500 text-xs font-mono font-medium">
+                                Inactive
+                              </span>
                             ) : (
                               <span className="text-slate-500 text-xs font-mono font-medium">
                                 Completed
@@ -2527,6 +2683,8 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                 className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase whitespace-nowrap ${
                                   log.status === "Active Inside"
                                     ? "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60"
+                                    : log.status === "Inactive"
+                                    ? "bg-rose-950/30 text-slate-400 border border-white/10"
                                     : "bg-white/[0.04] text-slate-400 border border-white/5"
                                 }`}
                               >
@@ -2561,6 +2719,10 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                                 >
                                   Clock Out
                                 </button>
+                              ) : log.status === "Inactive" ? (
+                                <span className="text-slate-500 text-xs font-mono font-medium">
+                                  Inactive
+                                </span>
                               ) : (
                                 <span className="text-slate-500 text-xs font-mono font-medium">
                                   Completed
@@ -3289,15 +3451,64 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right whitespace-nowrap">
-                            <button
-                              onClick={() => {
-                                setSelectedInvoice(inv);
-                                setShowInvoiceModal(true);
-                              }}
-                              className="px-3.5 py-1.5 rounded-lg bg-[#14151D] border border-white/10 hover:border-[#FF2E4C] text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
-                            >
-                              <FileText size={13} /> View Receipt
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleDownloadInvoice(inv)}
+                                title="Download Official Tax Invoice (HTML/PDF)"
+                                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-medium transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm border border-white/5"
+                              >
+                                <Download size={13} className="text-[#FF2E4C]" /> Download
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const base = inv.amount || Math.round((inv.total || 4999) / 1.18);
+                                  const tax = inv.tax || ((inv.total || 4999) - base);
+                                  const total = inv.total || (base + tax);
+                                  setReceiptModalData({
+                                    orderId: inv.id || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+                                    id: inv.id || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+                                    date: inv.date || new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+                                    time: "11:30 AM",
+                                    customerName: inv.customerName || "Athlete Member",
+                                    customerId: inv.customerId || "CUST-301",
+                                    customerPhone: inv.phone || "+91 98765 43210",
+                                    paymentMethod: inv.paymentMethod || "UPI / GPay",
+                                    paymentStatus: "PAID & VERIFIED (GST INVOICE)",
+                                    subtotal: base,
+                                    tax: tax,
+                                    amount: `₹${Number(total).toLocaleString("en-IN")}`,
+                                    total: `₹${Number(total).toLocaleString("en-IN")}`,
+                                    items: [
+                                      {
+                                        name: inv.plan || "PRO ATHLETE MEMBERSHIP PASS",
+                                        qty: 1,
+                                        price: `₹${Number(base).toLocaleString("en-IN")}`,
+                                        total: `₹${Number(base).toLocaleString("en-IN")}`,
+                                      },
+                                      {
+                                        name: "Biometric 13.56 MHz Turnstile NFC Pass",
+                                        qty: 1,
+                                        price: "₹0",
+                                        total: "₹0",
+                                      },
+                                      {
+                                        name: "GST Tax Invoice (18% Integrated SGST/CGST)",
+                                        qty: 1,
+                                        price: `₹${Number(tax).toLocaleString("en-IN")}`,
+                                        total: `₹${Number(tax).toLocaleString("en-IN")}`,
+                                      },
+                                    ],
+                                    membershipTier: inv.plan || "PRO MEMBERSHIP",
+                                    turnstileStatus: "Biometric Turnstile Active",
+                                    gymBranch: "Titan Pulse HQ - High Performance Arena",
+                                    cashier: "Front Desk Concierge",
+                                  });
+                                }}
+                                className="px-3.5 py-1.5 rounded-lg bg-[#14151D] border border-white/10 hover:border-[#FF2E4C] text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                              >
+                                <FileText size={13} /> View Receipt
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -5434,6 +5645,15 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             </button>
           </div>
         </div>
+      )}
+
+      {/* 3D THERMAL RECEIPT & TAX INVOICE PRINTER MODAL */}
+      {receiptModalData && (
+        <ThermalReceiptPrinter
+          orderDetails={receiptModalData}
+          onClose={() => setReceiptModalData(null)}
+          onViewOrders={() => setActiveTab("billing")}
+        />
       )}
 
       {/* Floating Toast Notification */}

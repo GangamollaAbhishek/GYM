@@ -2378,11 +2378,31 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                       className="p-4 rounded-2xl bg-[#090A0E] border border-white/[0.06] hover:border-purple-500/50 transition-all cursor-pointer flex items-center justify-between gap-3 group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <img
-                          src={cust.avatar}
-                          alt={cust.name}
-                          className="w-11 h-11 rounded-xl object-cover border border-purple-500/30 group-hover:scale-105 transition-transform"
-                        />
+                        {cust.avatar && cust.avatar.trim() && (cust.avatar.startsWith('http') || cust.avatar.startsWith('data:image')) ? (
+                          <div className="relative w-11 h-11 shrink-0">
+                            <img
+                              src={cust.avatar}
+                              alt=""
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                if (e.currentTarget.nextElementSibling) {
+                                  e.currentTarget.nextElementSibling.style.display = 'flex';
+                                }
+                              }}
+                              className="w-11 h-11 rounded-xl object-cover border border-purple-500/30 group-hover:scale-105 transition-transform"
+                            />
+                            <div
+                              style={{ display: 'none' }}
+                              className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-800 text-white font-black text-sm items-center justify-center shadow-md uppercase font-outfit"
+                            >
+                              {(cust.name || 'A').charAt(0).toUpperCase()}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-800 text-white font-black text-sm flex items-center justify-center shadow-md uppercase font-outfit shrink-0">
+                            {(cust.name || 'A').charAt(0).toUpperCase()}
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <h4 className="text-sm font-bold text-white truncate font-['Outfit',sans-serif] group-hover:text-purple-400 transition-colors">
                             {cust.name}
@@ -2433,11 +2453,26 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                   {/* Athlete Banner Header Card */}
                   <div className="p-6 sm:p-7 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                     <div className="flex items-center gap-5">
-                      <img
-                        src={inspectingCustomer.avatar}
-                        alt={inspectingCustomer.name}
-                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover border-2 border-purple-500/50 shadow-xl"
-                      />
+                      {inspectingCustomer.avatar && inspectingCustomer.avatar.trim() && (inspectingCustomer.avatar.startsWith('http') || inspectingCustomer.avatar.startsWith('data:image')) ? (
+                        <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0">
+                          <img
+                            src={inspectingCustomer.avatar}
+                            alt=""
+                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover border-2 border-purple-500/50 shadow-xl"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              if (e.currentTarget.nextElementSibling) e.currentTarget.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                          <div className="hidden w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-purple-600 to-indigo-700 items-center justify-center text-white font-bold text-2xl border-2 border-purple-500/50 shadow-xl">
+                            {inspectingCustomer.name ? inspectingCustomer.name.charAt(0).toUpperCase() : "A"}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center text-white font-bold text-2xl border-2 border-purple-500/50 shadow-xl shrink-0">
+                          {inspectingCustomer.name ? inspectingCustomer.name.charAt(0).toUpperCase() : "A"}
+                        </div>
+                      )}
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2.5">
                           <h3 className="text-xl sm:text-2xl font-bold text-white font-['Outfit',sans-serif]">
@@ -3600,11 +3635,31 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                             {/* Athlete Header */}
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex items-center gap-3">
-                                <img
-                                  src={cust.avatar}
-                                  alt={cust.name}
-                                  className="w-12 h-12 rounded-2xl object-cover border border-purple-500/30 shadow-md"
-                                />
+                                {cust.avatar && cust.avatar.trim() && (cust.avatar.startsWith('http') || cust.avatar.startsWith('data:image')) ? (
+                                  <div className="relative w-12 h-12 shrink-0">
+                                    <img
+                                      src={cust.avatar}
+                                      alt=""
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        if (e.currentTarget.nextElementSibling) {
+                                          e.currentTarget.nextElementSibling.style.display = 'flex';
+                                        }
+                                      }}
+                                      className="w-12 h-12 rounded-2xl object-cover border border-purple-500/30 shadow-md"
+                                    />
+                                    <div
+                                      style={{ display: 'none' }}
+                                      className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-800 text-white font-black text-base items-center justify-center shadow-md uppercase font-outfit"
+                                    >
+                                      {(cust.name || 'A').charAt(0).toUpperCase()}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-800 text-white font-black text-base flex items-center justify-center shadow-md uppercase font-outfit shrink-0">
+                                    {(cust.name || 'A').charAt(0).toUpperCase()}
+                                  </div>
+                                )}
                                 <div>
                                   <h3 className="text-base font-bold text-white font-['Outfit',sans-serif] group-hover:text-purple-400 transition-colors">
                                     {cust.name}
@@ -3919,11 +3974,26 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                         className="p-4 rounded-2xl bg-[#090A0E] border border-white/[0.06] flex items-center justify-between gap-3 hover:border-purple-500/40 transition-all"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <img
-                            src={cust.avatar}
-                            alt={cust.name}
-                            className="w-10 h-10 rounded-xl object-cover border border-purple-500/30 shrink-0"
-                          />
+                          {cust.avatar && cust.avatar.trim() && (cust.avatar.startsWith('http') || cust.avatar.startsWith('data:image')) ? (
+                            <div className="relative w-10 h-10 shrink-0">
+                              <img
+                                src={cust.avatar}
+                                alt=""
+                                className="w-10 h-10 rounded-xl object-cover border border-purple-500/30"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  if (e.currentTarget.nextElementSibling) e.currentTarget.nextElementSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div className="hidden w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 items-center justify-center text-white font-bold text-xs border border-purple-500/30">
+                                {cust.name ? cust.name.charAt(0).toUpperCase() : "A"}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center text-white font-bold text-xs border border-purple-500/30 shrink-0">
+                              {cust.name ? cust.name.charAt(0).toUpperCase() : "A"}
+                            </div>
+                          )}
                           <div className="min-w-0">
                             <h4 className="text-xs sm:text-sm font-bold text-white truncate font-['Outfit',sans-serif]">
                               {cust.name}

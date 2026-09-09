@@ -54,7 +54,7 @@ const attendanceSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Active Inside', 'Checked Out'],
+      enum: ['Active Inside', 'Checked Out', 'Inactive'],
       default: 'Active Inside',
     },
     verification: {
