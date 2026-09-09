@@ -737,9 +737,14 @@ export default function AdminDashboard({ user, onLogout }) {
           }
         }
 
-        // 2. Genuine Registered Trainers / Coaches
+        // 2. Genuine Registered Trainers / Coaches (Exclude dummy test seeds)
         const liveTrainers = allUsers
-          .filter((u) => u.role === "trainer")
+          .filter(
+            (u) =>
+              u.role === "trainer" &&
+              u.email !== "trainer@titangym.com" &&
+              !u.name?.toLowerCase().includes("marcus vance")
+          )
           .map((u, idx) => ({
             id: u.displayId || `TRN-${501 + idx}`,
             userId: u.id,
@@ -761,9 +766,15 @@ export default function AdminDashboard({ user, onLogout }) {
           }));
         setTrainersList(liveTrainers);
 
-        // 3. Genuine Registered Receptionists / Front Desk
+        // 3. Genuine Registered Receptionists / Front Desk (Exclude dummy seed accounts)
         const liveReceptionists = allUsers
-          .filter((u) => u.role === "receptionist")
+          .filter(
+            (u) =>
+              u.role === "receptionist" &&
+              u.email !== "receptionist@titangym.com" &&
+              u.name !== "Front Desk Receptionist" &&
+              !u.email?.toLowerCase().includes("receptionist@titangym.com"),
+          )
           .map((u, idx) => ({
             id: u.displayId || `REC-${201 + idx}`,
             userId: u.id,
@@ -781,27 +792,29 @@ export default function AdminDashboard({ user, onLogout }) {
         // 4. Synchronize Real Attendance Lists with MongoDB database
         try {
           const attRes = await api.get("/api/attendance");
-          if (
-            attRes.data?.status === "success" &&
-            Array.isArray(attRes.data.data) &&
-            attRes.data.data.length > 0
-          ) {
-            const realLogs = attRes.data.data.map((l, idx) => ({
-              id: l.logId || `LOG-C${101 + idx}`,
-              memberId: l.customerId || `TP-CUST-${101 + idx}`,
-              name: l.name,
-              email: l.email || "",
-              phone: l.phone || "",
-              plan: l.plan || "PRO MEMBERSHIP",
-              gate: l.terminal || "Turnstile Gate Alpha-1",
-              timeIn: l.timeIn,
-              timeOut: l.timeOut || "--",
-              duration: l.status === "Checked Out" ? "1h 15m" : "Active In Arena",
-              status: l.status || "Active Inside",
-              verification: l.verification || "Manual OTP Verified",
-              rfid: l.otpCode ? `OTP-${l.otpCode}` : `RFID-${9000 + idx}`,
-              date: l.date || new Date().toISOString().slice(0, 10),
-            }));
+          if (attRes.data?.status === "success" && attRes.data?.data && attRes.data.data.length > 0) {
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const realLogs = attRes.data.data.map((l, idx) => {
+              const effectiveStatus = (l.date && l.date < todayStr && l.status === "Active Inside")
+                ? "Inactive"
+                : (l.status || "Active Inside");
+              return {
+                id: l.logId || `LOG-C${101 + idx}`,
+                memberId: l.customerId || `TP-CUST-${101 + idx}`,
+                name: l.name,
+                email: l.email || "",
+                phone: l.phone || "",
+                plan: l.plan || "PRO MEMBERSHIP",
+                gate: l.terminal || "Turnstile Gate Alpha-1",
+                timeIn: l.timeIn,
+                timeOut: l.timeOut || "--",
+                duration: effectiveStatus === "Checked Out" ? "1h 15m" : effectiveStatus === "Inactive" ? "Session Ended" : "Active In Arena",
+                status: effectiveStatus,
+                verification: l.verification || "Manual OTP Verified",
+                rfid: l.otpCode ? `OTP-${l.otpCode}` : `RFID-${9000 + idx}`,
+                date: l.date || todayStr,
+              };
+            });
             setCustomerAttendanceList(realLogs);
           } else {
             setCustomerAttendanceList(
@@ -3074,7 +3087,6 @@ export default function AdminDashboard({ user, onLogout }) {
       label: "Statistics & Reports",
       icon: TrendingUp,
     },
-    { id: "notifications", label: "Notifications", icon: Bell },
     { id: "enquiry-management", label: "Enquiry Management", icon: HelpCircle },
     { id: "settings", label: "Settings", icon: Settings },
   ];
@@ -3084,17 +3096,17 @@ export default function AdminDashboard({ user, onLogout }) {
       {/* 1. DARK SLEEK SIDEBAR MATCHING SCREENSHOT THEME */}
       <aside
         data-lenis-prevent="true"
-        className={`${sidebarOpen ? "w-64 sm:w-72" : "w-20"} bg-[#121217] border-r border-[#202028] flex flex-col justify-between transition-all duration-300 z-30 shrink-0 h-screen overflow-hidden no-scrollbar shadow-2xl`}
+        className={`${sidebarOpen ? "w-64" : "w-20"} bg-[#121217] border-r border-[#202028] flex flex-col justify-between transition-all duration-300 z-30 shrink-0 h-screen overflow-hidden no-scrollbar shadow-2xl`}
       >
         <div>
           {/* Brand Logo Header: Dynamic Gym Brand Logo */}
-          <div className="h-24 px-5 flex items-center justify-between border-b border-[#202028]">
+          <div className="h-20 px-4 sm:px-5 flex items-center justify-between border-b border-[#202028]">
             <div
               onClick={() => setActiveTab("dashboard")}
               className="flex items-center gap-3 cursor-pointer group min-w-0"
             >
               {editorData?.brand?.logo || cmsData?.brand?.logo ? (
-                <div className="w-11 h-11 rounded-2xl bg-[#0B0B0E] border border-white/10 p-1.5 flex items-center justify-center shrink-0 shadow-[0_0_16px_rgba(255,30,39,0.35)] group-hover:scale-105 transition-all">
+                <div className="w-10 h-10 rounded-2xl bg-[#0B0B0E] border border-white/10 p-1.5 flex items-center justify-center shrink-0 shadow-[0_0_16px_rgba(255,30,39,0.35)] group-hover:scale-105 transition-all">
                   <img
                     src={editorData?.brand?.logo || cmsData?.brand?.logo}
                     alt="Gym Logo"
@@ -3102,14 +3114,14 @@ export default function AdminDashboard({ user, onLogout }) {
                   />
                 </div>
               ) : (
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF1E27] to-[#B30D14] flex items-center justify-center text-white shadow-[0_0_18px_rgba(255,30,39,0.5)] shrink-0 group-hover:scale-105 transition-all">
-                  <Activity size={22} className="stroke-[2.5]" />
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#FF1E27] to-[#B30D14] flex items-center justify-center text-white shadow-[0_0_18px_rgba(255,30,39,0.5)] shrink-0 group-hover:scale-105 transition-all">
+                  <Activity size={20} className="stroke-[2.5]" />
                 </div>
               )}
 
               {sidebarOpen && (
                 <div className="flex flex-col min-w-0">
-                  <span className="font-bebas text-2xl text-white tracking-wider leading-none truncate group-hover:text-[#FF1E27] transition-colors">
+                  <span className="font-bebas text-xl sm:text-2xl text-white tracking-wider leading-none truncate group-hover:text-[#FF1E27] transition-colors">
                     {editorData?.brand?.name ||
                       cmsData?.brand?.name ||
                       "TITAN•PULSE"}
@@ -3126,10 +3138,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
           {/* Gym Brand Admin Command Badge */}
           {sidebarOpen && (
-            <div className="px-5 py-3.5 flex items-center gap-3 border-b border-[#1E1E26] bg-[#0E0E12]/80">
+            <div className="px-4 py-3 flex items-center gap-3 border-b border-[#1E1E26] bg-[#0E0E12]/80">
               <div className="relative shrink-0">
                 {editorData?.brand?.logo || cmsData?.brand?.logo ? (
-                  <div className="w-10 h-10 rounded-xl bg-[#141419] border border-[#FF1E27]/40 p-1 flex items-center justify-center shadow-[0_0_12px_rgba(255,30,39,0.3)]">
+                  <div className="w-9 h-9 rounded-xl bg-[#141419] border border-[#FF1E27]/40 p-1 flex items-center justify-center shadow-[0_0_12px_rgba(255,30,39,0.3)]">
                     <img
                       src={editorData?.brand?.logo || cmsData?.brand?.logo}
                       alt="Gym Logo"
@@ -3137,8 +3149,8 @@ export default function AdminDashboard({ user, onLogout }) {
                     />
                   </div>
                 ) : (
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FF1E27]/20 to-[#FF1E27]/5 border border-[#FF1E27]/40 flex items-center justify-center text-[#FF1E27] shadow-[0_0_12px_rgba(255,30,39,0.25)]">
-                    <Shield size={18} />
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF1E27]/20 to-[#FF1E27]/5 border border-[#FF1E27]/40 flex items-center justify-center text-[#FF1E27] shadow-[0_0_12px_rgba(255,30,39,0.25)]">
+                    <Shield size={16} />
                   </div>
                 )}
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#121217] shadow-[0_0_6px_#10B981]" />
@@ -3162,7 +3174,7 @@ export default function AdminDashboard({ user, onLogout }) {
           {/* Sidebar Nav List with Left Active Highlight Bar */}
           <nav
             data-lenis-prevent="true"
-            className="p-3 space-y-1 max-h-[calc(100vh-270px)] overflow-y-auto no-scrollbar"
+            className="p-2.5 space-y-1 max-h-[calc(100vh-250px)] overflow-y-auto no-scrollbar"
           >
             {navMenuItems.map((item) => {
               const Icon = item.icon;
@@ -3173,7 +3185,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   onClick={() => {
                     setActiveTab(item.id);
                   }}
-                  className={`w-full flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all cursor-pointer relative ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer relative ${
                     isActive
                       ? "text-white font-bold bg-gradient-to-r from-[#FF1E27]/25 via-[#FF1E27]/5 to-transparent border-l-4 border-[#FF1E27] pl-3"
                       : "text-[#8E8E98] hover:text-white hover:bg-white/[0.03]"
@@ -3181,7 +3193,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   title={item.label}
                 >
                   <Icon
-                    size={18}
+                    size={17}
                     className={
                       isActive
                         ? "text-[#FF1E27] drop-shadow-[0_0_8px_rgba(255,30,39,0.7)]"
@@ -3209,7 +3221,7 @@ export default function AdminDashboard({ user, onLogout }) {
         </div>
 
         {/* Bottom Section: Log Out */}
-        <div className="p-4 border-t border-[#202028] bg-[#0C0C10]">
+        <div className="p-3.5 border-t border-[#202028] bg-[#0C0C10]">
           {/* Log Out Link */}
           <button
             onClick={() => {
@@ -3219,7 +3231,7 @@ export default function AdminDashboard({ user, onLogout }) {
             className={`w-full flex items-center ${sidebarOpen ? "justify-start gap-2.5 px-3 py-2" : "justify-center py-2"} text-xs text-[#8E8E98] hover:text-[#FF1E27] transition-colors cursor-pointer font-medium rounded-xl hover:bg-white/5`}
             title="Log Out"
           >
-            <LogOut size={16} />
+            <LogOut size={15} />
             {sidebarOpen && <span>Log out</span>}
           </button>
         </div>
@@ -3230,27 +3242,29 @@ export default function AdminDashboard({ user, onLogout }) {
         data-lenis-prevent="true"
         className="flex-1 flex flex-col min-w-0 overflow-y-auto h-screen no-scrollbar bg-[#0A0A0D]"
       >
-        {/* Top Header Bar Matching Screenshot */}
-        <header className="h-20 px-6 sm:px-10 border-b border-[#202028] bg-[#121217]/90 backdrop-blur-xl flex items-center justify-between gap-4 sticky top-0 z-20">
-          <div className="flex items-center gap-4">
+        {/* Top Header Bar */}
+        <header className="h-16 sm:h-18 px-5 sm:px-8 border-b border-[#202028] bg-[#121217]/95 backdrop-blur-xl flex items-center justify-between gap-4 sticky top-0 z-20">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl bg-[#181820] border border-white/5 text-[#8E8E98] hover:text-white transition-colors"
+              className="p-2 rounded-xl bg-[#181820] border border-white/5 text-[#8E8E98] hover:text-white transition-colors cursor-pointer"
             >
-              <Menu size={18} />
+              <Menu size={17} />
             </button>
 
-            <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-              {activeTab === "dashboard"
-                ? "Dashboard"
-                : navMenuItems.find((m) => m.id === activeTab)?.label ||
-                  "Admin Portal"}
+            <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+              <span>
+                {activeTab === "dashboard"
+                  ? "Dashboard"
+                  : navMenuItems.find((m) => m.id === activeTab)?.label ||
+                    "Admin Portal"}
+              </span>
             </h1>
           </div>
 
           {/* Right Header Controls */}
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#181820] border border-white/5 text-xs text-slate-200 font-medium cursor-pointer hover:border-white/15 transition-all">
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#181820] border border-white/5 text-xs text-slate-200 font-medium cursor-pointer hover:border-white/15 transition-all">
               <span>Today</span>
               <span className="text-[#8E8E98] text-[10px]">▼</span>
             </div>
@@ -3414,7 +3428,7 @@ export default function AdminDashboard({ user, onLogout }) {
         </header>
 
         {/* Search & Secondary Filter Bar */}
-        <div className="px-6 sm:px-10 pt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="px-5 sm:px-8 pt-4 pb-1 max-w-[1600px] mx-auto w-full flex flex-col sm:flex-row items-center justify-between gap-3">
           <GooeySearch
             placeholder="Search telemetry, athletes, modules..."
             buttonLabel="Search"
@@ -3456,18 +3470,18 @@ export default function AdminDashboard({ user, onLogout }) {
           />
 
           {/* Quick Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowAddUserModal(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-[#181820] border border-white/10 text-white font-semibold text-xs flex items-center gap-1.5 hover:border-[#FF1E27] transition-all cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-[#181820] border border-white/10 hover:border-[#FF1E27] text-white font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
             >
-              <Plus size={14} /> Add Staff / Coach
+              <Plus size={14} className="text-[#FF1E27]" /> Add Staff / Coach
             </button>
           </div>
         </div>
 
         {/* Dynamic Main Body Content based on Active Tab */}
-        <div className="p-4 sm:p-8 space-y-6 flex-1 bg-[#0A0A0D]">
+        <div className="px-5 sm:px-8 py-5 sm:py-6 max-w-[1600px] mx-auto w-full space-y-6 flex-1 bg-[#0A0A0D]">
           {/* TAB 1: OVERVIEW DASHBOARD - GYM BUSINESS ANALYTICS & FACILITY COMMAND */}
           {activeTab === "dashboard" && (
             <div className="space-y-6 animate-fadeIn">
@@ -5964,19 +5978,33 @@ export default function AdminDashboard({ user, onLogout }) {
                               </td>
                               <td className="p-4 font-semibold text-white">
                                 <div className="flex items-center gap-3">
-                                  {c.avatar ? (
-                                    <img
-                                      src={c.avatar}
-                                      alt={c.name}
-                                      className="w-9 h-9 rounded-xl object-cover border border-white/10 shadow-sm"
-                                    />
+                                  {c.avatar && c.avatar.trim() && (c.avatar.startsWith('http') || c.avatar.startsWith('data:image')) ? (
+                                    <div className="relative w-9 h-9 shrink-0">
+                                      <img
+                                        src={c.avatar}
+                                        alt=""
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = 'none';
+                                          if (e.currentTarget.nextElementSibling) {
+                                            e.currentTarget.nextElementSibling.style.display = 'flex';
+                                          }
+                                        }}
+                                        className="w-9 h-9 rounded-xl object-cover border border-white/10 shadow-sm"
+                                      />
+                                      <div
+                                        style={{ display: 'none' }}
+                                        className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF1E27] to-[#B30D14] text-white font-black text-xs items-center justify-center shadow-md uppercase font-outfit"
+                                      >
+                                        {(c.name || 'M').charAt(0).toUpperCase()}
+                                      </div>
+                                    </div>
                                   ) : (
-                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF1E27] to-[#B30D14] text-white font-black text-xs flex items-center justify-center shadow-md">
-                                      {c.name.charAt(0).toUpperCase()}
+                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF1E27] to-[#B30D14] text-white font-black text-xs flex items-center justify-center shadow-md uppercase font-outfit shrink-0">
+                                      {(c.name || 'M').charAt(0).toUpperCase()}
                                     </div>
                                   )}
                                   <div>
-                                    <span className="text-white font-bold group-hover:text-[#FF2E4C] transition-colors block">
+                                    <span className="text-white font-bold group-hover:text-[#FF2E4C] transition-colors block font-outfit">
                                       {c.name}
                                     </span>
                                     <span className="text-[10px] text-slate-400 font-mono">
@@ -6140,15 +6168,29 @@ export default function AdminDashboard({ user, onLogout }) {
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-5 pt-4 border-t border-white/5">
                   {/* Left Column: Avatar & Contact Overview (5 Columns) */}
                   <div className="md:col-span-5 flex items-center gap-4 p-4 rounded-2xl bg-[#090C0E] border border-white/5">
-                    {selectedCustomer.avatar ? (
-                      <img
-                        src={selectedCustomer.avatar}
-                        alt={selectedCustomer.name}
-                        className="w-16 h-16 rounded-2xl object-cover border border-white/10 shadow-lg shrink-0"
-                      />
+                    {selectedCustomer.avatar && selectedCustomer.avatar.trim() && (selectedCustomer.avatar.startsWith('http') || selectedCustomer.avatar.startsWith('data:image')) ? (
+                      <div className="relative w-16 h-16 shrink-0">
+                        <img
+                          src={selectedCustomer.avatar}
+                          alt=""
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            if (e.currentTarget.nextElementSibling) {
+                              e.currentTarget.nextElementSibling.style.display = 'flex';
+                            }
+                          }}
+                          className="w-16 h-16 rounded-2xl object-cover border border-white/10 shadow-lg"
+                        />
+                        <div
+                          style={{ display: 'none' }}
+                          className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF1E27] to-[#B30D14] text-white font-black text-2xl items-center justify-center shadow-[0_0_20px_rgba(255,30,39,0.4)] uppercase font-outfit"
+                        >
+                          {(selectedCustomer.name || 'M').charAt(0).toUpperCase()}
+                        </div>
+                      </div>
                     ) : (
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF1E27] to-[#B30D14] text-white font-black text-2xl flex items-center justify-center shadow-[0_0_20px_rgba(255,30,39,0.4)] shrink-0">
-                        {selectedCustomer.name.charAt(0).toUpperCase()}
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FF1E27] to-[#B30D14] text-white font-black text-2xl flex items-center justify-center shadow-[0_0_20px_rgba(255,30,39,0.4)] shrink-0 uppercase font-outfit">
+                        {(selectedCustomer.name || 'M').charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div className="min-w-0 space-y-1">
@@ -6630,17 +6672,17 @@ export default function AdminDashboard({ user, onLogout }) {
                             </button>
                           </div>
 
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-left text-xs">
-                              <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
+                          <div className="overflow-x-auto rounded-2xl border border-white/10 bg-[#090A0F] shadow-inner">
+                            <table className="w-full text-left text-xs min-w-[720px]">
+                              <thead className="bg-[#12141C] text-slate-400 uppercase font-semibold text-[10px] tracking-wider border-b border-white/10 select-none">
                                 <tr>
-                                  <th className="p-4">Invoice ID</th>
-                                  <th className="p-4">Item / Plan Name</th>
-                                  <th className="p-4">Amount</th>
-                                  <th className="p-4">Payment Method</th>
-                                  <th className="p-4">Transaction Date</th>
-                                  <th className="p-4">Status</th>
-                                  <th className="p-4 text-right">Thermal Receipt</th>
+                                  <th className="py-3.5 px-4 whitespace-nowrap">Invoice ID</th>
+                                  <th className="py-3.5 px-4 whitespace-nowrap">Item / Plan</th>
+                                  <th className="py-3.5 px-4 whitespace-nowrap">Amount</th>
+                                  <th className="py-3.5 px-4 whitespace-nowrap">Payment Method</th>
+                                  <th className="py-3.5 px-4 whitespace-nowrap">Date</th>
+                                  <th className="py-3.5 px-4 whitespace-nowrap text-center">Status</th>
+                                  <th className="py-3.5 px-4 whitespace-nowrap text-right pr-5">Actions</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-white/5 text-slate-200">
@@ -6652,45 +6694,47 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </tr>
                                 ) : (
                                   userTransactions.map((pay) => (
-                                    <tr key={pay.id || pay.invoiceId || pay._id} className="hover:bg-white/5 transition-colors">
-                                      <td className="p-4 font-mono font-semibold text-[#00F0FF] text-[11px]">
+                                    <tr key={pay.id || pay.invoiceId || pay._id} className="hover:bg-white/[0.04] transition-colors border-b border-white/[0.04] last:border-0">
+                                      <td className="py-3.5 px-4 whitespace-nowrap font-mono font-bold text-[#00F0FF] text-[11px]">
                                         {pay.id || pay.invoiceId || (pay._id ? `INV-${String(pay._id).slice(-6).toUpperCase()}` : "--")}
                                       </td>
-                                      <td className="p-4 font-bold text-white">
+                                      <td className="py-3.5 px-4 whitespace-nowrap font-semibold text-white">
                                         {pay.plan || pay.planOrItem || selectedCustomer.plan || "Membership Access"}
                                       </td>
-                                      <td className="p-4 font-bold text-white font-mono text-sm">
+                                      <td className="py-3.5 px-4 whitespace-nowrap font-bold text-white font-mono text-sm">
                                         ₹{Number(pay.amount || 0).toLocaleString("en-IN")}
                                       </td>
-                                      <td className="p-4 text-slate-300">
-                                        <span className="flex items-center gap-1.5">
-                                          <CreditCard size={12} className="text-[#FF2E4C]" />
-                                          {pay.method || selectedCustomer.paymentMethod || "--"}
+                                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-300">
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-xs">
+                                          <CreditCard size={12} className="text-[#FF2E4C] shrink-0" />
+                                          <span>{pay.method || selectedCustomer.paymentMethod || "Cash"}</span>
                                         </span>
                                       </td>
-                                      <td className="p-4 text-slate-400 font-mono">
-                                        {pay.date || pay.createdAt?.slice(0, 10) || "--"}
+                                      <td className="py-3.5 px-4 whitespace-nowrap text-slate-400 font-mono text-xs">
+                                        {pay.date || (pay.createdAt ? new Date(pay.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "--")}
                                       </td>
-                                      <td className="p-4">
-                                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-800 text-[11px] font-medium">
-                                          ✓ {pay.status || "Paid"}
+                                      <td className="py-3.5 px-4 whitespace-nowrap text-center">
+                                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold whitespace-nowrap">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                          {pay.status || "Paid"}
                                         </span>
                                       </td>
-                                      <td className="p-4 text-right">
-                                        <div className="flex items-center justify-end gap-2">
+                                      <td className="py-3.5 px-4 whitespace-nowrap text-right pr-5">
+                                        <div className="inline-flex items-center justify-end gap-2">
                                           <button
                                             onClick={() => handleDownloadInvoice(pay, selectedCustomer)}
                                             title="Download Official Tax Invoice (HTML/PDF)"
-                                            className="px-2.5 py-1.5 rounded-lg bg-[#090C0E] border border-white/10 hover:border-emerald-500/50 text-emerald-400 hover:text-emerald-300 text-xs font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-sm"
+                                            className="px-2.5 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 hover:border-emerald-400 hover:bg-emerald-900/50 text-emerald-300 hover:text-emerald-200 text-xs font-semibold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
                                           >
-                                            <Download size={12} /> Download
+                                            <Download size={12} />
+                                            <span>Download</span>
                                           </button>
                                           <button
                                             onClick={() => {
                                               setReceiptModalData({
                                                 orderId: pay.id || pay.invoiceId || (pay._id ? `INV-${String(pay._id).slice(-6).toUpperCase()}` : "--"),
                                                 id: pay.id || pay.invoiceId || (pay._id ? `INV-${String(pay._id).slice(-6).toUpperCase()}` : "--"),
-                                                date: pay.date || pay.createdAt?.slice(0, 10) || "--",
+                                                date: pay.date || (pay.createdAt ? new Date(pay.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "--"),
                                                 time: "11:00 AM",
                                                 customerName: selectedCustomer.name,
                                                 customerEmail: selectedCustomer.email,
@@ -6715,9 +6759,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 cashier: "Admin Billing Controller",
                                               });
                                             }}
-                                            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-[#FF2E4C] text-slate-300 hover:text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
+                                            className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-[#FF2E4C]/50 hover:bg-[#FF2E4C]/10 text-slate-300 hover:text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm"
                                           >
-                                            <Printer size={13} /> Receipt
+                                            <Printer size={12} className="text-[#FF2E4C]" />
+                                            <span>Receipt</span>
                                           </button>
                                         </div>
                                       </td>
@@ -7163,7 +7208,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         className="w-full py-2.5 rounded-xl bg-[#090C0E] border border-white/10 hover:border-[#FF2E4C] text-slate-200 text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
                       >
                         <Calendar size={14} className="text-[#FF2E4C]" />
-                        Manage Schedule
+                        View Schedule & Assigned Athletes
                       </button>
                     </div>
                   ))}
@@ -7201,15 +7246,6 @@ export default function AdminDashboard({ user, onLogout }) {
                         {selectedCoach?.spec || "Master Coach"}
                       </p>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setShowAssignClientModal(true)}
-                      className="px-4 py-2 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-bold text-xs flex items-center gap-2 shadow-[0_0_12px_rgba(255,46,76,0.4)] transition-all cursor-pointer"
-                    >
-                      <UserPlus size={15} /> Assign New Athlete
-                    </button>
                   </div>
                 </div>
 
@@ -7250,145 +7286,83 @@ export default function AdminDashboard({ user, onLogout }) {
                 </div>
               </div>
 
-              {/* 1. SHIFT & TIMINGS SCHEDULER CONFIGURATION */}
+              {/* 1. SHIFT TIMINGS & ZONE OVERVIEW (READ-ONLY DISPLAY CONFIGURED BY RECEPTIONIST) */}
               <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-xl space-y-5">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#201416] border border-[#FF2E4C]/30 flex items-center justify-center text-[#FF2E4C]">
+                    <div className="w-10 h-10 rounded-xl bg-purple-950/60 border border-purple-800/50 flex items-center justify-center text-purple-400">
                       <Clock size={20} />
                     </div>
                     <div>
                       <h3 className="text-base font-bold text-white tracking-tight">
-                        Shift Timings & Working Hours Setup
+                        Shift Timings & Operational Zone
                       </h3>
                       <p className="text-xs text-slate-400">
-                        Configure weekly availability, designated training room,
-                        and shift duration.
+                        Assigned schedule, working hours, and designated gym zone.
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={handleSaveCoachShift}
-                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
-                  >
-                    <Check size={14} /> Save Timings
-                  </button>
+                  <span className="px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-xs font-semibold font-mono self-start sm:self-auto">
+                    ● Managed by Reception Desk
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {/* Shift Selector */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300 block">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Shift Timing Window */}
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1.5">
+                    <span className="text-[11px] font-semibold text-slate-400 block uppercase font-mono">
                       Shift Timing Window
-                    </label>
-                    <select
-                      value={coachShiftForm.shift}
-                      onChange={(e) =>
-                        setCoachShiftForm({
-                          ...coachShiftForm,
-                          shift: e.target.value,
-                        })
-                      }
-                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
-                    >
-                      <option value="06:00 AM - 02:00 PM">
-                        Morning Shift (06:00 AM - 02:00 PM)
-                      </option>
-                      <option value="02:00 PM - 10:00 PM">
-                        Evening Shift (02:00 PM - 10:00 PM)
-                      </option>
-                      <option value="06:00 AM - 11:00 AM & 05:00 PM - 09:00 PM">
-                        Split Shift (06-11 AM & 05-09 PM)
-                      </option>
-                      <option value="10:00 AM - 06:00 PM">
-                        General Shift (10:00 AM - 06:00 PM)
-                      </option>
-                    </select>
+                    </span>
+                    <div className="text-sm font-bold text-white flex items-center gap-2">
+                      <Clock size={14} className="text-[#FF2E4C] shrink-0" />
+                      <span>{selectedCoach?.shift || coachShiftForm.shift || "06:00 AM - 02:00 PM"}</span>
+                    </div>
                   </div>
 
                   {/* Designated Area */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300 block">
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1.5">
+                    <span className="text-[11px] font-semibold text-slate-400 block uppercase font-mono">
                       Assigned Arena / Zone
-                    </label>
-                    <select
-                      value={coachShiftForm.room}
-                      onChange={(e) =>
-                        setCoachShiftForm({
-                          ...coachShiftForm,
-                          room: e.target.value,
-                        })
-                      }
-                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
-                    >
-                      <option value="Main Strength & Conditioning Arena">
-                        Main Strength Arena
-                      </option>
-                      <option value="Cardio & 3D Telemetry Zone">
-                        Cardio & 3D Telemetry Zone
-                      </option>
-                      <option value="Functional HIIT & Turf Deck">
-                        Functional HIIT Turf
-                      </option>
-                      <option value="VIP Private Training Studio">
-                        VIP Private Training Studio
-                      </option>
-                    </select>
+                    </span>
+                    <div className="text-sm font-bold text-white flex items-center gap-2">
+                      <Dumbbell size={14} className="text-purple-400 shrink-0" />
+                      <span>{selectedCoach?.room || coachShiftForm.room || "Main Strength & Conditioning Arena"}</span>
+                    </div>
                   </div>
 
                   {/* Rest / Break Slot */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300 block">
+                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-1.5">
+                    <span className="text-[11px] font-semibold text-slate-400 block uppercase font-mono">
                       Scheduled Break Time
-                    </label>
-                    <input
-                      type="text"
-                      value={coachShiftForm.breakTime}
-                      onChange={(e) =>
-                        setCoachShiftForm({
-                          ...coachShiftForm,
-                          breakTime: e.target.value,
-                        })
-                      }
-                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
-                      placeholder="e.g. 11:00 AM - 11:30 AM"
-                    />
+                    </span>
+                    <div className="text-sm font-bold text-white flex items-center gap-2">
+                      <Activity size={14} className="text-amber-400 shrink-0" />
+                      <span>{selectedCoach?.breakTime || coachShiftForm.breakTime || "11:00 AM - 11:30 AM"}</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Working Days Toggles */}
-                <div className="space-y-2 pt-2 border-t border-white/5">
-                  <label className="text-xs font-semibold text-slate-300 block">
+                {/* Working Days Badges (Read-Only) */}
+                <div className="space-y-2 pt-3 border-t border-white/5">
+                  <span className="text-xs font-semibold text-slate-300 block">
                     Weekly Working Days
-                  </label>
+                  </span>
                   <div className="flex flex-wrap gap-2">
-                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(
-                      (day) => {
-                        const isSelected = coachShiftForm.days.includes(day);
-                        return (
-                          <button
-                            key={day}
-                            type="button"
-                            onClick={() => {
-                              const newDays = isSelected
-                                ? coachShiftForm.days.filter((d) => d !== day)
-                                : [...coachShiftForm.days, day];
-                              setCoachShiftForm({
-                                ...coachShiftForm,
-                                days: newDays,
-                              });
-                            }}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                              isSelected
-                                ? "bg-[#FF2E4C] text-white shadow-[0_0_10px_rgba(255,46,76,0.4)]"
-                                : "bg-[#090C0E] border border-white/10 text-slate-400 hover:text-white"
-                            }`}
-                          >
-                            {day}
-                          </button>
-                        );
-                      },
-                    )}
+                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => {
+                      const isWorkingDay = (selectedCoach?.days || coachShiftForm.days || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).includes(day);
+                      return (
+                        <span
+                          key={day}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                            isWorkingDay
+                              ? "bg-purple-950/80 border border-purple-700/60 text-purple-300 shadow-sm"
+                              : "bg-[#090C0E] border border-white/5 text-slate-600"
+                          }`}
+                        >
+                          {day}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -7419,16 +7393,6 @@ export default function AdminDashboard({ user, onLogout }) {
                       <History size={15} /> Past Clients (
                       {coachClients.past.length})
                     </button>
-                    <button
-                      onClick={() => setCoachClientTab("calendar")}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                        coachClientTab === "calendar"
-                          ? "bg-[#FF2E4C] text-white shadow-md"
-                          : "bg-[#141419] border border-white/10 text-slate-400 hover:text-white"
-                      }`}
-                    >
-                      <Calendar size={15} /> Weekly Schedule Grid
-                    </button>
                   </div>
                 </div>
 
@@ -7436,27 +7400,32 @@ export default function AdminDashboard({ user, onLogout }) {
                 {coachClientTab === "active" && (
                   <div className="rounded-3xl bg-[#141419] border border-[#202028] overflow-hidden shadow-xl">
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
+                      <table className="w-full text-left text-xs min-w-[700px]">
                         <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
                           <tr>
                             <th className="p-4">Athlete ID</th>
-                            <th className="p-4">Athlete Name</th>
+                            <th className="p-4">Athlete Member</th>
                             <th className="p-4">Training Program</th>
                             <th className="p-4">Target Goal</th>
-                            <th className="p-4">Session Slot Timing</th>
-                            <th className="p-4">Progress</th>
-                            <th className="p-4 text-right">Actions</th>
+                            <th className="p-4">Assigned Slot</th>
+                            <th className="p-4">Coaching Status</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5 text-slate-200">
                           {coachClients.active.length === 0 ? (
                             <tr>
                               <td
-                                colSpan="7"
-                                className="p-8 text-center text-slate-400"
+                                colSpan="6"
+                                className="p-10 text-center text-slate-400"
                               >
-                                No active athletes assigned yet. Click "Assign
-                                New Athlete" to assign a customer.
+                                <div className="space-y-1.5">
+                                  <p className="text-sm font-semibold text-slate-300">
+                                    No active athletes currently assigned to this coach.
+                                  </p>
+                                  <p className="text-xs text-slate-500 font-mono">
+                                    Athlete allocations and coach assignments are managed by Front Desk Reception.
+                                  </p>
+                                </div>
                               </td>
                             </tr>
                           ) : (
@@ -7465,81 +7434,31 @@ export default function AdminDashboard({ user, onLogout }) {
                                 key={client.id}
                                 className="hover:bg-white/5 transition-colors"
                               >
-                                <td className="p-4 font-mono text-[#00F0FF] font-semibold">
+                                <td className="p-4 font-mono text-[#00F0FF] font-semibold whitespace-nowrap">
                                   {client.id}
                                 </td>
-                                <td className="p-4">
+                                <td className="p-4 whitespace-nowrap">
                                   <span className="font-bold text-white block">
                                     {client.name}
                                   </span>
                                   <span className="text-[11px] text-slate-400 font-mono">
-                                    {client.email}
+                                    {client.email} {client.phone ? `• ${client.phone}` : ""}
                                   </span>
                                 </td>
-                                <td className="p-4 font-semibold text-[#FF2E4C]">
+                                <td className="p-4 font-semibold text-[#FF2E4C] whitespace-nowrap">
                                   {client.program}
                                 </td>
                                 <td className="p-4 text-slate-300">
                                   {client.goal}
                                 </td>
-                                <td className="p-4 text-purple-400 font-mono">
+                                <td className="p-4 text-purple-400 font-mono whitespace-nowrap">
                                   {client.slot}
                                 </td>
-                                <td className="p-4">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-20 h-2 rounded-full bg-white/10 overflow-hidden">
-                                      <div
-                                        className="h-full bg-emerald-500 rounded-full"
-                                        style={{ width: client.progress }}
-                                      />
-                                    </div>
-                                    <span className="text-[11px] font-mono text-emerald-400">
-                                      {client.progress}
-                                    </span>
-                                  </div>
-                                </td>
-                                <td className="p-4 text-right space-x-2">
-                                  <button
-                                    onClick={() =>
-                                      showToast(
-                                        `✓ Logged training progress for ${client.name}`,
-                                      )
-                                    }
-                                    className="px-3 py-1.5 rounded-lg bg-[#090C0E] border border-white/10 hover:border-emerald-500 text-emerald-400 text-xs font-semibold transition-all cursor-pointer"
-                                  >
-                                    Log Session
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      // Move to past
-                                      setCoachClients((prev) => ({
-                                        active: prev.active.filter(
-                                          (c) => c.id !== client.id,
-                                        ),
-                                        past: [
-                                          {
-                                            id: `PST-${Math.floor(100 + Math.random() * 900)}`,
-                                            name: client.name,
-                                            email: client.email,
-                                            phone: client.phone,
-                                            program: client.program,
-                                            result: `Completed (${client.goal} Achieved)`,
-                                            completionDate: new Date()
-                                              .toISOString()
-                                              .split("T")[0],
-                                            rating: "5.0 ★",
-                                          },
-                                          ...prev.past,
-                                        ],
-                                      }));
-                                      showToast(
-                                        `✓ Graduated ${client.name} to Past Clients!`,
-                                      );
-                                    }}
-                                    className="px-3 py-1.5 rounded-lg bg-[#090C0E] border border-white/10 hover:border-amber-500 text-amber-400 text-xs font-semibold transition-all cursor-pointer"
-                                  >
-                                    Graduate
-                                  </button>
+                                <td className="p-4 whitespace-nowrap">
+                                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold inline-flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                    Assigned & Active
+                                  </span>
                                 </td>
                               </tr>
                             ))
@@ -7610,378 +7529,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
                   </div>
                 )}
-
-                {/* SUB-VIEW C: WEEKLY SCHEDULE MATRIX */}
-                {coachClientTab === "calendar" && (
-                  <div className="p-6 rounded-3xl bg-[#141419] border border-[#202028] shadow-xl space-y-4">
-                    <h4 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                      <Calendar size={16} className="text-[#FF2E4C]" /> Weekly
-                      Athlete Slot Matrix ({coachShiftForm.shift})
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {[
-                        "Monday",
-                        "Tuesday",
-                        "Wednesday",
-                        "Thursday",
-                        "Friday",
-                        "Saturday",
-                      ].map((day) => (
-                        <div
-                          key={day}
-                          className="p-4 rounded-2xl bg-[#090C0E] border border-white/5 space-y-3"
-                        >
-                          <div className="flex justify-between items-center border-b border-white/10 pb-2">
-                            <span className="font-bold text-white text-xs uppercase">
-                              {day}
-                            </span>
-                            <span className="text-[10px] text-purple-400 font-mono">
-                              06:00 - 14:00
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {coachClients.active.length > 0 ? (
-                              coachClients.active.map((client, cIdx) => (
-                                <div
-                                  key={cIdx}
-                                  className="p-2.5 rounded-xl bg-[#141419] border border-emerald-500/30 flex justify-between items-center"
-                                >
-                                  <div>
-                                    <span className="text-xs font-bold text-white block">
-                                      {client.slot.split("(")[0] ||
-                                        "07:00 AM - 08:00 AM"}
-                                    </span>
-                                    <span className="text-[10px] text-emerald-400">
-                                      {client.name} ({client.program})
-                                    </span>
-                                  </div>
-                                  <span className="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 text-[9px] font-mono">
-                                    Booked
-                                  </span>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="p-2.5 rounded-xl bg-[#141419] border border-white/5 flex justify-between items-center">
-                                <div>
-                                  <span className="text-xs text-slate-400 block">
-                                    Available Slot
-                                  </span>
-                                  <span className="text-[10px] text-slate-500">
-                                    Open for Active Members
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={() => setShowAssignClientModal(true)}
-                                  className="px-2 py-0.5 rounded-full bg-white/10 hover:bg-[#FF2E4C] text-white text-[9px] font-mono transition-colors cursor-pointer"
-                                >
-                                  + Book
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
-
-              {/* MODAL: ASSIGN NEW ATHLETE TO COACH */}
-              {showAssignClientModal && (
-                <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-                  <div className="w-full max-w-lg rounded-3xl bg-[#141419] border border-[#202028] p-6 sm:p-8 space-y-6 shadow-2xl animate-scaleUp">
-                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                      <div>
-                        <h3 className="text-xl font-black text-white uppercase">
-                          Assign Athlete to Coach
-                        </h3>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          Assign a customer to {selectedCoach?.name || "Coach"}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setShowAssignClientModal(false)}
-                        className="text-slate-400 hover:text-white"
-                      >
-                        <X size={20} />
-                      </button>
-                    </div>
-
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (!newClientAssign.name) {
-                          showToast(
-                            "Please select a member with active gym membership",
-                          );
-                          return;
-                        }
-
-                        const targetCustomer = customersList.find(
-                          (c) => c.name === newClientAssign.name,
-                        );
-                        if (
-                          !targetCustomer ||
-                          !targetCustomer.plan ||
-                          targetCustomer.plan === "No Active Plan" ||
-                          targetCustomer.status === "No Membership"
-                        ) {
-                          showToast(
-                            "⚠️ Cannot allocate trainer: Only customers with active gym membership can be assigned a coach.",
-                          );
-                          return;
-                        }
-
-                        const newEntry = {
-                          id: `ACT-${Math.floor(100 + Math.random() * 900)}`,
-                          userId: targetCustomer.userId,
-                          name: targetCustomer.name,
-                          email: targetCustomer.email,
-                          phone: targetCustomer.phone || "+91 99887 66554",
-                          program:
-                            targetCustomer.plan || newClientAssign.program,
-                          goal: newClientAssign.goal,
-                          slot: `${newClientAssign.slot} (${newClientAssign.days})`,
-                          status: "Active",
-                          progress: "15%",
-                        };
-
-                        // Persist to MongoDB Atlas
-                        try {
-                          const targetUserId =
-                            targetCustomer.userId || targetCustomer.id;
-                          if (targetUserId) {
-                            await api.put(`/api/users/${targetUserId}`, {
-                              assignedTrainer:
-                                selectedCoach?.userId || selectedCoach?.id,
-                              assignedTrainerName: selectedCoach?.name,
-                            });
-                          }
-                        } catch (err) {
-                          console.warn("Assign trainer to user err:", err);
-                        }
-
-                        // Update local customers state
-                        setCustomersList((prev) =>
-                          prev.map((c) =>
-                            c.userId === targetCustomer.userId ||
-                            c.name === targetCustomer.name
-                              ? {
-                                  ...c,
-                                  assignedTrainer:
-                                    selectedCoach?.userId || selectedCoach?.id,
-                                  assignedTrainerName: selectedCoach?.name,
-                                }
-                              : c,
-                          ),
-                        );
-
-                        setCoachClients((prev) => ({
-                          ...prev,
-                          active: [
-                            newEntry,
-                            ...prev.active.filter(
-                              (c) => c.name !== newEntry.name,
-                            ),
-                          ],
-                        }));
-
-                        showToast(
-                          `✓ Successfully allocated Coach ${selectedCoach?.name || "Coach"} to ${targetCustomer.name} (${targetCustomer.plan})!`,
-                        );
-                        setShowAssignClientModal(false);
-                        setNewClientAssign({
-                          name: "",
-                          email: "",
-                          phone: "",
-                          program: "Hypertrophy 5x5 Strength",
-                          slot: "07:00 AM - 08:00 AM",
-                          days: "Mon, Wed, Fri",
-                          goal: "Hypertrophy & Conditioning",
-                        });
-                      }}
-                      className="space-y-4"
-                    >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <label className="text-xs font-semibold text-slate-300">
-                            Select Active Member
-                          </label>
-                          <span className="text-[10px] text-emerald-400 font-mono font-semibold">
-                            Active Membership Required
-                          </span>
-                        </div>
-                        <select
-                          value={newClientAssign.name}
-                          onChange={(e) => {
-                            const found = customersList.find(
-                              (c) => c.name === e.target.value,
-                            );
-                            setNewClientAssign({
-                              ...newClientAssign,
-                              name: e.target.value,
-                              email: found ? found.email : "",
-                              phone: found ? found.phone : "",
-                              program: found?.plan || newClientAssign.program,
-                            });
-                          }}
-                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
-                          required
-                        >
-                          <option value="">
-                            -- Choose Member with Purchased Membership --
-                          </option>
-                          {customersList
-                            .filter(
-                              (c) =>
-                                c.plan &&
-                                c.plan !== "No Active Plan" &&
-                                c.status !== "No Membership" &&
-                                c.status !== "Inactive" &&
-                                c.status !== "Expired",
-                            )
-                            .map((c) => (
-                              <option key={c.id || c.userId} value={c.name}>
-                                {c.name} • {c.plan} ({c.email})
-                              </option>
-                            ))}
-                        </select>
-                        <p className="text-[11px] text-slate-400">
-                          Only customers who have purchased a membership tier
-                          appear in this allocation list.
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-slate-300">
-                            Training Program
-                          </label>
-                          <select
-                            value={newClientAssign.program}
-                            onChange={(e) =>
-                              setNewClientAssign({
-                                ...newClientAssign,
-                                program: e.target.value,
-                              })
-                            }
-                            className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
-                          >
-                            <option value="Hypertrophy 5x5 Strength">
-                              Hypertrophy 5x5 Strength
-                            </option>
-                            <option value="3D Telemetry & Conditioning">
-                              3D Telemetry & Conditioning
-                            </option>
-                            <option value="Olympic Weightlifting">
-                              Olympic Weightlifting
-                            </option>
-                            <option value="Fat Loss & Shred">
-                              Fat Loss & Shred
-                            </option>
-                            <option value="Powerlifting Prep">
-                              Powerlifting Prep
-                            </option>
-                          </select>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-slate-300">
-                            Time Slot
-                          </label>
-                          <select
-                            value={newClientAssign.slot}
-                            onChange={(e) =>
-                              setNewClientAssign({
-                                ...newClientAssign,
-                                slot: e.target.value,
-                              })
-                            }
-                            className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
-                          >
-                            <option value="06:00 AM - 07:00 AM">
-                              06:00 AM - 07:00 AM
-                            </option>
-                            <option value="07:00 AM - 08:00 AM">
-                              07:00 AM - 08:00 AM
-                            </option>
-                            <option value="08:00 AM - 09:00 AM">
-                              08:00 AM - 09:00 AM
-                            </option>
-                            <option value="09:00 AM - 10:00 AM">
-                              09:00 AM - 10:00 AM
-                            </option>
-                            <option value="10:00 AM - 11:00 AM">
-                              10:00 AM - 11:00 AM
-                            </option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-300">
-                          Session Frequency Days
-                        </label>
-                        <select
-                          value={newClientAssign.days}
-                          onChange={(e) =>
-                            setNewClientAssign({
-                              ...newClientAssign,
-                              days: e.target.value,
-                            })
-                          }
-                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
-                        >
-                          <option value="Mon, Wed, Fri">
-                            Mon, Wed, Fri (3 days/week)
-                          </option>
-                          <option value="Tue, Thu, Sat">
-                            Tue, Thu, Sat (3 days/week)
-                          </option>
-                          <option value="Daily (Mon - Sat)">
-                            Daily (Mon - Sat)
-                          </option>
-                        </select>
-                      </div>
-
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-300">
-                          Primary Transformation Goal
-                        </label>
-                        <input
-                          type="text"
-                          value={newClientAssign.goal}
-                          onChange={(e) =>
-                            setNewClientAssign({
-                              ...newClientAssign,
-                              goal: e.target.value,
-                            })
-                          }
-                          className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
-                          placeholder="e.g. Gain 4kg Lean Mass & PR 140kg Deadlift"
-                          required
-                        />
-                      </div>
-
-                      <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
-                        <button
-                          type="button"
-                          onClick={() => setShowAssignClientModal(false)}
-                          className="px-4 py-2 rounded-xl bg-[#090C0E] border border-white/10 text-slate-300 text-xs font-bold"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-5 py-2 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white text-xs font-bold shadow-lg"
-                        >
-                          Confirm & Assign
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -9255,16 +8803,16 @@ export default function AdminDashboard({ user, onLogout }) {
               {/* Modern Glassmorphic Billing Ledger Table */}
               <div className="rounded-3xl bg-[#141419] border border-[#202028] overflow-hidden shadow-2xl">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#090C0E] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
+                  <table className="w-full text-left text-xs min-w-[960px]">
+                    <thead className="bg-[#090C0E] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10 select-none">
                       <tr>
-                        <th className="p-4 pl-6">Invoice ID & Date</th>
-                        <th className="p-4">Athlete / Member</th>
-                        <th className="p-4">Membership Plan</th>
-                        <th className="p-4">Amount Paid</th>
-                        <th className="p-4">Payment Method</th>
-                        <th className="p-4">Status</th>
-                        <th className="p-4 pr-6 text-right">Official Receipt</th>
+                        <th className="py-4 px-5 whitespace-nowrap">Invoice ID & Date</th>
+                        <th className="py-4 px-5 whitespace-nowrap">Athlete / Member</th>
+                        <th className="py-4 px-5 whitespace-nowrap">Membership Plan</th>
+                        <th className="py-4 px-5 whitespace-nowrap">Amount Paid</th>
+                        <th className="py-4 px-5 whitespace-nowrap">Payment Method</th>
+                        <th className="py-4 px-5 whitespace-nowrap text-center">Status</th>
+                        <th className="py-4 px-6 whitespace-nowrap text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-slate-200">
@@ -9298,7 +8846,24 @@ export default function AdminDashboard({ user, onLogout }) {
                           return true;
                         });
 
-                        if (filtered.length === 0) {
+                        // Sort newest transactions first (descending order)
+                        const parseTimestamp = (p) => {
+                          if (p.createdAt) {
+                            const t = new Date(p.createdAt).getTime();
+                            if (!isNaN(t) && t > 0) return t;
+                          }
+                          if (p.date) {
+                            const t = new Date(p.date).getTime();
+                            if (!isNaN(t) && t > 0) return t;
+                          }
+                          return 0;
+                        };
+
+                        const sortedList = [...filtered].sort(
+                          (a, b) => parseTimestamp(b) - parseTimestamp(a),
+                        );
+
+                        if (sortedList.length === 0) {
                           return (
                             <tr>
                               <td colSpan={7} className="p-12 text-center text-slate-400 space-y-2">
@@ -9314,7 +8879,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           );
                         }
 
-                        return filtered.map((pay) => {
+                        return sortedList.map((pay) => {
                           const planName = pay.plan || pay.planOrItem || "Membership Access";
                           const isElite = planName.toLowerCase().includes("elite");
                           const isPT = planName.toLowerCase().includes("pt") || planName.toLowerCase().includes("personal");
@@ -9323,26 +8888,26 @@ export default function AdminDashboard({ user, onLogout }) {
                           return (
                             <tr
                               key={pay.id || pay.invoiceId || pay._id}
-                              className="hover:bg-white/[0.03] transition-colors group"
+                              className="hover:bg-white/[0.04] transition-colors border-b border-white/[0.04] last:border-0"
                             >
                               {/* Invoice ID & Date */}
-                              <td className="p-4 pl-6">
-                                <div className="font-mono font-bold text-[#FF2E4C] text-xs">
+                              <td className="py-4 px-5 whitespace-nowrap">
+                                <div className="font-mono font-bold text-[#00F0FF] text-xs">
                                   {pay.id || pay.invoiceId || (pay._id ? `INV-${String(pay._id).slice(-6).toUpperCase()}` : "INV-2026")}
                                 </div>
-                                <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-1">
-                                  <Calendar size={11} className="text-slate-500" />
-                                  <span>{pay.date || (pay.createdAt ? new Date(pay.createdAt).toLocaleDateString("en-IN") : "--")}</span>
+                                <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
+                                  <Calendar size={11} className="text-slate-500 shrink-0" />
+                                  <span>{pay.date || (pay.createdAt ? new Date(pay.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "--")}</span>
                                 </div>
                               </td>
 
                               {/* Customer Profile */}
-                              <td className="p-4">
+                              <td className="py-4 px-5 whitespace-nowrap">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1E2028] to-[#0E0F14] border border-white/10 text-white font-black text-xs flex items-center justify-center shrink-0">
+                                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1E2028] to-[#0E0F14] border border-white/10 text-white font-bold text-xs flex items-center justify-center shrink-0">
                                     {(pay.customer || "U").charAt(0).toUpperCase()}
                                   </div>
-                                  <div>
+                                  <div className="min-w-0">
                                     <span className="font-bold text-white block leading-tight">
                                       {pay.customer || "Athlete"}
                                     </span>
@@ -9354,9 +8919,9 @@ export default function AdminDashboard({ user, onLogout }) {
                               </td>
 
                               {/* Plan / Item */}
-                              <td className="p-4">
+                              <td className="py-4 px-5 whitespace-nowrap">
                                 <span
-                                  className={`px-3 py-1 rounded-xl text-[11px] font-bold inline-block border ${
+                                  className={`px-3 py-1 rounded-xl text-[11px] font-bold inline-block whitespace-nowrap border ${
                                     isElite
                                       ? "bg-amber-950/60 text-amber-300 border-amber-800/60"
                                       : isPT
@@ -9371,45 +8936,46 @@ export default function AdminDashboard({ user, onLogout }) {
                               </td>
 
                               {/* Amount */}
-                              <td className="p-4">
-                                <div className="font-black text-white font-mono text-sm">
+                              <td className="py-4 px-5 whitespace-nowrap">
+                                <div className="font-bold text-white font-mono text-sm">
                                   ₹{Number(pay.amount || 0).toLocaleString("en-IN")}
                                 </div>
-                                <span className="text-[10px] text-emerald-400 font-mono">
+                                <span className="text-[10px] text-emerald-400 font-mono block">
                                   ● Tax Included
                                 </span>
                               </td>
 
                               {/* Payment Method */}
-                              <td className="p-4 text-slate-300">
-                                <span className="flex items-center gap-1.5 font-medium text-xs">
-                                  <CreditCard size={13} className="text-[#FF2E4C] shrink-0" />
+                              <td className="py-4 px-5 whitespace-nowrap text-slate-300">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-xs font-medium">
+                                  <CreditCard size={12} className="text-[#FF2E4C] shrink-0" />
                                   <span>{pay.method || "Online"}</span>
                                 </span>
                               </td>
 
                               {/* Status */}
-                              <td className="p-4">
+                              <td className="py-4 px-5 whitespace-nowrap text-center">
                                 <span
-                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border inline-flex items-center gap-1 ${
+                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border inline-flex items-center gap-1.5 whitespace-nowrap ${
                                     (pay.status || "").toLowerCase() === "paid"
-                                      ? "bg-emerald-950/70 text-emerald-400 border-emerald-800"
-                                      : "bg-amber-950/70 text-amber-400 border-amber-800"
+                                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                      : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                                   }`}
                                 >
-                                  ✓ {pay.status || "Paid"}
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                  {pay.status || "Paid"}
                                 </span>
                               </td>
 
                               {/* Actions: Download Invoice & Thermal Receipt */}
-                              <td className="p-4 pr-6 text-right">
-                                <div className="flex items-center justify-end gap-2">
+                              <td className="py-4 px-6 text-right whitespace-nowrap">
+                                <div className="inline-flex items-center justify-end gap-2">
                                   <button
                                     onClick={() => handleDownloadInvoice(pay)}
                                     title="Download Official Tax Invoice (HTML/PDF)"
-                                    className="px-3 py-1.5 rounded-xl bg-[#090C0E] border border-white/10 hover:border-emerald-500/50 hover:bg-emerald-950/30 text-emerald-400 hover:text-emerald-300 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-500/30 hover:border-emerald-400 hover:bg-emerald-900/50 text-emerald-300 hover:text-emerald-200 text-xs font-semibold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm whitespace-nowrap"
                                   >
-                                    <Download size={13} />
+                                    <Download size={12} />
                                     <span>Download</span>
                                   </button>
 
@@ -9418,7 +8984,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       setReceiptModalData({
                                         orderId: pay.id || pay.invoiceId || (pay._id ? `INV-${String(pay._id).slice(-6).toUpperCase()}` : "INV-2026"),
                                         id: pay.id || pay.invoiceId || (pay._id ? `INV-${String(pay._id).slice(-6).toUpperCase()}` : "INV-2026"),
-                                        date: pay.date || (pay.createdAt ? new Date(pay.createdAt).toLocaleDateString("en-IN") : "Today"),
+                                        date: pay.date || (pay.createdAt ? new Date(pay.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "Today"),
                                         time: "11:00 AM",
                                         customerName: pay.customer || "Titan Athlete",
                                         customerEmail: pay.customerEmail || "--",
@@ -9444,9 +9010,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                       });
                                     }}
                                     title="View 3D Thermal Receipt"
-                                    className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-[#FF2E4C] text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+                                    className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:border-[#FF2E4C]/50 hover:bg-[#FF2E4C]/10 text-slate-300 hover:text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-sm whitespace-nowrap"
                                   >
-                                    <Printer size={13} />
+                                    <Printer size={12} className="text-[#FF2E4C]" />
                                     <span>Receipt</span>
                                   </button>
                                 </div>
@@ -9761,17 +9327,17 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-[#0a0c10] text-slate-400 uppercase font-medium text-[11px] tracking-wider border-b border-white/5">
+                    <table className="w-full text-left text-xs min-w-[1050px]">
+                      <thead className="bg-[#0a0c10] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/5">
                         <tr>
-                          <th className="py-3 px-4 pl-6">Athlete / Member</th>
-                          <th className="py-3 px-4">Membership Plan</th>
-                          <th className="py-3 px-4">Gate Terminal</th>
-                          <th className="py-3 px-4">Time In</th>
-                          <th className="py-3 px-4">Time Out</th>
-                          <th className="py-3 px-4">Duration</th>
-                          <th className="py-3 px-4">Access Status</th>
-                          <th className="py-3 px-4 pr-6 text-right">Action</th>
+                          <th className="py-3.5 px-4 pl-6 whitespace-nowrap">Athlete / Member</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Membership Plan</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Gate Terminal</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Time In</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Time Out</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Duration</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Access Status</th>
+                          <th className="py-3.5 px-4 pr-6 text-right whitespace-nowrap">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.04] text-slate-300">
@@ -9812,9 +9378,9 @@ export default function AdminDashboard({ user, onLogout }) {
                             const isInside = c.status === "Active Inside";
                             return (
                               <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
-                                <td className="py-3.5 px-4 pl-6">
+                                <td className="py-3.5 px-4 pl-6 whitespace-nowrap">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#FF2E4C] to-purple-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-sm">
+                                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#FF2E4C] to-purple-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-sm uppercase">
                                       {c.name ? c.name.charAt(0).toUpperCase() : "A"}
                                     </div>
                                     <div>
@@ -9831,9 +9397,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </div>
                                 </td>
 
-                                <td className="py-3.5 px-4">
+                                <td className="py-3.5 px-4 whitespace-nowrap">
                                   <span
-                                    className={`px-2.5 py-0.5 rounded-lg text-[10px] font-semibold border uppercase ${
+                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border uppercase whitespace-nowrap tracking-wide inline-block ${
                                       c.plan?.includes("ELITE")
                                         ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                                         : c.plan?.includes("PT VIP")
@@ -9845,28 +9411,28 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </span>
                                 </td>
 
-                                <td className="py-3.5 px-4 font-normal text-slate-300">
-                                  <div className="flex items-center gap-1.5">
-                                    <MapPin size={12} className="text-[#FF2E4C]" />
+                                <td className="py-3.5 px-4 font-normal text-slate-300 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                    <MapPin size={12} className="text-[#FF2E4C] shrink-0" />
                                     <span>{c.gate}</span>
                                   </div>
                                 </td>
 
-                                <td className="py-3.5 px-4 font-mono text-emerald-400 font-medium">
+                                <td className="py-3.5 px-4 font-mono text-emerald-400 font-semibold whitespace-nowrap">
                                   {c.timeIn}
                                 </td>
 
-                                <td className="py-3.5 px-4 font-mono text-slate-400">
+                                <td className="py-3.5 px-4 font-mono text-slate-400 whitespace-nowrap">
                                   {c.timeOut || "--"}
                                 </td>
 
-                                <td className="py-3.5 px-4 text-slate-300 font-mono text-[11px]">
+                                <td className="py-3.5 px-4 text-slate-300 font-mono text-[11px] whitespace-nowrap">
                                   {c.duration}
                                 </td>
 
-                                <td className="py-3.5 px-4">
+                                <td className="py-3.5 px-4 whitespace-nowrap">
                                   <span
-                                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5 ${
+                                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5 whitespace-nowrap ${
                                       isInside
                                         ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                         : "bg-slate-800/40 text-slate-400 border-white/5"
@@ -9881,10 +9447,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </span>
                                 </td>
 
-                                <td className="py-3.5 px-4 pr-6 text-right">
+                                <td className="py-3.5 px-4 pr-6 text-right whitespace-nowrap">
                                   <button
                                     onClick={() => handleToggleCustomerAttendance(c.id)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer inline-flex items-center gap-1 ${
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-sm whitespace-nowrap ${
                                       isInside
                                         ? "bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20"
                                         : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20"
@@ -9920,17 +9486,17 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-[#0a0c10] text-slate-400 uppercase font-medium text-[11px] tracking-wider border-b border-white/5">
+                    <table className="w-full text-left text-xs min-w-[1050px]">
+                      <thead className="bg-[#0a0c10] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/5">
                         <tr>
-                          <th className="py-3 px-4 pl-6">Master Coach</th>
-                          <th className="py-3 px-4">Specialization</th>
-                          <th className="py-3 px-4">Shift Timings</th>
-                          <th className="py-3 px-4">Assigned Zone</th>
-                          <th className="py-3 px-4">Time In</th>
-                          <th className="py-3 px-4">Duty Logged</th>
-                          <th className="py-3 px-4">Duty Status</th>
-                          <th className="py-3 px-4 pr-6 text-right">Shift Actions</th>
+                          <th className="py-3.5 px-4 pl-6 whitespace-nowrap">Master Coach</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Specialization</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Shift Timings</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Assigned Zone</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Time In</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Duty Logged</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Duty Status</th>
+                          <th className="py-3.5 px-4 pr-6 text-right whitespace-nowrap">Shift Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.04] text-slate-300">
@@ -9972,9 +9538,9 @@ export default function AdminDashboard({ user, onLogout }) {
                             const isOnBreak = t.status === "On Break";
                             return (
                               <tr key={t.id} className="hover:bg-white/[0.02] transition-colors">
-                                <td className="py-3.5 px-4 pl-6">
+                                <td className="py-3.5 px-4 pl-6 whitespace-nowrap">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-cyan-600/20 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0">
+                                    <div className="w-8 h-8 rounded-xl bg-cyan-600/20 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-bold text-xs shrink-0 uppercase">
                                       {t.name ? t.name.charAt(0).toUpperCase() : "T"}
                                     </div>
                                     <div>
@@ -9991,33 +9557,33 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </div>
                                 </td>
 
-                                <td className="py-3.5 px-4 text-slate-300 font-normal">{t.spec}</td>
+                                <td className="py-3.5 px-4 text-slate-300 font-normal whitespace-nowrap">{t.spec}</td>
 
-                                <td className="py-3.5 px-4 font-mono text-xs text-amber-300">
-                                  <div className="flex items-center gap-1.5">
-                                    <Clock size={12} className="text-amber-400" />
+                                <td className="py-3.5 px-4 font-mono text-xs text-amber-300 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                    <Clock size={12} className="text-amber-400 shrink-0" />
                                     <span>{t.shift}</span>
                                   </div>
                                 </td>
 
-                                <td className="py-3.5 px-4 text-slate-300 font-normal">
-                                  <div className="flex items-center gap-1.5">
-                                    <MapPin size={12} className="text-cyan-400" />
+                                <td className="py-3.5 px-4 text-slate-300 font-normal whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                    <MapPin size={12} className="text-cyan-400 shrink-0" />
                                     <span>{t.zone}</span>
                                   </div>
                                 </td>
 
-                                <td className="py-3.5 px-4 font-mono text-emerald-400 font-medium">
+                                <td className="py-3.5 px-4 font-mono text-emerald-400 font-semibold whitespace-nowrap">
                                   {t.timeIn || "--"}
                                 </td>
 
-                                <td className="py-3.5 px-4 font-mono text-slate-300">
+                                <td className="py-3.5 px-4 font-mono text-slate-300 whitespace-nowrap">
                                   {t.dutyHours}
                                 </td>
 
-                                <td className="py-3.5 px-4">
+                                <td className="py-3.5 px-4 whitespace-nowrap">
                                   <span
-                                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5 ${
+                                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5 whitespace-nowrap ${
                                       isOnDuty
                                         ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
                                         : isOnBreak
@@ -10038,23 +9604,23 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </span>
                                 </td>
 
-                                <td className="py-3.5 px-4 pr-6 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
+                                <td className="py-3.5 px-4 pr-6 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                                     <button
                                       onClick={() => handleToggleTrainerDuty(t.id, "On Duty")}
-                                      className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-[11px] font-medium border border-cyan-500/20 transition-all cursor-pointer"
+                                      className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 text-[11px] font-medium border border-cyan-500/20 transition-all cursor-pointer whitespace-nowrap"
                                     >
                                       On Duty
                                     </button>
                                     <button
                                       onClick={() => handleToggleTrainerDuty(t.id, "On Break")}
-                                      className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[11px] font-medium border border-amber-500/20 transition-all cursor-pointer"
+                                      className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[11px] font-medium border border-amber-500/20 transition-all cursor-pointer whitespace-nowrap"
                                     >
                                       Break
                                     </button>
                                     <button
                                       onClick={() => handleToggleTrainerDuty(t.id, "Off Duty")}
-                                      className="px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-white/10 transition-all cursor-pointer"
+                                      className="px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-white/10 transition-all cursor-pointer whitespace-nowrap"
                                     >
                                       Off
                                     </button>
@@ -10087,17 +9653,17 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-[#0a0c10] text-slate-400 uppercase font-medium text-[11px] tracking-wider border-b border-white/5">
+                    <table className="w-full text-left text-xs min-w-[1050px]">
+                      <thead className="bg-[#0a0c10] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/5">
                         <tr>
-                          <th className="py-3 px-4 pl-6">Staff Member</th>
-                          <th className="py-3 px-4">Desk Station</th>
-                          <th className="py-3 px-4">Shift Timings</th>
-                          <th className="py-3 px-4">Punch In</th>
-                          <th className="py-3 px-4">Duty Hours</th>
-                          <th className="py-3 px-4">Scans Processed</th>
-                          <th className="py-3 px-4">Status</th>
-                          <th className="py-3 px-4 pr-6 text-right">Terminal Action</th>
+                          <th className="py-3.5 px-4 pl-6 whitespace-nowrap">Staff Member</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Desk Station</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Shift Timings</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Punch In</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Duty Hours</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Scans Processed</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Status</th>
+                          <th className="py-3.5 px-4 pr-6 text-right whitespace-nowrap">Terminal Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/[0.04] text-slate-300">
@@ -10138,9 +9704,9 @@ export default function AdminDashboard({ user, onLogout }) {
                             const isOnBreak = r.status === "On Break";
                             return (
                               <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
-                                <td className="py-3.5 px-4 pl-6">
+                                <td className="py-3.5 px-4 pl-6 whitespace-nowrap">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-amber-600/20 border border-amber-500/30 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
+                                    <div className="w-8 h-8 rounded-xl bg-amber-600/20 border border-amber-500/30 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0 uppercase">
                                       {r.name ? r.name.charAt(0).toUpperCase() : "R"}
                                     </div>
                                     <div>
@@ -10157,33 +9723,33 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </div>
                                 </td>
 
-                                <td className="py-3.5 px-4 text-slate-300 font-normal">
-                                  <div className="flex items-center gap-1.5">
-                                    <MapPin size={12} className="text-amber-400" />
+                                <td className="py-3.5 px-4 text-slate-300 font-normal whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                    <MapPin size={12} className="text-amber-400 shrink-0" />
                                     <span>{r.desk}</span>
                                   </div>
                                 </td>
 
-                                <td className="py-3.5 px-4 font-mono text-xs text-slate-300">
-                                  <div className="flex items-center gap-1.5">
-                                    <Clock size={12} className="text-slate-400" />
+                                <td className="py-3.5 px-4 font-mono text-xs text-slate-300 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                                    <Clock size={12} className="text-slate-400 shrink-0" />
                                     <span>{r.shift}</span>
                                   </div>
                                 </td>
 
-                                <td className="py-3.5 px-4 font-mono text-emerald-400 font-medium">
+                                <td className="py-3.5 px-4 font-mono text-emerald-400 font-semibold whitespace-nowrap">
                                   {r.timeIn || "--"}
                                 </td>
 
-                                <td className="py-3.5 px-4 font-mono text-slate-300">{r.dutyHours}</td>
+                                <td className="py-3.5 px-4 font-mono text-slate-300 whitespace-nowrap">{r.dutyHours}</td>
 
-                                <td className="py-3.5 px-4 font-mono text-cyan-400 font-semibold">
+                                <td className="py-3.5 px-4 font-mono text-cyan-400 font-semibold whitespace-nowrap">
                                   {r.scansProcessed} passes
                                 </td>
 
-                                <td className="py-3.5 px-4">
+                                <td className="py-3.5 px-4 whitespace-nowrap">
                                   <span
-                                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5 ${
+                                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5 whitespace-nowrap ${
                                       isOnline
                                         ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                         : isOnBreak
@@ -10204,23 +9770,23 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </span>
                                 </td>
 
-                                <td className="py-3.5 px-4 pr-6 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
+                                <td className="py-3.5 px-4 pr-6 text-right whitespace-nowrap">
+                                  <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                                     <button
                                       onClick={() => handleToggleReceptionistDuty(r.id, "Online")}
-                                      className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-medium border border-emerald-500/20 transition-all cursor-pointer"
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-[11px] font-medium border border-emerald-500/20 transition-all cursor-pointer whitespace-nowrap"
                                     >
                                       Online
                                     </button>
                                     <button
                                       onClick={() => handleToggleReceptionistDuty(r.id, "On Break")}
-                                      className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[11px] font-medium border border-amber-500/20 transition-all cursor-pointer"
+                                      className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[11px] font-medium border border-amber-500/20 transition-all cursor-pointer whitespace-nowrap"
                                     >
                                       Break
                                     </button>
                                     <button
                                       onClick={() => handleToggleReceptionistDuty(r.id, "Offline")}
-                                      className="px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-white/10 transition-all cursor-pointer"
+                                      className="px-2.5 py-1 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-300 text-[11px] font-medium border border-white/10 transition-all cursor-pointer whitespace-nowrap"
                                     >
                                       Offline
                                     </button>
@@ -11559,12 +11125,9 @@ export default function AdminDashboard({ user, onLogout }) {
                   <option value="">-- Choose Coach from Roster --</option>
                   {trainersList.map((t) => (
                     <option key={t.id || t.userId} value={t.name}>
-                      {t.name} ({t.spec || "Master Coach"}) • {t.shift}
+                      {t.name} ({t.spec || "Master Coach"}) • {t.shift || "Active Shift"}
                     </option>
                   ))}
-                  <option value="Vikram Malhotra">Vikram Malhotra (Elite Strength & Conditioning)</option>
-                  <option value="Marcus 'Titan' Vance">Marcus 'Titan' Vance (Hypertrophy Master)</option>
-                  <option value="Elena Rostova">Elena Rostova (Olympic Weightlifting Specialist)</option>
                 </select>
               </div>
 

@@ -87,38 +87,18 @@ const autoSeedAdmin = async () => {
       console.log('👑 Original Admin user (abhishek / abhigangamolla@gmail.com) verified in database.');
     }
 
-    // 2. Seed Receptionist Account
-    const recEmail = 'receptionist@titangym.com';
-    let recUser = await User.findOne({ email: recEmail });
-    if (!recUser) {
-      recUser = new User({
-        name: 'Front Desk Receptionist',
-        email: recEmail,
-        password: 'Reception@2026',
-        phone: '+91 9876500001',
-        role: 'receptionist',
-      });
-      await recUser.save();
-      console.log('🛎️ Default Receptionist account (receptionist@titangym.com / Reception@2026) seeded.');
-    }
-
-    // Clean up any legacy dummy customer seeds from MongoDB
-    await User.deleteMany({ email: 'customer@titangym.com' });
-
-    // 4. Seed Trainer Account
-    const trainerEmail = 'trainer@titangym.com';
-    let trainerUser = await User.findOne({ email: trainerEmail });
-    if (!trainerUser) {
-      trainerUser = new User({
-        name: 'Coach Marcus Vance',
-        email: trainerEmail,
-        password: 'Trainer@2026',
-        phone: '+91 9876500002',
-        role: 'trainer',
-      });
-      await trainerUser.save();
-      console.log('🔥 Default Trainer account (trainer@titangym.com / Trainer@2026) seeded.');
-    }
+    // Clean up any legacy dummy customer, trainer, and receptionist seeds from MongoDB
+    await User.deleteMany({
+      $or: [
+        { email: 'customer@titangym.com' },
+        { email: 'trainer@titangym.com' },
+        { email: 'receptionist@titangym.com' },
+        { name: 'Front Desk Receptionist' },
+        { name: 'Coach Marcus Vance' },
+        { name: { $regex: /Marcus Vance/i } },
+        { name: { $regex: /Front Desk Receptionist/i } },
+      ],
+    });
   } catch (err) {
     console.error('⚠️ Auto-seed admin error:', err.message);
   }
@@ -2051,6 +2031,30 @@ app.get('/api/payments', authenticateToken, authorizeRoles('admin', 'receptionis
 // Global in-memory OTP request cache with auto-expiry
 const activeOtpMap = new Map();
 
+// Helper to automatically turn active check-ins from previous days into 'Inactive'
+const syncEndOfDayAttendance = async () => {
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    await Attendance.updateMany(
+      {
+        date: { $lt: todayStr },
+        status: 'Active Inside',
+      },
+      {
+        $set: {
+          status: 'Inactive',
+        },
+      }
+    );
+  } catch (err) {
+    console.error('Error syncing end-of-day attendance:', err);
+  }
+};
+
+// Sync end-of-day attendance on boot & every 5 minutes
+syncEndOfDayAttendance();
+setInterval(syncEndOfDayAttendance, 5 * 60 * 1000);
+
 // Helper to cleanup expired OTPs
 const cleanupExpiredOtps = () => {
   const now = Date.now();
@@ -2454,6 +2458,7 @@ app.post('/api/attendance/quick-checkin', async (req, res) => {
 // GET /api/attendance - Fetch all attendance logs (For Receptionist & Admin Dashboards)
 app.get('/api/attendance', async (req, res) => {
   try {
+    await syncEndOfDayAttendance();
     const logs = await Attendance.find()
       .sort({ createdAt: -1 })
       .limit(100)
@@ -2493,6 +2498,7 @@ app.get('/api/attendance', async (req, res) => {
 // GET /api/attendance/my - Fetch personal attendance logs for Customer Dashboard
 app.get('/api/attendance/my', authenticateToken, async (req, res) => {
   try {
+    await syncEndOfDayAttendance();
     const userId = req.user.id;
     const userEmail = req.user.email;
 
