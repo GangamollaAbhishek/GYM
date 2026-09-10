@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import AppleSwitch from "./ui/AppleSwitch";
+import { checkShiftDutyStatus } from "../utils/shiftTiming";
 import {
   LayoutDashboard,
   UserPlus,
@@ -64,6 +66,10 @@ import {
   Upload,
   Trash2,
   Image,
+  LifeBuoy,
+  MessageSquare,
+  Inbox,
+  CheckCheck,
 } from "lucide-react";
 import { useLandingPageCMS } from "../context/LandingPageCMSContext";
 import api from "../lib/api";
@@ -305,6 +311,47 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     }
   };
 
+  // Reception Shift Duty Timing & Live Online Status
+  const [currentMinuteTicker, setCurrentMinuteTicker] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentMinuteTicker(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const receptionistShiftString =
+    generalSettings.shift || user?.shift || "Morning Shift (06:00 AM - 02:00 PM)";
+  const shiftDutyInfo = useMemo(() => {
+    return checkShiftDutyStatus(receptionistShiftString);
+  }, [receptionistShiftString, currentMinuteTicker]);
+
+  const [isReceptionOnline, setIsReceptionOnline] = useState(() => {
+    try {
+      const saved = localStorage.getItem("titan_reception_online_status");
+      if (saved !== null) return JSON.parse(saved);
+    } catch (e) {}
+    return true;
+  });
+
+  const handleToggleReceptionOnline = (checked) => {
+    if (!shiftDutyInfo.isShiftActive) {
+      showToast(
+        `⚠️ Duty shift has not started yet! Assigned Shift: ${shiftDutyInfo.shiftWindowText}. Online toggle unlocks when shift begins (${shiftDutyInfo.startTimeFormatted}).`
+      );
+      return;
+    }
+    setIsReceptionOnline(checked);
+    try {
+      localStorage.setItem("titan_reception_online_status", JSON.stringify(checked));
+    } catch (e) {}
+    if (checked) {
+      showToast(
+        `🟢 Terminal Gate Online: Front Desk active on duty (${shiftDutyInfo.shiftWindowText})`
+      );
+    } else {
+      showToast("⚪ Terminal Gate Offline: Front Desk set to Standby / Break");
+    }
+  };
+
   // -------------------------------------------------------------
   // 1. LIVE CUSTOMERS & TRAINERS FROM MONGODB DATABASE
   // -------------------------------------------------------------
@@ -313,6 +360,22 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   const [attendanceLogs, setAttendanceLogs] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [enquiries, setEnquiries] = useState([]);
+  const [tickets, setTickets] = useState(() => {
+    try {
+      const saved = localStorage.getItem("titan_global_support_tickets");
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [ticketFilterStatus, setTicketFilterStatus] = useState("all");
+  const [ticketFilterPriority, setTicketFilterPriority] = useState("all");
+  const [ticketFilterCategory, setTicketFilterCategory] = useState("all");
+  const [ticketSearchQuery, setTicketSearchQuery] = useState("");
+  const [selectedTicketModal, setSelectedTicketModal] = useState(null);
+  const [ticketReplyText, setTicketReplyText] = useState("");
+  const [ticketStatusInput, setTicketStatusInput] = useState("Resolved");
+  const [isUpdatingTicket, setIsUpdatingTicket] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -454,6 +517,31 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             };
           })
         );
+
+        // Live Support Tickets fetched from MongoDB / API
+        try {
+          const tckRes = await api.get("/api/tickets");
+          if (tckRes.data?.status === "success" && Array.isArray(tckRes.data?.data)) {
+            const remoteTickets = tckRes.data.data;
+            const localGlobal = JSON.parse(
+              localStorage.getItem("titan_global_support_tickets") || "[]"
+            );
+            const map = new Map();
+            [...remoteTickets, ...localGlobal].forEach((t) => {
+              if (t && (t.id || t.ticketId)) {
+                const key = t.ticketId || t.id;
+                map.set(key, { ...map.get(key), ...t, id: key, ticketId: key });
+              }
+            });
+            const merged = Array.from(map.values()).sort(
+              (a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date)
+            );
+            setTickets(merged);
+            localStorage.setItem("titan_global_support_tickets", JSON.stringify(merged));
+          }
+        } catch (tckErr) {
+          console.log("Using local tickets fallback:", tckErr);
+        }
       }
     } catch (err) {
       console.log("Error fetching receptionist data:", err);
@@ -463,19 +551,293 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   useEffect(() => {
     fetchData();
 
-    // Listen for live attendance and enquiry sync across tabs & dashboards
+    // Listen for live attendance, enquiry, and ticket sync across tabs & dashboards
     const handleSync = () => {
       fetchData();
     };
+
+    const handleTicketCreated = (e) => {
+      const newTck = e.detail;
+      if (newTck) {
+        const ticketKey = newTck.ticketId || newTck.id;
+        setTickets((prev) => [
+          { ...newTck, id: ticketKey, ticketId: ticketKey },
+          ...prev.filter((t) => (t.id || t.ticketId) !== ticketKey),
+        ]);
+        setReceptionistNotifications((prev) => [
+          {
+            id: `NTF-TICKET-${Date.now().toString().slice(-4)}`,
+            title: `New Support Ticket: ${newTck.subject}`,
+            desc: `Athlete ${newTck.customerName} (${newTck.customerDisplayId || "Member"}) reported: ${newTck.description || newTck.category}`,
+            category: "ticket",
+            source: "Customer Portal",
+            time: "Just now",
+            meta: newTck.priority || "High (Urgent)",
+            unread: true,
+            actionTab: "tickets",
+            actionLabel: "View Ticket",
+            ticketData: newTck,
+          },
+          ...prev,
+        ]);
+        showToast(
+          `🎫 New Support Ticket received from ${newTck.customerName}: "${newTck.subject}"`
+        );
+      }
+      fetchData();
+    };
+
     window.addEventListener("storage", handleSync);
     window.addEventListener("titan_attendance_sync", handleSync);
     window.addEventListener("titan_enquiry_sync", handleSync);
+    window.addEventListener("titan_ticket_created", handleTicketCreated);
+    window.addEventListener("titan_ticket_sync", handleSync);
+    window.addEventListener("titan_ticket_updated", handleSync);
+
     return () => {
       window.removeEventListener("storage", handleSync);
       window.removeEventListener("titan_attendance_sync", handleSync);
       window.removeEventListener("titan_enquiry_sync", handleSync);
+      window.removeEventListener("titan_ticket_created", handleTicketCreated);
+      window.removeEventListener("titan_ticket_sync", handleSync);
+      window.removeEventListener("titan_ticket_updated", handleSync);
     };
   }, []);
+
+  // Support Ticket Action Handlers
+  const handleOpenTicketModal = (tck) => {
+    setSelectedTicketModal(tck);
+    setTicketReplyText(
+      tck.reply && !tck.reply.includes("Ticket logged with Front Desk")
+        ? tck.reply
+        : ""
+    );
+    setTicketStatusInput(
+      tck.status === "Open" ? "In Progress" : tck.status || "In Progress"
+    );
+  };
+
+  const handleUpdateTicket = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!selectedTicketModal) return;
+
+    setIsUpdatingTicket(true);
+    const targetId = selectedTicketModal.ticketId || selectedTicketModal.id;
+    const nowTimeStr = new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const nowDateStr = new Date().toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const replyAuthor = user?.name || profileForm?.name || "Front Desk Receptionist";
+
+    const defaultReply =
+      ticketStatusInput === "Resolved"
+        ? "Issue verified and resolved by Front Desk operations. Please reach out if you require further assistance."
+        : ticketStatusInput === "In Progress"
+        ? "Front Desk is currently investigating your request. We will update you shortly."
+        : "Ticket is being processed by management.";
+
+    const updatedObj = {
+      ...selectedTicketModal,
+      status: ticketStatusInput,
+      reply: ticketReplyText.trim() || defaultReply,
+      replyBy: replyAuthor,
+      replyAt: `${nowDateStr} at ${nowTimeStr}`,
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Update local state
+    setTickets((prev) =>
+      prev.map((t) => ((t.ticketId || t.id) === targetId ? updatedObj : t))
+    );
+
+    // Update global storage
+    try {
+      const globalKey = "titan_global_support_tickets";
+      const saved = JSON.parse(localStorage.getItem(globalKey) || "[]");
+      const nextSaved = [
+        updatedObj,
+        ...saved.filter((t) => (t.ticketId || t.id) !== targetId),
+      ];
+      localStorage.setItem(globalKey, JSON.stringify(nextSaved));
+
+      // Also update customer's personal storage
+      const customerUserId = updatedObj.customerId || updatedObj.userId;
+      if (customerUserId) {
+        const custKey = `titan_support_tickets_${customerUserId}`;
+        const custSaved = JSON.parse(localStorage.getItem(custKey) || "[]");
+        const nextCust = [
+          updatedObj,
+          ...custSaved.filter((t) => (t.ticketId || t.id) !== targetId),
+        ];
+        localStorage.setItem(custKey, JSON.stringify(nextCust));
+      }
+    } catch (err) {}
+
+    // Dispatch sync events across tabs
+    window.dispatchEvent(
+      new CustomEvent("titan_ticket_updated", { detail: updatedObj })
+    );
+    window.dispatchEvent(
+      new CustomEvent("titan_ticket_sync", { detail: updatedObj })
+    );
+
+    // Send API update
+    try {
+      await api.put(`/api/tickets/${targetId}`, {
+        status: ticketStatusInput,
+        reply: updatedObj.reply,
+        replyBy: replyAuthor,
+      });
+    } catch (apiErr) {
+      console.log("Backend ticket update notice:", apiErr);
+    }
+
+    setIsUpdatingTicket(false);
+    setSelectedTicketModal(null);
+    showToast(
+      `✓ Ticket #${targetId} marked as [${ticketStatusInput}] and dispatched to Member Portal!`
+    );
+  };
+
+  const handleQuickResolveTicket = async (tck) => {
+    const targetId = tck.ticketId || tck.id;
+    const nowTimeStr = new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const nowDateStr = new Date().toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const replyAuthor = user?.name || profileForm?.name || "Front Desk Receptionist";
+
+    const updatedObj = {
+      ...tck,
+      status: "Resolved",
+      reply:
+        "Front Desk has verified and resolved your request. Access / facility status is active.",
+      replyBy: replyAuthor,
+      replyAt: `${nowDateStr} at ${nowTimeStr}`,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setTickets((prev) =>
+      prev.map((t) => ((t.ticketId || t.id) === targetId ? updatedObj : t))
+    );
+
+    try {
+      const globalKey = "titan_global_support_tickets";
+      const saved = JSON.parse(localStorage.getItem(globalKey) || "[]");
+      const nextSaved = [
+        updatedObj,
+        ...saved.filter((t) => (t.ticketId || t.id) !== targetId),
+      ];
+      localStorage.setItem(globalKey, JSON.stringify(nextSaved));
+
+      const customerUserId = updatedObj.customerId || updatedObj.userId;
+      if (customerUserId) {
+        const custKey = `titan_support_tickets_${customerUserId}`;
+        const custSaved = JSON.parse(localStorage.getItem(custKey) || "[]");
+        const nextCust = [
+          updatedObj,
+          ...custSaved.filter((t) => (t.ticketId || t.id) !== targetId),
+        ];
+        localStorage.setItem(custKey, JSON.stringify(nextCust));
+      }
+    } catch (err) {}
+
+    window.dispatchEvent(
+      new CustomEvent("titan_ticket_updated", { detail: updatedObj })
+    );
+    window.dispatchEvent(
+      new CustomEvent("titan_ticket_sync", { detail: updatedObj })
+    );
+
+    try {
+      await api.put(`/api/tickets/${targetId}`, {
+        status: "Resolved",
+        reply: updatedObj.reply,
+        replyBy: replyAuthor,
+      });
+    } catch (apiErr) {}
+
+    showToast(`✓ Ticket #${targetId} marked as Resolved!`);
+  };
+
+  const handleQuickInProgressTicket = async (tck) => {
+    const targetId = tck.ticketId || tck.id;
+    const nowTimeStr = new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const nowDateStr = new Date().toLocaleDateString("en-US", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const replyAuthor = user?.name || profileForm?.name || "Front Desk Receptionist";
+
+    const updatedObj = {
+      ...tck,
+      status: "In Progress",
+      reply:
+        "Front Desk has acknowledged your ticket and is actively attending to the issue.",
+      replyBy: replyAuthor,
+      replyAt: `${nowDateStr} at ${nowTimeStr}`,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setTickets((prev) =>
+      prev.map((t) => ((t.ticketId || t.id) === targetId ? updatedObj : t))
+    );
+
+    try {
+      const globalKey = "titan_global_support_tickets";
+      const saved = JSON.parse(localStorage.getItem(globalKey) || "[]");
+      const nextSaved = [
+        updatedObj,
+        ...saved.filter((t) => (t.ticketId || t.id) !== targetId),
+      ];
+      localStorage.setItem(globalKey, JSON.stringify(nextSaved));
+
+      const customerUserId = updatedObj.customerId || updatedObj.userId;
+      if (customerUserId) {
+        const custKey = `titan_support_tickets_${customerUserId}`;
+        const custSaved = JSON.parse(localStorage.getItem(custKey) || "[]");
+        const nextCust = [
+          updatedObj,
+          ...custSaved.filter((t) => (t.ticketId || t.id) !== targetId),
+        ];
+        localStorage.setItem(custKey, JSON.stringify(nextCust));
+      }
+    } catch (err) {}
+
+    window.dispatchEvent(
+      new CustomEvent("titan_ticket_updated", { detail: updatedObj })
+    );
+    window.dispatchEvent(
+      new CustomEvent("titan_ticket_sync", { detail: updatedObj })
+    );
+
+    try {
+      await api.put(`/api/tickets/${targetId}`, {
+        status: "In Progress",
+        reply: updatedObj.reply,
+        replyBy: replyAuthor,
+      });
+    } catch (apiErr) {}
+
+    showToast(`✓ Ticket #${targetId} marked as In Progress.`);
+  };
 
   // -------------------------------------------------------------
   // MODALS STATE
@@ -607,6 +969,9 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   const handleSelectNotificationAction = (notif) => {
     if (notif.actionTab) {
       setActiveTab(notif.actionTab);
+    }
+    if (notif.ticketData) {
+      handleOpenTicketModal(notif.ticketData);
     }
   };
 
@@ -1651,6 +2016,12 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       count: trainers.filter((t) => t.status === "Available").length,
     },
     {
+      id: "tickets",
+      label: "Support & Helpdesk",
+      icon: LifeBuoy,
+      count: tickets.filter((t) => t.status === "Open" || t.status === "In Progress").length,
+    },
+    {
       id: "settings",
       label: "Station Settings",
       icon: Settings,
@@ -1792,7 +2163,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
   );
 
   return (
-    <div className="admin-portal-wrapper h-screen w-screen overflow-hidden bg-[#0A0A0D] text-white flex selection:bg-[#FF1E27] selection:text-white font-sans">
+    <div className="admin-portal-wrapper h-screen w-screen overflow-hidden bg-[#0A0A0D] text-white flex selection:bg-[#FF1E27] selection:text-white font-['Outfit',sans-serif] tracking-normal">
       {/* 1. DARK SLEEK SIDEBAR MATCHING ADMIN DASHBOARD THEME */}
       <aside
         data-lenis-prevent="true"
@@ -1947,6 +2318,54 @@ export default function ReceptionistDashboard({ user, onLogout }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Apple-Style Shift Duty Timing & Online/Offline Switch */}
+            <div className="flex items-center gap-2.5 sm:gap-3.5 px-3 sm:px-4 py-1.5 rounded-2xl bg-[#181820]/90 border border-white/10 backdrop-blur-xl shadow-lg">
+              <div className="flex flex-col items-end text-right">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      !shiftDutyInfo.isShiftActive
+                        ? "bg-amber-500 animate-pulse"
+                        : isReceptionOnline
+                        ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                        : "bg-slate-500"
+                    }`}
+                  />
+                  <span className="text-xs font-bold text-white tracking-tight">
+                    {!shiftDutyInfo.isShiftActive
+                      ? "Off Duty Hours"
+                      : isReceptionOnline
+                      ? "Online (On Duty)"
+                      : "Offline (Break)"}
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-mono leading-none mt-0.5 max-w-[140px] sm:max-w-none truncate">
+                  {!shiftDutyInfo.isShiftActive
+                    ? shiftDutyInfo.nextShiftMessage || shiftDutyInfo.shiftWindowText
+                    : shiftDutyInfo.shiftWindowText}
+                </span>
+              </div>
+
+              <div
+                onClick={() => {
+                  if (!shiftDutyInfo.isShiftActive) {
+                    showToast(
+                      `⚠️ Duty shift has not started yet. Assigned Shift: ${shiftDutyInfo.shiftWindowText}. Online toggle unlocks when shift begins (${shiftDutyInfo.startTimeFormatted}).`
+                    );
+                  }
+                }}
+              >
+                <AppleSwitch
+                  checked={shiftDutyInfo.isShiftActive ? isReceptionOnline : false}
+                  disabled={!shiftDutyInfo.isShiftActive}
+                  onCheckedChange={handleToggleReceptionOnline}
+                  size="sm"
+                  tone="emerald"
+                  aria-label="Reception Duty Online/Offline Switch"
+                />
+              </div>
+            </div>
+
             {/* Notification Bell Dropdown Button & Popover */}
             <div className="relative z-50" ref={notifDropdownRef}>
               <button
@@ -2118,7 +2537,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
         {/* Dynamic Body Content */}
         <div className="p-6 sm:p-10 space-y-8 flex-1">
           {/* ============================================================ */}
-          {/* TAB 0: DASHBOARD MISSION CONTROL (INTERACTIVE BENTO GRID)    */}
+          {/* TAB 0: DASHBOARD MISSION CONTROL (CLEAN GYM FRONT DESK OVERVIEW)    */}
           {/* ============================================================ */}
           {activeTab === "dashboard" && (
             <ReceptionistOverviewDashboard
@@ -2126,7 +2545,13 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               customersCount={customers.length}
               dueSoonCount={dueSoonCount}
               invoicesCount={invoices.length}
+              ticketsCount={tickets.filter((t) => (t.status || "Open") === "Open" || t.status === "In Progress").length}
               onNavigateTab={(tab) => setActiveTab(tab)}
+              attendanceLogs={attendanceLogs}
+              trainers={trainers}
+              customers={customers}
+              onNewCustomer={() => setShowRegModal(true)}
+              onNewEnquiry={() => setShowEnquiryModal(true)}
             />
           )}
 
@@ -4597,6 +5022,457 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             </div>
           )}
 
+          {/* ============================================================ */}
+          {/* TAB 8: SUPPORT & HELPDESK TICKETS DISPATCH                   */}
+          {/* ============================================================ */}
+          {activeTab === "tickets" && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Header Title */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF2E4C] animate-pulse shadow-[0_0_8px_#FF2E4C]" />
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight font-outfit">
+                      Customer Support & Service Tickets
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FF2E4C]/15 text-[#FF2E4C] border border-[#FF2E4C]/30 font-mono">
+                      FRONT DESK DISPATCH
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Real-time inbound customer issue tickets, turnstile access alerts, and service requests.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      fetchData();
+                      showToast("✓ Inbound tickets synced with server!");
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-[#14151D] border border-white/10 hover:border-white/20 text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer"
+                  >
+                    <RefreshCw size={13} className="text-[#FF2E4C]" /> Refresh Feed
+                  </button>
+                </div>
+              </div>
+
+              {/* 4 KPI Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
+                      Open & Pending
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-[#FF2E4C] tracking-tight font-outfit">
+                      {tickets.filter((t) => (t.status || "Open") === "Open").length}
+                    </h3>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl bg-[#FF2E4C]/10 border border-[#FF2E4C]/20 flex items-center justify-center text-[#FF2E4C]">
+                    <AlertCircle size={20} className="animate-pulse" />
+                  </div>
+                </div>
+
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
+                      In Progress
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-amber-400 tracking-tight font-outfit">
+                      {tickets.filter((t) => t.status === "In Progress").length}
+                    </h3>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                    <Clock size={20} />
+                  </div>
+                </div>
+
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
+                      Resolved
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-emerald-400 tracking-tight font-outfit">
+                      {tickets.filter((t) => t.status === "Resolved" || t.status === "Closed").length}
+                    </h3>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                    <CheckCircle2 size={20} />
+                  </div>
+                </div>
+
+                <div className="group p-4.5 rounded-[20px] bg-[#121318] border border-white/[0.06] hover:border-white/[0.12] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)] flex items-center justify-between transition-all">
+                  <div>
+                    <span className="text-[11px] font-bold text-[#8E8E98] uppercase tracking-wider block mb-1 font-outfit">
+                      Total Inbound
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-extrabold text-cyan-400 tracking-tight font-outfit">
+                      {tickets.length}
+                    </h3>
+                  </div>
+                  <div className="w-11 h-11 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+                    <LifeBuoy size={20} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Search & Filtering Bar */}
+              <div className="p-4 rounded-[20px] bg-[#121318] border border-white/[0.06] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] space-y-3">
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                  {/* Search Input */}
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="Search tickets by ID, Member Name, Phone, Email, Subject, or Issue..."
+                      value={ticketSearchQuery}
+                      onChange={(e) => setTicketSearchQuery(e.target.value)}
+                      className="w-full bg-[#0c0e12] border border-white/[0.08] focus:border-[#FF2E4C]/60 rounded-xl px-4 py-2.5 pl-10 pr-9 text-xs text-white placeholder-slate-500 outline-none transition-all shadow-inner font-sans"
+                    />
+                    <Search
+                      className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                      size={15}
+                    />
+                    {ticketSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setTicketSearchQuery("")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown Filters */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    {/* Category Filter */}
+                    <select
+                      value={ticketFilterCategory}
+                      onChange={(e) => setTicketFilterCategory(e.target.value)}
+                      className="bg-[#0c0e12] border border-white/[0.08] text-xs text-slate-300 rounded-xl px-3 py-2.5 outline-none focus:border-[#FF2E4C]"
+                    >
+                      <option value="all">All Categories</option>
+                      <option value="Biometric Speed Gate">Biometric Speed Gate</option>
+                      <option value="Facility & Equipment">Facility & Equipment</option>
+                      <option value="Billing & Membership">Billing & Membership</option>
+                      <option value="Locker & Amenities">Locker & Amenities</option>
+                      <option value="Personal Training">Personal Training</option>
+                      <option value="General Inquiry">General Inquiry</option>
+                    </select>
+
+                    {/* Priority Filter */}
+                    <select
+                      value={ticketFilterPriority}
+                      onChange={(e) => setTicketFilterPriority(e.target.value)}
+                      className="bg-[#0c0e12] border border-white/[0.08] text-xs text-slate-300 rounded-xl px-3 py-2.5 outline-none focus:border-[#FF2E4C]"
+                    >
+                      <option value="all">All Priorities</option>
+                      <option value="Critical">Critical</option>
+                      <option value="High (Urgent)">High (Urgent)</option>
+                      <option value="High">High</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Low">Low</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Status Filter Chips */}
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-white/[0.04]">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1">
+                    Status:
+                  </span>
+                  {[
+                    { id: "all", label: "All Tickets", count: tickets.length },
+                    {
+                      id: "Open",
+                      label: "Open / Pending",
+                      count: tickets.filter((t) => (t.status || "Open") === "Open").length,
+                    },
+                    {
+                      id: "In Progress",
+                      label: "In Progress",
+                      count: tickets.filter((t) => t.status === "In Progress").length,
+                    },
+                    {
+                      id: "Resolved",
+                      label: "Resolved",
+                      count: tickets.filter((t) => t.status === "Resolved" || t.status === "Closed").length,
+                    },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setTicketFilterStatus(tab.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        ticketFilterStatus === tab.id
+                          ? "bg-[#FF2E4C] text-white shadow-md shadow-[#FF2E4C]/20"
+                          : "bg-white/[0.03] text-slate-400 hover:text-white hover:bg-white/[0.06] border border-white/[0.04]"
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                          ticketFilterStatus === tab.id
+                            ? "bg-black/30 text-white"
+                            : "bg-white/10 text-slate-400"
+                        }`}
+                      >
+                        {tab.count}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Support Tickets Main Table / Card List */}
+              <div className="rounded-[20px] bg-[#121318] border border-white/[0.06] overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_0_0_1px_rgba(255,255,255,0.02),0_4px_12px_rgba(0,0,0,0.4)]">
+                <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between bg-[#14151d]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#FF2E4C]/10 text-[#FF2E4C] border border-[#FF2E4C]/20 flex items-center justify-center">
+                      <LifeBuoy size={17} />
+                    </div>
+                    <div>
+                      <h3 className="font-outfit font-extrabold text-white text-sm">
+                        Inbound Support Queue ({tickets.filter((t) => {
+                          if (ticketFilterStatus !== "all" && (t.status || "Open") !== ticketFilterStatus) return false;
+                          if (ticketFilterPriority !== "all" && (t.priority || "Medium") !== ticketFilterPriority) return false;
+                          if (ticketFilterCategory !== "all" && (t.category || "") !== ticketFilterCategory) return false;
+                          if (ticketSearchQuery.trim()) {
+                            const q = ticketSearchQuery.toLowerCase();
+                            return (
+                              (t.ticketId || t.id || "").toLowerCase().includes(q) ||
+                              (t.customerName || "").toLowerCase().includes(q) ||
+                              (t.customerEmail || "").toLowerCase().includes(q) ||
+                              (t.customerPhone || "").toLowerCase().includes(q) ||
+                              (t.subject || "").toLowerCase().includes(q) ||
+                              (t.category || "").toLowerCase().includes(q) ||
+                              (t.description || "").toLowerCase().includes(q)
+                            );
+                          }
+                          return true;
+                        }).length})
+                      </h3>
+                      <p className="text-[11px] text-slate-400">
+                        Select any ticket to review description, verify biometric status, and dispatch official resolution.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ticket Items Container */}
+                <div className="divide-y divide-white/[0.04]">
+                  {(() => {
+                    const filtered = tickets.filter((t) => {
+                      if (ticketFilterStatus !== "all" && (t.status || "Open") !== ticketFilterStatus) return false;
+                      if (ticketFilterPriority !== "all" && (t.priority || "Medium") !== ticketFilterPriority) return false;
+                      if (ticketFilterCategory !== "all" && (t.category || "") !== ticketFilterCategory) return false;
+                      if (ticketSearchQuery.trim()) {
+                        const q = ticketSearchQuery.toLowerCase();
+                        return (
+                          (t.ticketId || t.id || "").toLowerCase().includes(q) ||
+                          (t.customerName || "").toLowerCase().includes(q) ||
+                          (t.customerEmail || "").toLowerCase().includes(q) ||
+                          (t.customerPhone || "").toLowerCase().includes(q) ||
+                          (t.subject || "").toLowerCase().includes(q) ||
+                          (t.category || "").toLowerCase().includes(q) ||
+                          (t.description || "").toLowerCase().includes(q)
+                        );
+                      }
+                      return true;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="p-12 text-center space-y-3">
+                          <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-slate-500 mx-auto">
+                            <Inbox size={26} />
+                          </div>
+                          <h4 className="text-sm font-bold text-white font-outfit">
+                            No Support Tickets Found
+                          </h4>
+                          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                            There are currently no customer support or maintenance tickets matching your active filter criteria.
+                          </p>
+                          {(ticketSearchQuery || ticketFilterStatus !== "all" || ticketFilterCategory !== "all" || ticketFilterPriority !== "all") && (
+                            <button
+                              onClick={() => {
+                                setTicketSearchQuery("");
+                                setTicketFilterStatus("all");
+                                setTicketFilterCategory("all");
+                                setTicketFilterPriority("all");
+                              }}
+                              className="px-4 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-xs font-semibold text-white transition-all cursor-pointer"
+                            >
+                              Reset All Filters
+                            </button>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((tck) => {
+                      const tckId = tck.ticketId || tck.id;
+                      const isResolved = tck.status === "Resolved" || tck.status === "Closed";
+                      const isInProgress = tck.status === "In Progress";
+                      const isOpen = !isResolved && !isInProgress;
+
+                      const isUrgent =
+                        (tck.priority || "").toLowerCase().includes("urgent") ||
+                        (tck.priority || "").toLowerCase().includes("critical") ||
+                        (tck.priority || "").toLowerCase().includes("high");
+
+                      return (
+                        <div
+                          key={tckId}
+                          className="p-5 hover:bg-white/[0.02] transition-colors flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4"
+                        >
+                          {/* Left: Ticket Header, Priority, Athlete, Subject */}
+                          <div className="space-y-2 flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Ticket ID */}
+                              <span className="font-mono text-xs font-bold text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/25 px-2.5 py-0.5 rounded-lg">
+                                {tckId}
+                              </span>
+
+                              {/* Priority Pill */}
+                              <span
+                                className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                                  isUrgent
+                                    ? "bg-[#FF2E4C]/15 text-[#FF2E4C] border-[#FF2E4C]/30 shadow-[0_0_8px_rgba(255,46,76,0.3)]"
+                                    : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                }`}
+                              >
+                                {tck.priority || "Medium"}
+                              </span>
+
+                              {/* Category Badge */}
+                              <span className="text-[11px] font-medium text-slate-300 bg-white/[0.06] px-2.5 py-0.5 rounded-lg border border-white/5">
+                                {tck.category || "General"}
+                              </span>
+
+                              {/* Timestamp */}
+                              <span className="text-[11px] text-slate-500 font-mono">
+                                • {tck.date || "Today"} {tck.time ? `(${tck.time})` : ""}
+                              </span>
+                            </div>
+
+                            {/* Customer Profile Row */}
+                            <div className="flex items-center gap-2.5 pt-0.5">
+                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#FF2E4C]/20 to-white/5 border border-white/10 text-white font-outfit font-bold text-xs flex items-center justify-center shrink-0">
+                                {tck.customerName?.charAt(0) || "A"}
+                              </div>
+                              <span className="text-xs font-bold text-white font-outfit">
+                                {tck.customerName || "Athlete Member"}
+                              </span>
+                              <span className="text-[11px] text-slate-400 font-mono">
+                                {tck.customerDisplayId ? `[${tck.customerDisplayId}]` : ""}
+                              </span>
+                              {tck.customerPhone && tck.customerPhone !== "N/A" && (
+                                <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                                  <Phone size={10} className="text-slate-500" /> {tck.customerPhone}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-cyan-400 font-mono bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">
+                                {tck.customerPlan || "Elite All-Access"}
+                              </span>
+                            </div>
+
+                            {/* Ticket Subject */}
+                            <h4 className="text-sm font-bold text-white font-outfit tracking-normal">
+                              {tck.subject}
+                            </h4>
+
+                            {/* Customer Description */}
+                            {tck.description && (
+                              <p className="text-xs text-slate-300/90 leading-relaxed bg-[#0c0e12] p-3 rounded-xl border border-white/[0.04] max-w-3xl">
+                                "{tck.description}"
+                              </p>
+                            )}
+
+                            {/* Current Front Desk Resolution if exists */}
+                            {tck.reply && !tck.reply.includes("Ticket logged with Front Desk") && (
+                              <div className="p-3 rounded-xl bg-[#15161D] border border-white/[0.08] text-xs text-slate-300 space-y-1 max-w-3xl">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                                    <CheckCheck size={12} /> Front Desk Resolution Note:
+                                  </span>
+                                  {tck.replyAt && (
+                                    <span className="text-[10px] text-slate-500 font-mono">
+                                      {tck.replyAt}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-slate-200 text-xs font-sans">{tck.reply}</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right: Status & Action Buttons */}
+                          <div className="flex flex-col sm:flex-row lg:flex-col items-start lg:items-end justify-between gap-3 shrink-0 self-stretch lg:self-center">
+                            {/* Status Indicator Pill */}
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 ${
+                                isResolved
+                                  ? "bg-emerald-950/70 text-emerald-300 border-emerald-700/60 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
+                                  : isInProgress
+                                  ? "bg-amber-950/70 text-amber-300 border-amber-700/60 shadow-[0_0_8px_rgba(245,158,11,0.2)]"
+                                  : "bg-[#FF2E4C]/15 text-[#FF2E4C] border-[#FF2E4C]/40 shadow-[0_0_10px_rgba(255,46,76,0.3)]"
+                              }`}
+                            >
+                              <span
+                                className={`w-2 h-2 rounded-full ${
+                                  isResolved
+                                    ? "bg-emerald-400"
+                                    : isInProgress
+                                    ? "bg-amber-400"
+                                    : "bg-[#FF2E4C] animate-pulse"
+                                }`}
+                              />
+                              {tck.status || "Open"}
+                            </span>
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2">
+                              {!isResolved && (
+                                <>
+                                  {!isInProgress && (
+                                    <button
+                                      onClick={() => handleQuickInProgressTicket(tck)}
+                                      className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                                      title="Mark In Progress"
+                                    >
+                                      <Clock size={13} />
+                                      <span className="hidden sm:inline">In Progress</span>
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleQuickResolveTicket(tck)}
+                                    className="px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                                    title="Quick Resolve Ticket"
+                                  >
+                                    <Check size={14} />
+                                    <span>Resolve</span>
+                                  </button>
+                                </>
+                              )}
+
+                              <button
+                                onClick={() => handleOpenTicketModal(tck)}
+                                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#FF2E4C] to-[#E50914] text-white text-xs font-bold hover:brightness-110 shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+                              >
+                                <MessageSquare size={13} />
+                                <span>{isResolved ? "View Details" : "Respond / Manage"}</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </main>
 
@@ -5643,6 +6519,193 @@ export default function ReceptionistDashboard({ user, onLogout }) {
             >
               Acknowledge & Close
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 8: MANAGE & RESOLVE SUPPORT TICKET                     */}
+      {/* ============================================================ */}
+      {/* ============================================================ */}
+      {/* MODAL 8: MANAGE & RESOLVE SUPPORT TICKET                     */}
+      {/* ============================================================ */}
+      {selectedTicketModal && (
+        <div
+          data-lenis-prevent="true"
+          className="fixed inset-0 z-[250] bg-black/85 backdrop-blur-md overflow-y-auto flex items-center justify-center p-3 sm:p-6"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedTicketModal(null);
+          }}
+        >
+          <div
+            data-lenis-prevent="true"
+            className="relative w-full max-w-2xl bg-[#121318] border border-white/[0.08] rounded-[24px] shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_0_1px_rgba(255,255,255,0.06)] max-h-[90vh] flex flex-col overflow-hidden animate-fadeIn my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header - Fixed Top */}
+            <div className="p-5 sm:px-7 sm:py-5 border-b border-white/[0.06] flex items-start justify-between bg-[#15161D] shrink-0">
+              <div className="space-y-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-[#00F0FF] bg-[#00F0FF]/10 border border-[#00F0FF]/30 px-2.5 py-0.5 rounded-lg">
+                    {selectedTicketModal.ticketId || selectedTicketModal.id}
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#FF2E4C]/15 text-[#FF2E4C] border border-[#FF2E4C]/30">
+                    {selectedTicketModal.priority || "Medium"}
+                  </span>
+                  <span className="text-xs text-slate-400 font-mono">
+                    {selectedTicketModal.date} {selectedTicketModal.time ? `(${selectedTicketModal.time})` : ""}
+                  </span>
+                </div>
+                <h3 className="font-outfit font-extrabold text-white text-lg sm:text-xl tracking-tight mt-1 truncate">
+                  {selectedTicketModal.subject}
+                </h3>
+              </div>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={() => setSelectedTicketModal(null)}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all cursor-pointer shrink-0 ml-4"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div
+              data-lenis-prevent="true"
+              className="p-5 sm:p-7 space-y-5 overflow-y-auto flex-1 overscroll-contain"
+            >
+              {/* Athlete Profile Information Card */}
+              <div className="p-4 rounded-2xl bg-[#0c0e12] border border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#FF2E4C] to-[#E50914] text-white font-outfit font-extrabold text-base flex items-center justify-center shrink-0 shadow-md">
+                    {selectedTicketModal.customerName?.charAt(0) || "A"}
+                  </div>
+                  <div>
+                    <h4 className="font-outfit font-bold text-white text-sm">
+                      {selectedTicketModal.customerName || "Athlete Member"}
+                    </h4>
+                    <span className="text-[11px] text-slate-400 font-mono block">
+                      ID: #{selectedTicketModal.customerDisplayId || selectedTicketModal.customerId || "CUST-301"} • {selectedTicketModal.customerPlan || "Titan Obsidian Access"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 self-end sm:self-center">
+                  {selectedTicketModal.customerPhone && selectedTicketModal.customerPhone !== "N/A" && (
+                    <a
+                      href={`tel:${selectedTicketModal.customerPhone}`}
+                      className="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white text-xs font-mono flex items-center gap-1.5 transition-all border border-white/5"
+                    >
+                      <Phone size={12} className="text-emerald-400" />
+                      <span>{selectedTicketModal.customerPhone}</span>
+                    </a>
+                  )}
+                  {selectedTicketModal.customerEmail && (
+                    <a
+                      href={`mailto:${selectedTicketModal.customerEmail}`}
+                      className="px-3 py-1.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 hover:text-white text-xs font-mono flex items-center gap-1.5 transition-all border border-white/5"
+                    >
+                      <Mail size={12} className="text-cyan-400" />
+                      <span>Email</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Inbound Customer Issue Description */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-outfit flex items-center gap-1.5">
+                  <AlertCircle size={13} className="text-[#FF2E4C]" />
+                  Customer Problem Statement / Issue Description:
+                </label>
+                <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/[0.08] text-slate-200 text-xs sm:text-sm leading-relaxed font-sans shadow-inner">
+                  {selectedTicketModal.description || "No additional description provided by customer."}
+                </div>
+              </div>
+
+              {/* Front Desk Response Form */}
+              <form onSubmit={handleUpdateTicket} className="space-y-4 pt-2 border-t border-white/[0.06]">
+                {/* Quick Preset Replies */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 font-outfit flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-[#FF2E4C]" />
+                    Quick Action Resolution Templates:
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "⚡ Turnstile gate biometric pass recalibrated. Please scan again at Gate Alpha-1.",
+                      "🔒 Smart RFID locker credentials reprogrammed and assigned.",
+                      "🛠️ Facility maintenance team notified; technician dispatched to equipment.",
+                      "💳 Subscription & payment verified; membership status renewed.",
+                      "🏋️ 1-on-1 coaching session updated on your training calendar.",
+                    ].map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setTicketReplyText(preset)}
+                        className="px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] text-[11px] text-slate-300 border border-white/5 hover:border-white/20 transition-all text-left cursor-pointer"
+                      >
+                        {preset.slice(0, 48)}...
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Status Selector & Resolution Reply */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-1">
+                    <label className="font-outfit text-xs font-semibold text-slate-300 block mb-1.5">
+                      Update Ticket Status
+                    </label>
+                    <select
+                      value={ticketStatusInput}
+                      onChange={(e) => setTicketStatusInput(e.target.value)}
+                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-[#FF2E4C]"
+                    >
+                      <option value="Open">● Open / Pending</option>
+                      <option value="In Progress">● In Progress</option>
+                      <option value="Resolved">● Resolved (Complete)</option>
+                      <option value="Closed">● Closed / Archived</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="font-outfit text-xs font-semibold text-slate-300 block mb-1.5">
+                      Front Desk Note / Member Response
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={ticketReplyText}
+                      onChange={(e) => setTicketReplyText(e.target.value)}
+                      placeholder="Type official response or resolution notes to show in the athlete's customer portal..."
+                      className="w-full bg-[#090C0E] border border-white/10 rounded-xl p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-[#FF2E4C] transition-all resize-none leading-relaxed"
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-3 pb-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTicketModal(null)}
+                    className="px-4 py-2.5 rounded-xl border border-white/10 text-xs font-outfit font-semibold text-slate-300 hover:text-white transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdatingTicket}
+                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FF2E4C] to-[#E50914] hover:brightness-110 text-white font-outfit font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <Check size={15} />
+                    <span>{isUpdatingTicket ? "Saving..." : "Save & Dispatch to Member Portal"}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

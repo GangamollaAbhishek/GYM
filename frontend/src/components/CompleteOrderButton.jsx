@@ -112,7 +112,12 @@ export default function CompleteOrderButton({
         aria-label="Complete Order"
       >
         {/* Button Text: Complete Order / Default */}
-        <span className="btn-text default-text">
+        <span
+          className="btn-text default-text"
+          style={{
+            display: isCompleted || btnState === "completed" ? "none" : undefined,
+          }}
+        >
           <ShieldCheck size={17} className="text-[#FF1E27]" />
           <span>
             {label} {amountText ? `• ${amountText}` : ""}
@@ -120,7 +125,12 @@ export default function CompleteOrderButton({
         </span>
 
         {/* Button Text: Order Placed / Success */}
-        <span className="btn-text success-text">
+        <span
+          className="btn-text success-text"
+          style={{
+            display: !isCompleted && btnState !== "completed" ? "none" : undefined,
+          }}
+        >
           <svg
             className="check-icon"
             viewBox="0 0 24 24"

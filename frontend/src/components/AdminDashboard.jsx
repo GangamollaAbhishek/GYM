@@ -81,6 +81,7 @@ import Interactive3DAnalytics from "./Interactive3DAnalytics";
 import AdminNotificationsHub from "./AdminNotificationsHub";
 import AgentBentoGrid from "./AgentBentoGrid";
 import { useLandingPageCMS } from "../context/LandingPageCMSContext";
+import { useAuth } from "../context/AuthContext";
 import api from "../lib/api";
 
 // Motion Spring Variants for Notifications
@@ -206,21 +207,212 @@ function NotificationHeaderCard({ item, pinned, onTogglePin, onSelect }) {
 
 export default function AdminDashboard({ user, onLogout }) {
   const navigate = useNavigate();
+  const auth = useAuth ? useAuth() : {};
+  const currentUser = auth.user || user;
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [toast, setToast] = useState(null);
-
-  // Modal States
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showAddUserModal, setShowAddUserModal] = useState(false);
-  const [modalType, setModalType] = useState(""); // 'user' | 'customer' | 'trainer' | 'plan' | 'enquiry'
 
   // Dynamic Toast trigger
   const showToast = (msg) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3500);
   };
+
+  // Admin Profile & Security States
+  const [adminProfile, setAdminProfile] = useState({
+    name: currentUser?.name || "Abhishek Gangamolla",
+    email: currentUser?.email || "abhigangamolla@gmail.com",
+    phone: currentUser?.phone && currentUser?.phone !== "N/A" ? currentUser.phone : "+91 98765 43210",
+    avatar: currentUser?.avatar || "",
+    role: currentUser?.role || "admin",
+    designation: "Executive Director & Systems Lead",
+    location: "Titan Pulse HQ - High Performance Arena",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const avatarFileInputRef = useRef(null);
+
+  // Change Password States
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  // Handle Avatar Image File Upload from Computer directly to Cloudinary CDN
+  const handleAvatarUploadToCloudinary = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast("⚠️ Please select a valid image file (PNG, JPG, JPEG, WEBP)");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("⚠️ Image file exceeds 10MB limit.");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    showToast("☁️ Uploading profile photo directly to Cloudinary CDN...");
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = async () => {
+        const base64Data = reader.result;
+        try {
+          const res = await api.post("/api/upload", {
+            image: base64Data,
+            folder: "titan_admin_avatars",
+          });
+
+          if (res.data?.status === "success" && res.data?.url) {
+            const cloudinaryUrl = res.data.url;
+            setAdminProfile((prev) => ({ ...prev, avatar: cloudinaryUrl }));
+
+            // Immediately persist to MongoDB user profile
+            const targetUserId = currentUser?._id || currentUser?.id;
+            if (targetUserId) {
+              const updateRes = await api.put(`/api/users/${targetUserId}`, {
+                avatar: cloudinaryUrl,
+              });
+              if (updateRes.data?.data && auth.setUser) {
+                auth.setUser(updateRes.data.data);
+              }
+            }
+
+            try {
+              const stored = JSON.parse(localStorage.getItem("titan_user") || "{}");
+              localStorage.setItem("titan_user", JSON.stringify({ ...stored, avatar: cloudinaryUrl }));
+            } catch (e) {}
+
+            showToast("✅ Profile photo uploaded to Cloudinary CDN & saved in MongoDB!");
+          } else {
+            showToast(res.data?.message || "Failed to upload photo to Cloudinary.");
+          }
+        } catch (err) {
+          console.error("Cloudinary avatar upload error:", err);
+          showToast(err.response?.data?.message || "Failed to upload photo to Cloudinary CDN.");
+        } finally {
+          setIsUploadingAvatar(false);
+        }
+      };
+    } catch (readErr) {
+      console.error("File reading error:", readErr);
+      showToast("Failed to read image file.");
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  // Sync profile when currentUser updates
+  useEffect(() => {
+    if (currentUser) {
+      setAdminProfile((prev) => ({
+        ...prev,
+        name: currentUser.name || prev.name,
+        email: currentUser.email || prev.email,
+        phone: currentUser.phone && currentUser.phone !== "N/A" ? currentUser.phone : prev.phone,
+        avatar: currentUser.avatar || prev.avatar,
+        role: currentUser.role || prev.role,
+      }));
+    }
+  }, [currentUser]);
+
+  // Handler: Update Admin Profile
+  const handleSaveAdminProfile = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!adminProfile.name.trim()) {
+      showToast("Please enter your name");
+      return;
+    }
+    if (!adminProfile.email.trim()) {
+      showToast("Please enter a valid email address");
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const targetUserId = currentUser?._id || currentUser?.id;
+      if (targetUserId) {
+        const res = await api.put(`/api/users/${targetUserId}`, {
+          name: adminProfile.name.trim(),
+          email: adminProfile.email.trim(),
+          phone: adminProfile.phone.trim(),
+          avatar: adminProfile.avatar.trim(),
+        });
+        if (res.data?.status === "success" && res.data?.data) {
+          const updated = res.data.data;
+          if (auth.setUser) auth.setUser(updated);
+          try {
+            const stored = JSON.parse(localStorage.getItem("titan_user") || "{}");
+            localStorage.setItem("titan_user", JSON.stringify({ ...stored, ...updated }));
+          } catch (e) {}
+          showToast("✓ Admin profile details updated successfully in MongoDB!");
+        } else {
+          showToast("✓ Admin profile details saved!");
+        }
+      } else {
+        showToast("✓ Admin profile details updated!");
+      }
+    } catch (err) {
+      console.error("Admin profile update error:", err);
+      showToast(err.response?.data?.message || "Failed to update profile details");
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  // Handler: Change Admin Password
+  const handleChangeAdminPassword = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!passwordForm.newPassword) {
+      showToast("Please enter a new password");
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      showToast("New password must be at least 6 characters long");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showToast("New password and confirm password do not match");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const res = await api.post("/api/auth/change-password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      if (res.data?.status === "success") {
+        showToast("✓ Password updated successfully in MongoDB Atlas!");
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      }
+    } catch (err) {
+      console.error("Change password error:", err);
+      showToast(err.response?.data?.message || "Current password incorrect or failed to update password");
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  // Modal States
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [modalType, setModalType] = useState(""); // 'user' | 'customer' | 'trainer' | 'plan' | 'enquiry'
 
   // State Databases for Customer, Trainer & Receptionist Management Modules (Pure Live MongoDB Data)
   const [customersList, setCustomersList] = useState([]);
@@ -328,10 +520,13 @@ export default function AdminDashboard({ user, onLogout }) {
 
     try {
       const targetId = cust.userId || cust.id;
+      let freshAttendance = [];
+
       if (targetId) {
         const res = await api.get(`/api/users/${targetId}`);
         if (res.data?.status === "success" && res.data?.data) {
           const fresh = res.data.data;
+          freshAttendance = Array.isArray(fresh.attendanceLogs) ? fresh.attendanceLogs : [];
           setSelectedCustomer((prev) => ({
             ...prev,
             ...fresh,
@@ -363,10 +558,33 @@ export default function AdminDashboard({ user, onLogout }) {
             dietPlan: fresh.dietPlan || cust.dietPlan || null,
             trainerNotes: fresh.trainerNotes || cust.trainerNotes || [],
             progress: fresh.progress || cust.progress || null,
-            attendanceLogs: fresh.attendanceLogs || cust.attendanceLogs || [],
+            attendanceLogs: freshAttendance.length > 0 ? freshAttendance : (cust.attendanceLogs || []),
             createdAt: fresh.createdAt || cust.createdAt,
           }));
         }
+      }
+
+      // Also fetch direct customer attendance logs from /api/attendance/customer
+      try {
+        const directIdentifier = cust.userId || cust.email || cust.name || cust.id;
+        const attRes = await api.get(`/api/attendance/customer/${encodeURIComponent(directIdentifier)}`);
+        if (attRes.data?.status === "success" && Array.isArray(attRes.data.data) && attRes.data.data.length > 0) {
+          const directLogs = attRes.data.data;
+          setSelectedCustomer((prev) => {
+            const current = prev?.attendanceLogs || [];
+            const logMap = new Map();
+            directLogs.forEach((l) => logMap.set(l.id || l.logId, l));
+            current.forEach((l) => {
+              if (!logMap.has(l.id || l.logId)) logMap.set(l.id || l.logId, l);
+            });
+            return {
+              ...prev,
+              attendanceLogs: Array.from(logMap.values()),
+            };
+          });
+        }
+      } catch (attErr) {
+        console.warn("Could not fetch direct attendance logs:", attErr);
       }
     } catch (err) {
       console.warn("Could not fetch fresh user details:", err);
@@ -816,6 +1034,36 @@ export default function AdminDashboard({ user, onLogout }) {
               };
             });
             setCustomerAttendanceList(realLogs);
+            setCustomersList((prev) =>
+              prev.map((c) => {
+                const logsForC = realLogs.filter(
+                  (l) =>
+                    (l.userId && (l.userId === c.userId || l.userId === c.id)) ||
+                    (l.memberId && (l.memberId === c.id || l.memberId === c.userId)) ||
+                    (c.email && l.email && l.email.toLowerCase() === c.email.toLowerCase()) ||
+                    (c.name && l.name && l.name.toLowerCase() === c.name.toLowerCase())
+                );
+                return {
+                  ...c,
+                  attendanceLogs: logsForC.length > 0 ? logsForC : (c.attendanceLogs || []),
+                };
+              })
+            );
+            if (selectedCustomer) {
+              const logsForSel = realLogs.filter(
+                (l) =>
+                  (l.userId && (l.userId === selectedCustomer.userId || l.userId === selectedCustomer.id)) ||
+                  (l.memberId && (l.memberId === selectedCustomer.id || l.memberId === selectedCustomer.userId)) ||
+                  (selectedCustomer.email && l.email && l.email.toLowerCase() === selectedCustomer.email.toLowerCase()) ||
+                  (selectedCustomer.name && l.name && l.name.toLowerCase() === selectedCustomer.name.toLowerCase())
+              );
+              if (logsForSel.length > 0) {
+                setSelectedCustomer((prev) => ({
+                  ...prev,
+                  attendanceLogs: logsForSel,
+                }));
+              }
+            }
           } else {
             setCustomerAttendanceList(
               liveCustomers.map((c, idx) => ({
@@ -3092,7 +3340,7 @@ export default function AdminDashboard({ user, onLogout }) {
   ];
 
   return (
-    <div className="admin-portal-wrapper h-screen w-screen overflow-hidden bg-[#0A0A0D] text-white flex selection:bg-[#FF1E27] selection:text-white font-sans">
+    <div className="admin-portal-wrapper h-screen w-screen overflow-hidden bg-[#0A0A0D] text-white flex selection:bg-[#FF1E27] selection:text-white font-['Outfit',sans-serif] tracking-normal">
       {/* 1. DARK SLEEK SIDEBAR MATCHING SCREENSHOT THEME */}
       <aside
         data-lenis-prevent="true"
@@ -3136,12 +3384,24 @@ export default function AdminDashboard({ user, onLogout }) {
             </div>
           </div>
 
-          {/* Gym Brand Admin Command Badge */}
-          {sidebarOpen && (
-            <div className="px-4 py-3 flex items-center gap-3 border-b border-[#1E1E26] bg-[#0E0E12]/80">
+          {/* Gym Brand Admin Command Badge / Profile Avatar */}
+          {sidebarOpen ? (
+            <div
+              onClick={() => setActiveTab("settings")}
+              title="Admin Profile & Settings"
+              className="px-4 py-3 flex items-center gap-3 border-b border-[#1E1E26] bg-[#0E0E12]/80 hover:bg-white/[0.04] transition-colors cursor-pointer group"
+            >
               <div className="relative shrink-0">
-                {editorData?.brand?.logo || cmsData?.brand?.logo ? (
-                  <div className="w-9 h-9 rounded-xl bg-[#141419] border border-[#FF1E27]/40 p-1 flex items-center justify-center shadow-[0_0_12px_rgba(255,30,39,0.3)]">
+                {adminProfile.avatar || currentUser?.avatar || auth.user?.avatar ? (
+                  <div className="w-9 h-9 rounded-xl bg-[#141419] border border-[#FF1E27]/50 p-0.5 flex items-center justify-center shadow-[0_0_12px_rgba(255,30,39,0.35)] overflow-hidden">
+                    <img
+                      src={adminProfile.avatar || currentUser?.avatar || auth.user?.avatar}
+                      alt={adminProfile.name || currentUser?.name || "Admin"}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  </div>
+                ) : editorData?.brand?.logo || cmsData?.brand?.logo ? (
+                  <div className="w-9 h-9 rounded-xl bg-[#141419] border border-[#FF1E27]/40 p-1 flex items-center justify-center shadow-[0_0_12px_rgba(255,30,39,0.3)] overflow-hidden">
                     <img
                       src={editorData?.brand?.logo || cmsData?.brand?.logo}
                       alt="Gym Logo"
@@ -3157,8 +3417,8 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-white tracking-tight truncate">
-                    Admin Command
+                  <span className="text-xs font-bold text-white tracking-tight truncate group-hover:text-[#FF1E27] transition-colors">
+                    {adminProfile.name || currentUser?.name || "Admin Command"}
                   </span>
                   <span className="text-[9px] font-extrabold text-[#FF1E27] bg-[#FF1E27]/10 border border-[#FF1E27]/20 px-1.5 py-0.5 rounded">
                     HQ
@@ -3167,6 +3427,29 @@ export default function AdminDashboard({ user, onLogout }) {
                 <span className="text-[10px] text-slate-400 truncate font-mono">
                   {editorData?.brand?.name || "TITAN•PULSE"} Portal
                 </span>
+              </div>
+            </div>
+          ) : (
+            <div
+              onClick={() => setActiveTab("settings")}
+              title="Admin Profile & Settings"
+              className="py-3 flex justify-center border-b border-[#1E1E26] bg-[#0E0E12]/80 hover:bg-white/[0.04] transition-colors cursor-pointer"
+            >
+              <div className="relative shrink-0">
+                {adminProfile.avatar || currentUser?.avatar || auth.user?.avatar ? (
+                  <div className="w-9 h-9 rounded-xl bg-[#141419] border border-[#FF1E27]/50 p-0.5 flex items-center justify-center shadow-[0_0_12px_rgba(255,30,39,0.35)] overflow-hidden">
+                    <img
+                      src={adminProfile.avatar || currentUser?.avatar || auth.user?.avatar}
+                      alt={adminProfile.name || currentUser?.name || "Admin"}
+                      className="w-full h-full object-cover rounded-lg"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF1E27]/20 to-[#FF1E27]/5 border border-[#FF1E27]/40 flex items-center justify-center text-[#FF1E27] shadow-[0_0_12px_rgba(255,30,39,0.25)]">
+                    <Shield size={16} />
+                  </div>
+                )}
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#121217] shadow-[0_0_6px_#10B981]" />
               </div>
             </div>
           )}
@@ -3252,7 +3535,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <Menu size={17} />
             </button>
 
-            <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
+            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight flex items-center gap-2">
               <span>
                 {activeTab === "dashboard"
                   ? "Dashboard"
@@ -3424,6 +3707,33 @@ export default function AdminDashboard({ user, onLogout }) {
                 )}
               </AnimatePresence>
             </div>
+
+            {/* Admin Profile Pill / Quick Access */}
+            <button
+              onClick={() => setActiveTab("settings")}
+              title="Admin Profile & Settings"
+              className="flex items-center gap-2.5 pl-1.5 pr-3 py-1 rounded-xl bg-[#181820] border border-white/5 hover:border-[#FF1E27]/40 hover:bg-[#1C1C26] transition-all cursor-pointer group"
+            >
+              <div className="w-7 h-7 rounded-lg bg-[#141419] border border-[#FF1E27]/40 p-0.5 flex items-center justify-center overflow-hidden shrink-0">
+                {adminProfile.avatar || currentUser?.avatar || auth.user?.avatar ? (
+                  <img
+                    src={adminProfile.avatar || currentUser?.avatar || auth.user?.avatar}
+                    alt="Admin"
+                    className="w-full h-full object-cover rounded-md"
+                  />
+                ) : (
+                  <Shield size={13} className="text-[#FF1E27]" />
+                )}
+              </div>
+              <div className="hidden md:flex flex-col items-start text-left">
+                <span className="text-xs font-bold text-white group-hover:text-[#FF1E27] transition-colors leading-none truncate max-w-[110px]">
+                  {adminProfile.name?.split(" ")[0] || "Admin"}
+                </span>
+                <span className="text-[9px] text-[#8E8E98] font-mono leading-tight mt-0.5">
+                  Settings
+                </span>
+              </div>
+            </button>
           </div>
         </header>
 
@@ -7002,19 +7312,26 @@ export default function AdminDashboard({ user, onLogout }) {
                     <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
                       <CalendarCheck size={18} className="text-emerald-400" /> Attendance Check-in Logs for {selectedCustomer.name}
                     </h3>
-                    <span className="px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 text-xs font-bold font-mono">
-                      Gate Scanner: Online
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-400 font-mono">
+                        Total Logs: {(selectedCustomer.attendanceLogs || []).length}
+                      </span>
+                      <span className="px-3 py-1 rounded-full bg-emerald-950/80 text-emerald-400 text-xs font-bold font-mono">
+                        Gate Scanner: Online
+                      </span>
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
                       <thead className="bg-[#0c1014] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/10">
                         <tr>
+                          <th className="p-4">Date</th>
                           <th className="p-4">Session Log ID</th>
                           <th className="p-4">Gate Terminal</th>
                           <th className="p-4">Scan Time In</th>
                           <th className="p-4">Scan Time Out</th>
+                          <th className="p-4">Access Status</th>
                           <th className="p-4">Active Plan Pass</th>
                           <th className="p-4">Verification</th>
                         </tr>
@@ -7022,25 +7339,51 @@ export default function AdminDashboard({ user, onLogout }) {
                       <tbody className="divide-y divide-white/5 text-slate-200">
                         {(selectedCustomer.attendanceLogs || []).length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="p-8 text-center text-slate-500 italic">
+                            <td colSpan={8} className="p-8 text-center text-slate-500 italic">
                               No biometric turnstile check-in logs recorded for this athlete.
                             </td>
                           </tr>
                         ) : (
-                          selectedCustomer.attendanceLogs.map((log) => (
-                            <tr key={log.id} className="hover:bg-white/5 transition-colors">
-                              <td className="p-4 font-mono font-semibold text-[#00F0FF]">{log.id}</td>
-                              <td className="p-4 text-purple-400 font-medium">{log.gate || "Gate Terminal A1"}</td>
-                              <td className="p-4 font-mono text-white">{log.in} {log.date ? `(${log.date})` : ""}</td>
-                              <td className="p-4 font-mono text-slate-400">{log.out || "--"}</td>
-                              <td className="p-4 text-[#FF2E4C] font-semibold">{selectedCustomer.plan || "Active Pass"}</td>
-                              <td className="p-4">
-                                <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-800 text-[11px] font-medium">
-                                  ✓ Verified Turnstile Pass
-                                </span>
-                              </td>
-                            </tr>
-                          ))
+                          selectedCustomer.attendanceLogs.map((log) => {
+                            const isInside = log.status === "Active Inside";
+                            const logDate = log.date || (log.createdAt ? new Date(log.createdAt).toISOString().slice(0, 10) : "Today");
+                            return (
+                              <tr key={log.id || log.logId} className="hover:bg-white/5 transition-colors">
+                                <td className="p-4 whitespace-nowrap">
+                                  <span className="px-2.5 py-1 rounded-md bg-blue-950/70 text-blue-300 font-mono text-xs font-semibold border border-blue-800/40 inline-flex items-center gap-1.5">
+                                    <CalendarCheck size={12} className="text-blue-400" />
+                                    {logDate}
+                                  </span>
+                                </td>
+                                <td className="p-4 font-mono font-semibold text-[#00F0FF] whitespace-nowrap">{log.id || log.logId}</td>
+                                <td className="p-4 text-purple-400 font-medium whitespace-nowrap">{log.gate || log.terminal || "Gate Terminal Alpha-1"}</td>
+                                <td className="p-4 font-mono text-emerald-400 font-semibold whitespace-nowrap">{log.timeIn || log.in || "--"}</td>
+                                <td className="p-4 font-mono text-slate-400 whitespace-nowrap">{log.timeOut || log.out || "--"}</td>
+                                <td className="p-4 whitespace-nowrap">
+                                  <span
+                                    className={`px-2.5 py-1 rounded-full text-[11px] font-medium border inline-flex items-center gap-1.5 ${
+                                      isInside
+                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                        : "bg-slate-800/40 text-slate-400 border-white/5"
+                                    }`}
+                                  >
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full ${
+                                        isInside ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
+                                      }`}
+                                    />
+                                    {log.status || (log.out && log.out !== "--" ? "Checked Out" : "Session Ended")}
+                                  </span>
+                                </td>
+                                <td className="p-4 text-[#FF2E4C] font-semibold whitespace-nowrap">{log.plan || selectedCustomer.plan || "Active Pass"}</td>
+                                <td className="p-4 whitespace-nowrap">
+                                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-800 text-[11px] font-medium">
+                                    {log.verification || "✓ Verified Turnstile Pass"}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
@@ -9327,10 +9670,11 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs min-w-[1050px]">
+                    <table className="w-full text-left text-xs min-w-[1150px]">
                       <thead className="bg-[#0a0c10] text-slate-400 uppercase font-semibold text-[11px] tracking-wider border-b border-white/5">
                         <tr>
                           <th className="py-3.5 px-4 pl-6 whitespace-nowrap">Athlete / Member</th>
+                          <th className="py-3.5 px-4 whitespace-nowrap">Date</th>
                           <th className="py-3.5 px-4 whitespace-nowrap">Membership Plan</th>
                           <th className="py-3.5 px-4 whitespace-nowrap">Gate Terminal</th>
                           <th className="py-3.5 px-4 whitespace-nowrap">Time In</th>
@@ -9350,6 +9694,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               c.memberId?.toLowerCase().includes(q) ||
                               c.email?.toLowerCase().includes(q) ||
                               c.gate?.toLowerCase().includes(q) ||
+                              c.date?.toLowerCase().includes(q) ||
                               c.plan?.toLowerCase().includes(q);
 
                             const isInside = c.status === "Active Inside";
@@ -9364,7 +9709,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           if (filtered.length === 0) {
                             return (
                               <tr>
-                                <td colSpan={8} className="p-10 text-center text-slate-500">
+                                <td colSpan={9} className="p-10 text-center text-slate-500">
                                   <div className="flex flex-col items-center justify-center gap-2">
                                     <Users size={28} className="text-slate-600" />
                                     <span>No customer attendance records found matching your filters.</span>
@@ -9376,6 +9721,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                           return filtered.map((c) => {
                             const isInside = c.status === "Active Inside";
+                            const cDate = c.date || (c.createdAt ? new Date(c.createdAt).toISOString().slice(0, 10) : "Today");
                             return (
                               <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
                                 <td className="py-3.5 px-4 pl-6 whitespace-nowrap">
@@ -9395,6 +9741,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                       </div>
                                     </div>
                                   </div>
+                                </td>
+
+                                <td className="py-3.5 px-4 whitespace-nowrap">
+                                  <span className="px-2.5 py-1 rounded-md bg-blue-950/70 text-blue-300 font-mono text-xs font-semibold border border-blue-800/40 inline-flex items-center gap-1.5">
+                                    <CalendarCheck size={12} className="text-blue-400" />
+                                    {cDate}
+                                  </span>
                                 </td>
 
                                 <td className="py-3.5 px-4 whitespace-nowrap">
@@ -10285,74 +10638,377 @@ export default function AdminDashboard({ user, onLogout }) {
             </div>
           )}
 
-          {/* TAB 12: SETTINGS */}
+          {/* TAB 12: SETTINGS & ADMIN PROFILE */}
           {activeTab === "settings" && (
-            <div className="space-y-6 animate-fadeIn max-w-4xl">
-              <div>
-                <h2 className="text-xl font-bold text-white tracking-tight">
-                  System & Gym Configuration
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Configure facility parameters, biometric scanner keys, and
-                  database backup.
-                </p>
+            <div className="space-y-8 animate-fadeIn max-w-5xl">
+              {/* Executive Settings Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl bg-[#101217]/90 border border-white/10 backdrop-blur-xl shadow-xl">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#FF2E4C]/20 to-[#FF2E4C]/5 border border-[#FF2E4C]/30 text-[#FF2E4C] flex items-center justify-center shadow-inner shrink-0">
+                    <Settings size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                      Admin Settings & Profile
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Manage administrator profile details, Cloudinary profile picture, and login credentials.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2.5">
+                  <span className="px-3.5 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold font-mono flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    Root Administrator
+                  </span>
+                </div>
               </div>
 
-              <div className="p-6 rounded-3xl bg-[#12161A] border border-white/10 space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-base font-semibold text-white border-b border-white/10 pb-2">
-                    Facility Details
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              {/* CARD 1: ADMINISTRATOR PROFILE & CLOUDINARY PHOTO */}
+              <div className="p-6 sm:p-8 rounded-3xl bg-[#12161A] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
+                      <User size={18} />
+                    </div>
                     <div>
-                      <label className="text-slate-400 block mb-1 font-medium">
-                        Gym Name
+                      <h3 className="text-base font-bold text-white tracking-tight">
+                        Administrator Profile Details
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Upload your profile picture directly to Cloudinary CDN and edit credentials.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono text-emerald-400 px-3 py-1 rounded-full bg-emerald-950/70 border border-emerald-800/40 flex items-center gap-1.5">
+                    <UploadCloud size={13} />
+                    Cloudinary CDN Active
+                  </span>
+                </div>
+
+                {/* Hidden File Input for Cloudinary Direct Upload */}
+                <input
+                  type="file"
+                  ref={avatarFileInputRef}
+                  onChange={handleAvatarUploadToCloudinary}
+                  accept="image/png, image/jpeg, image/jpg, image/webp"
+                  className="hidden"
+                />
+
+                {/* Interactive Avatar Card with Cloudinary Uploader */}
+                <div className="flex flex-col sm:flex-row items-center gap-6 p-6 rounded-2xl bg-[#090C0E] border border-white/5">
+                  <div className="relative group shrink-0">
+                    <div className="w-24 h-24 rounded-2xl bg-gradient-to-tr from-[#FF2E4C] via-purple-600 to-cyan-400 p-0.5 shadow-xl">
+                      <div className="w-full h-full rounded-2xl bg-[#12161A] overflow-hidden flex items-center justify-center font-bold text-3xl text-white relative">
+                        {adminProfile.avatar ? (
+                          <img
+                            src={adminProfile.avatar}
+                            alt={adminProfile.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <span>{adminProfile.name ? adminProfile.name.charAt(0).toUpperCase() : "A"}</span>
+                        )}
+
+                        {/* Hover Overlay Trigger for File Picker */}
+                        <div
+                          onClick={() => avatarFileInputRef.current?.click()}
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer"
+                          title="Click to upload photo to Cloudinary"
+                        >
+                          <Camera size={20} className="text-white" />
+                          <span className="text-[9px] font-semibold text-white uppercase tracking-wider">
+                            Change
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#FF2E4C] text-white flex items-center justify-center shadow-lg border-2 border-[#12161A]">
+                      <ShieldCheck size={14} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-center sm:text-left flex-1">
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                      <h4 className="text-lg font-bold text-white tracking-tight">
+                        {adminProfile.name || "Administrator"}
+                      </h4>
+                      <span className="px-2.5 py-0.5 rounded-full bg-[#FF2E4C]/10 text-[#FF2E4C] border border-[#FF2E4C]/20 text-[10px] font-bold uppercase tracking-wider">
+                        Super Administrator
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 font-mono">
+                      {adminProfile.email || "admin@titangym.com"} • {adminProfile.phone || "+91 98765 43210"}
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => avatarFileInputRef.current?.click()}
+                        disabled={isUploadingAvatar}
+                        className="px-4 py-2 rounded-xl bg-[#FF2E4C] hover:bg-[#ff1f3f] text-white font-semibold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {isUploadingAvatar ? (
+                          <>
+                            <RefreshCw size={13} className="animate-spin" />
+                            <span>Uploading to Cloudinary...</span>
+                          </>
+                        ) : (
+                          <>
+                            <UploadCloud size={14} />
+                            <span>Upload Profile Photo</span>
+                          </>
+                        )}
+                      </button>
+
+                      {adminProfile.avatar && (
+                        <button
+                          type="button"
+                          onClick={() => setAdminProfile((prev) => ({ ...prev, avatar: "" }))}
+                          className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white font-semibold text-xs transition-all cursor-pointer flex items-center gap-1.5"
+                        >
+                          <Trash2 size={13} className="text-red-400" />
+                          <span>Remove</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSaveAdminProfile} className="space-y-6">
+                  {/* Input Fields Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-xs">
+                    <div>
+                      <label className="text-slate-300 block mb-1.5 font-medium flex items-center gap-1.5">
+                        <User size={13} className="text-[#FF2E4C]" /> Full Name
                       </label>
                       <input
                         type="text"
-                        defaultValue="Titan Pulse 3D Fitness System"
-                        className="w-full p-3 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C]"
+                        value={adminProfile.name}
+                        onChange={(e) => setAdminProfile({ ...adminProfile, name: e.target.value })}
+                        placeholder="Administrator Full Name"
+                        className="w-full p-3.5 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C] transition-all placeholder:text-slate-600"
+                        required
                       />
                     </div>
+
                     <div>
-                      <label className="text-slate-400 block mb-1 font-medium">
-                        Admin Email
+                      <label className="text-slate-300 block mb-1.5 font-medium flex items-center gap-1.5">
+                        <Mail size={13} className="text-[#FF2E4C]" /> Official Admin Email
                       </label>
                       <input
                         type="email"
-                        defaultValue="abhigangamolla@gmail.com"
-                        className="w-full p-3 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C]"
+                        value={adminProfile.email}
+                        onChange={(e) => setAdminProfile({ ...adminProfile, email: e.target.value })}
+                        placeholder="admin@titangym.com"
+                        className="w-full p-3.5 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C] transition-all placeholder:text-slate-600"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-slate-300 block mb-1.5 font-medium flex items-center gap-1.5">
+                        <Phone size={13} className="text-[#FF2E4C]" /> Phone / Contact Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={adminProfile.phone}
+                        onChange={(e) => setAdminProfile({ ...adminProfile, phone: e.target.value })}
+                        placeholder="+91 98765 43210"
+                        className="w-full p-3.5 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C] transition-all placeholder:text-slate-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-slate-300 block mb-1.5 font-medium flex items-center gap-1.5">
+                        <MapPin size={13} className="text-[#FF2E4C]" /> Assigned Facility Location
+                      </label>
+                      <input
+                        type="text"
+                        value={adminProfile.location}
+                        onChange={(e) => setAdminProfile({ ...adminProfile, location: e.target.value })}
+                        placeholder="Titan Pulse HQ Arena"
+                        className="w-full p-3.5 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C] transition-all placeholder:text-slate-600"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="text-slate-300 block mb-1.5 font-medium flex items-center gap-1.5">
+                        <Shield size={13} className="text-[#FF2E4C]" /> System Authority & Role
+                      </label>
+                      <input
+                        type="text"
+                        value="Super Administrator (Full Root Access over Athletes, Coaches, Turnstiles & Payments)"
+                        disabled
+                        className="w-full p-3.5 rounded-xl bg-[#090C0E]/50 border border-white/5 text-slate-400 outline-none cursor-not-allowed font-mono"
                       />
                     </div>
                   </div>
-                </div>
 
-                <div className="space-y-4">
-                  <h3 className="text-base font-semibold text-white border-b border-white/10 pb-2">
-                    Biometric Scanner Security
-                  </h3>
-                  <div className="p-4 rounded-2xl bg-[#090C0E] border border-white/10 flex items-center justify-between text-xs">
-                    <span className="text-slate-300">
-                      Gate Terminal Scanner Hardware Protocol:{" "}
-                      <strong className="text-emerald-400">
-                        ACTIVE (v3.4)
-                      </strong>
-                    </span>
+                  <div className="flex items-center justify-end gap-3 pt-2">
                     <button
-                      onClick={() => showToast("Biometric scanner re-synced!")}
-                      className="px-3.5 py-1.5 rounded-lg bg-[#FF2E4C] text-white font-semibold cursor-pointer"
+                      type="submit"
+                      disabled={savingProfile}
+                      className="px-6 py-3 rounded-xl bg-[#FF2E4C] hover:bg-[#ff1f3f] text-white font-semibold text-xs shadow-[0_4px_20px_rgba(255,46,76,0.35)] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                      Re-sync Scanners
+                      {savingProfile ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          <span>Saving Profile...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={14} />
+                          <span>Save Profile Details</span>
+                        </>
+                      )}
                     </button>
                   </div>
+                </form>
+              </div>
+
+              {/* CARD 2: CHANGE PASSWORD & CREDENTIAL SECURITY */}
+              <div className="p-6 sm:p-8 rounded-3xl bg-[#12161A] border border-white/10 space-y-6 shadow-2xl relative overflow-hidden">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                      <Lock size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white tracking-tight">
+                        Security & Password Management
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        Update your administrator login password with secure bcrypt cryptographic hashing.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono text-emerald-400 px-3 py-1 rounded-full bg-emerald-950/70 border border-emerald-800/40">
+                    Bcrypt Hash: Active
+                  </span>
                 </div>
 
-                <button
-                  onClick={() => showToast("Settings saved successfully!")}
-                  className="px-5 py-2.5 rounded-xl bg-[#FF2E4C] hover:brightness-110 text-white font-semibold text-xs shadow-md transition-all cursor-pointer"
-                >
-                  Save All Configurations
-                </button>
+                <form onSubmit={handleChangeAdminPassword} className="space-y-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 text-xs">
+                    {/* Current Password */}
+                    <div>
+                      <label className="text-slate-300 block mb-1.5 font-medium flex items-center justify-between">
+                        <span>Current Password</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showCurrentPass ? "text" : "password"}
+                          value={passwordForm.currentPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                          placeholder="Enter current password"
+                          className="w-full p-3.5 pr-10 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C] transition-all placeholder:text-slate-600 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPass(!showCurrentPass)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        >
+                          {showCurrentPass ? <Eye size={15} /> : <Lock size={15} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* New Password */}
+                    <div>
+                      <label className="text-slate-300 block mb-1.5 font-medium flex items-center justify-between">
+                        <span>New Password</span>
+                        {passwordForm.newPassword && (
+                          <span className={`text-[10px] font-mono font-bold ${
+                            passwordForm.newPassword.length >= 8 ? "text-emerald-400" : passwordForm.newPassword.length >= 6 ? "text-amber-400" : "text-red-400"
+                          }`}>
+                            {passwordForm.newPassword.length >= 8 ? "Strong" : passwordForm.newPassword.length >= 6 ? "Good" : "Too Short"}
+                          </span>
+                        )}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showNewPass ? "text" : "password"}
+                          value={passwordForm.newPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                          placeholder="Min 6 characters"
+                          className="w-full p-3.5 pr-10 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C] transition-all placeholder:text-slate-600 font-mono"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPass(!showNewPass)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        >
+                          {showNewPass ? <Eye size={15} /> : <Lock size={15} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div>
+                      <label className="text-slate-300 block mb-1.5 font-medium flex items-center justify-between">
+                        <span>Confirm New Password</span>
+                        {passwordForm.confirmPassword && (
+                          <span className={`text-[10px] font-mono font-bold ${
+                            passwordForm.newPassword === passwordForm.confirmPassword ? "text-emerald-400" : "text-red-400"
+                          }`}>
+                            {passwordForm.newPassword === passwordForm.confirmPassword ? "✓ Match" : "✕ No Match"}
+                          </span>
+                        )}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPass ? "text" : "password"}
+                          value={passwordForm.confirmPassword}
+                          onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                          placeholder="Re-type new password"
+                          className="w-full p-3.5 pr-10 rounded-xl bg-[#090C0E] border border-white/10 text-white outline-none focus:border-[#FF2E4C] transition-all placeholder:text-slate-600 font-mono"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPass(!showConfirmPass)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                        >
+                          {showConfirmPass ? <Eye size={15} /> : <Lock size={15} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Security Info Pill */}
+                  <div className="p-3.5 rounded-2xl bg-[#090C0E]/80 border border-white/5 flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck size={15} className="text-emerald-400 shrink-0" />
+                      <span>Password requirements: Minimum 6 characters (Uppercase, numbers & symbols recommended).</span>
+                    </div>
+                    <span className="font-mono text-slate-500">AES-256 Cloud Encrypted</span>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="submit"
+                      disabled={changingPassword || !passwordForm.newPassword}
+                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs shadow-[0_4px_20px_rgba(245,158,11,0.25)] transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {changingPassword ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin text-black" />
+                          <span>Updating Password...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock size={14} />
+                          <span>Update Password</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}

@@ -21,11 +21,13 @@ import {
   Package,
   Clock,
   Check,
+  User,
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import CompleteOrderButton from "./CompleteOrderButton";
 import ThermalReceiptPrinter from "./ThermalReceiptPrinter";
+import ProfileDropdown from "./ProfileDropdown";
 
 export default function MyCartPage() {
   const {
@@ -199,6 +201,8 @@ export default function MyCartPage() {
       subtotal: totalPrice,
       discount: promoDiscount,
       amount: finalPayable,
+      rawAmount: finalPayable,
+      category: "Supplements",
       paymentMethod:
         activePayMethod === "card"
           ? `${cardNetwork} Card ending in ${cardNumber.replace(/\s/g, "").slice(-4) || "4242"}`
@@ -213,6 +217,8 @@ export default function MyCartPage() {
         year: "numeric",
       }),
       customerName: cardHolder || user?.name || "Athlete Member",
+      userId: user?._id || user?.id,
+      customerEmail: user?.email,
       status:
         activePayMethod === "cash"
           ? "Pending Front Desk Token Submission"
@@ -241,7 +247,7 @@ export default function MyCartPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070709] text-white pt-24 pb-20 px-4 sm:px-6 lg:px-8 font-['Outfit',sans-serif]">
+    <div className="min-h-screen bg-[#070709] text-white pt-8 pb-20 px-4 sm:px-6 lg:px-8 font-['Outfit',sans-serif]">
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed top-6 right-6 z-[200] max-w-md p-4 rounded-2xl bg-[#14141E] border border-white/20 text-white text-xs font-semibold shadow-2xl animate-fadeIn flex items-center gap-3">
@@ -272,12 +278,17 @@ export default function MyCartPage() {
             </h1>
           </div>
 
-          <Link
-            to="/"
-            className="px-4 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-2"
-          >
-            <ArrowLeft size={14} /> Continue Shopping
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/products"
+              className="px-4 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.1] text-slate-300 hover:text-white text-xs font-semibold transition-all flex items-center gap-2 border border-white/[0.06]"
+            >
+              <ArrowLeft size={14} /> Continue Shopping
+            </Link>
+
+            {/* Profile Dropdown (Exact Match with Avatar, Role & Links) */}
+            <ProfileDropdown />
+          </div>
         </div>
 
         {cart.length === 0 ? (
@@ -297,7 +308,7 @@ export default function MyCartPage() {
               </p>
             </div>
             <Link
-              to="/#popular-destinations"
+              to="/products"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-bold text-xs sm:text-sm shadow-lg hover:brightness-110 transition-all cursor-pointer"
             >
               <Zap size={16} /> Explore Supplements & Gear

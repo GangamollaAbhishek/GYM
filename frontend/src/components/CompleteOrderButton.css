@@ -78,17 +78,26 @@
 .default-text {
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto;
+  visibility: visible;
 }
 
-.order-btn.animating .default-text {
-  opacity: 0;
-  transform: translateY(-26px);
+.order-btn.animating .default-text,
+.order-btn.completed .default-text,
+.order-btn.show-box .default-text,
+.order-btn.speeding .default-text {
+  opacity: 0 !important;
+  transform: translateY(-28px) !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
 }
 
 .success-text {
   opacity: 0;
-  transform: translateY(26px);
+  transform: translateY(28px);
   color: #34d399;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 .order-btn.completed {
@@ -97,8 +106,10 @@
 }
 
 .order-btn.completed .success-text {
-  opacity: 1;
-  transform: translateY(0);
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
 }
 
 .check-icon {
