@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ShoppingBag, Zap } from "lucide-react";
@@ -145,6 +145,12 @@ export default function PopularDestinations({ onReserveSpot }) {
               <span className="text-[#8A94A0]">(06 PRODUCTS MENU)</span>
             </h2>
           </div>
+          <Link
+            to="/products"
+            className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-bold text-xs sm:text-sm hover:brightness-110 shadow-lg shadow-[#FF1E27]/20 transition-all flex items-center gap-2 w-fit cursor-pointer"
+          >
+            <ShoppingBag size={16} /> Explore All Products Store →
+          </Link>
         </div>
 
         {/* Single Line Horizontal Scroll Container */}

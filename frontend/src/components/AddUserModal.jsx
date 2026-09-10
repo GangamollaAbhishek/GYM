@@ -57,14 +57,21 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
         name: trainerData.name,
         email: trainerData.email,
         phone: trainerData.phone,
-        password: trainerData.password || "Trainer@123",
+        password: trainerData.password.trim() || undefined,
         role: "trainer",
+        spec: trainerData.spec,
+        shift: trainerData.shift,
       });
 
       setLoading(false);
 
       if (res.data?.status === "success" && res.data?.data) {
-        if (onUserCreated) onUserCreated(res.data.data, "trainer");
+        if (onUserCreated)
+          onUserCreated(
+            res.data.data,
+            "trainer",
+            res.data.temporaryPassword || res.data.message,
+          );
         onClose();
       } else {
         setErrorMsg(res.data?.message || "Failed to create trainer.");
@@ -92,14 +99,21 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
         name: receptionistData.name,
         email: receptionistData.email,
         phone: receptionistData.phone,
-        password: receptionistData.password || "Receptionist@123",
+        password: receptionistData.password.trim() || undefined,
         role: "receptionist",
+        assignedRoom: receptionistData.terminal,
+        shift: receptionistData.shift,
       });
 
       setLoading(false);
 
       if (res.data?.status === "success" && res.data?.data) {
-        if (onUserCreated) onUserCreated(res.data.data, "receptionist");
+        if (onUserCreated)
+          onUserCreated(
+            res.data.data,
+            "receptionist",
+            res.data.temporaryPassword || res.data.message,
+          );
         onClose();
       } else {
         setErrorMsg(res.data?.message || "Failed to create receptionist.");
@@ -202,7 +216,7 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
               <div className="auth-input-group !mb-2">
                 <input
                   type="password"
-                  placeholder="Temporary Password (e.g. Trainer@123)"
+                  placeholder="Temp Password (Auto-generated & Emailed if blank)"
                   value={trainerData.password}
                   onChange={(e) =>
                     setTrainerData({ ...trainerData, password: e.target.value })
@@ -327,7 +341,7 @@ export default function AddUserModal({ isOpen, onClose, onUserCreated }) {
               <div className="auth-input-group !mb-2">
                 <input
                   type="password"
-                  placeholder="Temporary Password (e.g. Desk@123)"
+                  placeholder="Temp Password (Auto-generated & Emailed if blank)"
                   value={receptionistData.password}
                   onChange={(e) =>
                     setReceptionistData({

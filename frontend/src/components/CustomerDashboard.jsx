@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   User,
@@ -60,8 +60,10 @@ import {
   Scale,
   HeartPulse,
   Key,
+  ShoppingCart,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 import { useLandingPageCMS } from "../context/LandingPageCMSContext";
 import api from "../lib/api";
 import WorkoutStreakGraph from "./WorkoutStreakGraph";
@@ -74,6 +76,7 @@ import { DEFAULT_WORKOUT_SPLITS } from "./TrainerDashboard";
 
 export default function CustomerDashboard({ onLogout }) {
   const { user, logout, checkAuth } = useAuth();
+  const { totalItemsCount } = useCart();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { cmsData } = useLandingPageCMS();
@@ -188,12 +191,13 @@ export default function CustomerDashboard({ onLogout }) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const fileInputRef = useRef(null);
 
-  const fullName = user?.name || "Abhi Gangamolla";
-  const nameParts = fullName.split(" ");
-  const [firstName, setFirstName] = useState(nameParts[0] || "Abhi");
-  const [lastName, setLastName] = useState(
-    nameParts.slice(1).join(" ") || "Gangamolla",
+  const [firstName, setFirstName] = useState(
+    user?.name ? user.name.trim().split(" ")[0] : "Abhi",
   );
+  const [lastName, setLastName] = useState(
+    user?.name ? user.name.trim().split(" ").slice(1).join(" ") : "Gangamolla",
+  );
+  const fullName = `${firstName} ${lastName}`.trim() || user?.name || "Athlete";
   const [gender, setGender] = useState(user?.gender || "Male");
   const [dob, setDob] = useState(user?.dob || "1998-05-14");
   const [email, setEmail] = useState(user?.email || "abhigangamolla@gmail.com");
@@ -219,6 +223,7 @@ export default function CustomerDashboard({ onLogout }) {
   );
   const [profilePic, setProfilePic] = useState(
     user?.avatar ||
+      user?.profilePic ||
       "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
   );
 
@@ -230,6 +235,191 @@ export default function CustomerDashboard({ onLogout }) {
   const [fitnessGoal, setFitnessGoal] = useState(
     user?.fitnessGoal || "Hypertrophy & Strength Progression",
   );
+
+  // Sync state whenever user object loads or updates
+  useEffect(() => {
+    if (user) {
+      if (user.name) {
+        const parts = user.name.trim().split(" ");
+        setFirstName(parts[0] || "");
+        setLastName(parts.slice(1).join(" ") || "");
+      }
+      if (user.email) setEmail(user.email);
+      if (user.phone && user.phone !== "N/A") setPhone(user.phone);
+      if (user.avatar || user.profilePic) setProfilePic(user.avatar || user.profilePic);
+      if (user.gender) setGender(user.gender);
+      if (user.dob) setDob(user.dob);
+      if (user.height) setHeight(user.height);
+      if (user.weight) setWeight(user.weight);
+      if (user.bodyFat) setBodyFat(user.bodyFat);
+      if (user.bloodGroup) setBloodGroup(user.bloodGroup);
+      if (user.fitnessGoal) setFitnessGoal(user.fitnessGoal);
+      if (user.address && typeof user.address === "object") {
+        setAddress((prev) => ({
+          ...prev,
+          ...user.address,
+        }));
+      }
+    }
+  }, [user]);
+
+  // Convert vertical mouse wheel into smooth horizontal scroll on tables
+  const handleHorizontalWheelScroll = (e) => {
+    const container = e.currentTarget;
+    if (!container) return;
+    if (container.scrollWidth > container.clientWidth) {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.stopPropagation();
+        container.scrollLeft += e.deltaY;
+      }
+    }
+  };
+
+  // Direct Official Tax Invoice & Receipt Downloader
+  const handleDownloadInvoice = (tx) => {
+    const rawOrder = tx.orderDetails || tx.rawOrder || tx;
+    const invId = tx.id || rawOrder.id || `INV-${Math.floor(100000 + Math.random() * 900000)}`;
+    const invDate = tx.date || rawOrder.date || new Date().toLocaleDateString("en-IN");
+    const invAmount = tx.amount || rawOrder.amount || "0";
+    const numAmount = Number(String(invAmount).replace(/[^0-9.]/g, '') || 0);
+    const subtotal = Math.round(numAmount / 1.18);
+    const gstTotal = numAmount - subtotal;
+    const cgst = Math.round(gstTotal / 2);
+    const sgst = gstTotal - cgst;
+
+    const items = rawOrder.items && Array.isArray(rawOrder.items) && rawOrder.items.length > 0
+      ? rawOrder.items
+      : [
+          {
+            name:
+              tx.item ||
+              tx.title ||
+              rawOrder.itemsSummary ||
+              rawOrder.plan ||
+              rawOrder.description ||
+              "Titan Pulse Fitness Membership Pass",
+            price: numAmount,
+            quantity: 1,
+          },
+        ];
+
+    const invMethod = tx.method || tx.paymentMethod || rawOrder.paymentMethod || "UPI / Online";
+    const invStatus = tx.status || rawOrder.status || "Paid";
+    const brandName = cmsData?.brand?.name || "TITAN•PULSE 3D FITNESS";
+
+    showToast(`📥 Downloading Official Tax Invoice for ${invId}...`);
+
+    const itemsHtml = items.map((item) => {
+      const itmName = item.name || item.title || "Titan Pulse Service";
+      const itmQty = item.quantity || item.qty || 1;
+      const itmPrice = typeof item.price === "number" ? item.price : Number(String(item.price || 0).replace(/[^0-9.]/g, ''));
+      return `
+        <tr>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px;">
+            <strong>${itmName}</strong>
+            <div style="font-size: 12px; color: #64748b;">SAC/HSN: 999799 | Biometric Verified</div>
+          </td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; text-align: center;">${itmQty}</td>
+          <td style="padding: 14px 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; text-align: right; font-weight: 600;">₹${(itmPrice * itmQty).toLocaleString('en-IN')}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const invoiceHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Invoice - ${invId} - ${brandName}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; padding: 40px; margin: 0; }
+    .invoice-box { max-width: 700px; margin: auto; padding: 36px; border: 1px solid #e2e8f0; background: #ffffff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 24px; }
+    .brand-title { font-size: 24px; font-weight: 900; color: #e11d48; letter-spacing: -0.5px; }
+    .inv-title { font-size: 16px; font-weight: 700; color: #475569; text-align: right; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; font-size: 14px; }
+    .table { width: 100%; border-collapse: collapse; margin-bottom: 28px; }
+    .table th { background: #0f172a; color: #ffffff; padding: 12px; text-align: left; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .total-row td { font-weight: bold; font-size: 15px; border-top: 2px solid #0f172a; padding: 12px; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; background: #dcfce7; color: #166534; font-weight: bold; font-size: 12px; }
+    .footer { text-align: center; margin-top: 32px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+    @media print { body { background: #ffffff; padding: 0; } .invoice-box { border: none; box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <div class="invoice-box">
+    <div class="header">
+      <div>
+        <div class="brand-title">${brandName}</div>
+        <div style="font-size: 12px; color: #64748b; margin-top: 4px;">High Performance Fitness & Bio-Telemetry Arena</div>
+      </div>
+      <div class="inv-title">
+        <div>OFFICIAL TAX INVOICE</div>
+        <div style="font-family: monospace; font-size: 14px; color: #0f172a; margin-top: 4px;">#${invId}</div>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div>
+        <div style="font-weight: bold; color: #64748b; font-size: 11px; text-transform: uppercase;">Billed To</div>
+        <div style="font-weight: 700; font-size: 16px; margin-top: 2px;">${fullName || "Athlete Member"}</div>
+        <div style="color: #64748b;">${email || user?.email || "athlete@titanpulse.fit"}</div>
+        <div style="color: #64748b;">${phone || user?.phone || "+91 98765 43210"}</div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-weight: bold; color: #64748b; font-size: 11px; text-transform: uppercase;">Invoice Details</div>
+        <div>Date: <strong>${invDate}</strong></div>
+        <div>Payment Mode: <strong>${invMethod}</strong></div>
+        <div>Status: <span class="badge">✓ ${invStatus}</span></div>
+      </div>
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th style="text-align: center;">Qty</th>
+          <th style="text-align: right;">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itemsHtml}
+        <tr>
+          <td colspan="2" style="text-align: right; padding: 8px 12px; font-size: 13px; color: #64748b;">Subtotal (Taxable Value):</td>
+          <td style="text-align: right; padding: 8px 12px; font-size: 13px; font-weight: 600;">₹${subtotal.toLocaleString('en-IN')}</td>
+        </tr>
+        <tr>
+          <td colspan="2" style="text-align: right; padding: 6px 12px; font-size: 13px; color: #64748b;">CGST (9%):</td>
+          <td style="text-align: right; padding: 6px 12px; font-size: 13px;">₹${cgst.toLocaleString('en-IN')}</td>
+        </tr>
+        <tr>
+          <td colspan="2" style="text-align: right; padding: 6px 12px; font-size: 13px; color: #64748b;">SGST (9%):</td>
+          <td style="text-align: right; padding: 6px 12px; font-size: 13px;">₹${sgst.toLocaleString('en-IN')}</td>
+        </tr>
+        <tr class="total-row">
+          <td colspan="2" style="text-align: right;">Total Amount Paid (INR):</td>
+          <td style="text-align: right; color: #e11d48; font-size: 17px;">₹${numAmount.toLocaleString('en-IN')}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <div>Thank you for choosing ${brandName}!</div>
+      <div style="margin-top: 4px;">This is a computer-generated tax invoice verified by Titan Pulse Biometric HQ.</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const blob = new Blob([invoiceHtml], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Invoice_${invId}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   // Sync state if user context updates from backend
   useEffect(() => {
@@ -513,6 +703,8 @@ export default function CustomerDashboard({ onLogout }) {
         console.warn(err);
       }
 
+      if (checkAuth) checkAuth();
+
       showToast(
         "✅ Profile photo updated & synchronized with Trainer Dashboard!",
       );
@@ -574,6 +766,8 @@ export default function CustomerDashboard({ onLogout }) {
       } catch (err) {
         console.warn(err);
       }
+
+      if (checkAuth) checkAuth();
 
       setIsEditingProfile(false);
       showToast(
@@ -644,21 +838,26 @@ export default function CustomerDashboard({ onLogout }) {
   const [storeOrders, setStoreOrders] = useState(() => {
     try {
       const saved = localStorage.getItem("titan_pulse_orders");
-      return saved ? JSON.parse(saved) : [];
+      const list = saved ? JSON.parse(saved) : [];
+      return Array.isArray(list) ? list : [];
     } catch (e) {
       return [];
     }
   });
 
-  useEffect(() => {
-    const syncOrders = () => {
-      try {
-        const saved = localStorage.getItem("titan_pulse_orders");
-        setStoreOrders(saved ? JSON.parse(saved) : []);
-      } catch (e) {
-        console.warn("Error reading store orders:", e);
+  const syncOrders = useCallback(() => {
+    try {
+      const saved = localStorage.getItem("titan_pulse_orders");
+      const list = saved ? JSON.parse(saved) : [];
+      if (Array.isArray(list)) {
+        setStoreOrders(list);
       }
-    };
+    } catch (e) {
+      console.warn("Error reading store orders:", e);
+    }
+  }, []);
+
+  useEffect(() => {
     syncOrders();
     window.addEventListener("storage", syncOrders);
     window.addEventListener("focus", syncOrders);
@@ -668,7 +867,12 @@ export default function CustomerDashboard({ onLogout }) {
       window.removeEventListener("focus", syncOrders);
       window.removeEventListener("titan_order_placed", syncOrders);
     };
-  }, []);
+  }, [syncOrders]);
+
+  // Re-sync on tab changes so newly placed supplement orders appear immediately
+  useEffect(() => {
+    syncOrders();
+  }, [activeTab, activeSubTab, syncOrders]);
 
   // Dynamic Membership Data from MongoDB / Local reactive state
   const [localMembershipPlan, setLocalMembershipPlan] = useState(
@@ -1531,47 +1735,16 @@ export default function CustomerDashboard({ onLogout }) {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
-  const [attendanceRecords, setAttendanceRecords] = useState([
-    {
-      id: "ATT-9921",
-      date: "31 Aug 2026",
-      checkIn: "07:15 AM",
-      checkOut: "08:45 AM",
-      duration: "90 Mins",
-      gate: "Turnstile Gate A1",
-      zone: "Strength & Powerlifting Arena",
-      status: "Completed",
-    },
-    {
-      id: "ATT-9840",
-      date: "29 Aug 2026",
-      checkIn: "07:30 AM",
-      checkOut: "08:50 AM",
-      duration: "80 Mins",
-      gate: "Speed Gate B2",
-      zone: "3D Telemetry & Cardio Zone",
-      status: "Completed",
-    },
-    {
-      id: "ATT-9712",
-      date: "28 Aug 2026",
-      checkIn: "06:45 AM",
-      checkOut: "08:10 AM",
-      duration: "85 Mins",
-      gate: "Turnstile Gate A1",
-      zone: "Functional HIIT & Turf Deck",
-      status: "Completed",
-    },
-  ]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [selfCheckingIn, setSelfCheckingIn] = useState(false);
   const [attendanceMonthFilter, setAttendanceMonthFilter] =
-    useState("Aug 2026");
+    useState("All Months");
 
   // Fetch personal attendance records from MongoDB
   const fetchMyAttendance = async () => {
     try {
       const res = await api.get("/api/attendance/my");
-      if (res.data?.status === "success" && Array.isArray(res.data.data) && res.data.data.length > 0) {
+      if (res.data?.status === "success" && Array.isArray(res.data.data)) {
         setAttendanceRecords(res.data.data);
       }
     } catch (e) {
@@ -1735,41 +1908,155 @@ export default function CustomerDashboard({ onLogout }) {
   const [streakGraphAnimation, setStreakGraphAnimation] = useState("wave");
   const [streakGraphAmbient, setStreakGraphAmbient] = useState("twinkle");
 
+  // Real Dynamic Streak & Telemetry Metrics from Attendance Records
+  const streakMetrics = useMemo(() => {
+    if (!attendanceRecords || attendanceRecords.length === 0) {
+      return {
+        currentStreak: 0,
+        longestStreak: 0,
+        totalSessions: 0,
+        totalHours: "0.0",
+        avgDuration: 0,
+        streakStartDate: null,
+      };
+    }
+
+    const uniqueDateStrings = Array.from(
+      new Set(
+        attendanceRecords
+          .map((rec) => {
+            if (rec.date) {
+              if (/^\d{4}-\d{2}-\d{2}/.test(rec.date)) return rec.date.slice(0, 10);
+              const p = new Date(rec.date);
+              if (!isNaN(p.getTime())) return p.toISOString().slice(0, 10);
+            }
+            if (rec.createdAt) return new Date(rec.createdAt).toISOString().slice(0, 10);
+            return null;
+          })
+          .filter(Boolean),
+      ),
+    ).sort();
+
+    if (uniqueDateStrings.length === 0) {
+      return {
+        currentStreak: 0,
+        longestStreak: 0,
+        totalSessions: attendanceRecords.length,
+        totalHours: "0.0",
+        avgDuration: 0,
+        streakStartDate: null,
+      };
+    }
+
+    // Longest & current streak runs
+    let longest = 1;
+    let tempStreak = 1;
+
+    for (let i = 1; i < uniqueDateStrings.length; i++) {
+      const prev = new Date(uniqueDateStrings[i - 1]);
+      const curr = new Date(uniqueDateStrings[i]);
+      const diffDays = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        tempStreak++;
+      } else if (diffDays > 1) {
+        longest = Math.max(longest, tempStreak);
+        tempStreak = 1;
+      }
+    }
+    longest = Math.max(longest, tempStreak);
+
+    const lastDate = new Date(uniqueDateStrings[uniqueDateStrings.length - 1]);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    lastDate.setHours(0, 0, 0, 0);
+    const daysSinceLast = Math.round((today - lastDate) / (1000 * 60 * 60 * 24));
+
+    const currentStreak = daysSinceLast <= 1 ? tempStreak : 0;
+
+    let totalMins = 0;
+    attendanceRecords.forEach((r) => {
+      if (r.duration && typeof r.duration === "string") {
+        const match = r.duration.match(/(\d+)/);
+        if (match) totalMins += parseInt(match[1], 10);
+        else totalMins += 60;
+      } else {
+        totalMins += 60;
+      }
+    });
+
+    const totalHours = (totalMins / 60).toFixed(1);
+    const avgDuration = Math.round(totalMins / attendanceRecords.length);
+
+    return {
+      currentStreak,
+      longestStreak: Math.max(longest, currentStreak),
+      totalSessions: attendanceRecords.length,
+      totalHours,
+      avgDuration,
+      streakStartDate: currentStreak > 0 ? uniqueDateStrings[uniqueDateStrings.length - currentStreak] : null,
+    };
+  }, [attendanceRecords]);
+
+  // Real Workout Contributions Matrix populated ONLY with authentic attendance
   const workoutContributionsData = useMemo(() => {
+    const attendanceMap = new Map();
+
+    (attendanceRecords || []).forEach((rec) => {
+      let dateKey = null;
+      if (rec.date) {
+        if (/^\d{4}-\d{2}-\d{2}/.test(rec.date)) {
+          dateKey = rec.date.slice(0, 10);
+        } else {
+          const parsed = new Date(rec.date);
+          if (!isNaN(parsed.getTime())) {
+            dateKey = parsed.toISOString().slice(0, 10);
+          }
+        }
+      } else if (rec.createdAt) {
+        dateKey = new Date(rec.createdAt).toISOString().slice(0, 10);
+      }
+
+      if (dateKey) {
+        const existing = attendanceMap.get(dateKey) || {
+          count: 0,
+          duration: rec.duration || rec.timeIn || "60 Mins",
+          workout: rec.zone || rec.workout || "Gym Workout",
+        };
+        existing.count += 1;
+        existing.level = Math.min(4, Math.max(1, existing.count));
+        attendanceMap.set(dateKey, existing);
+      }
+    });
+
     const data = [];
-    const today = new Date("2026-08-31");
-    for (let i = 210; i >= 0; i--) {
+    const today = new Date();
+    const daysToLookBack = Math.max(30, (streakGraphMonths || 6) * 30);
+
+    for (let i = daysToLookBack; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
       const isoStr = d.toISOString().slice(0, 10);
-      const dayOfWeek = d.getDay(); // 0 is Sun
-      // Rest on Sundays and occasional Thursday
-      const isRest = dayOfWeek === 0 || (dayOfWeek === 4 && i % 3 === 0);
-      if (isRest) {
-        data.push({ date: isoStr, count: 0, level: 0 });
+
+      const record = attendanceMap.get(isoStr);
+      if (record) {
+        data.push({
+          date: isoStr,
+          count: record.count,
+          level: record.level || 1,
+          duration: record.duration,
+          workout: record.workout,
+        });
       } else {
-        const level = i % 5 === 0 ? 4 : i % 4 === 0 ? 3 : i % 2 === 0 ? 2 : 1;
-        const duration =
-          level === 4
-            ? "95 Mins"
-            : level === 3
-              ? "85 Mins"
-              : level === 2
-                ? "75 Mins"
-                : "60 Mins";
-        const workout =
-          level === 4
-            ? "Heavy Compound Push (Squats/Bench)"
-            : level === 3
-              ? "Hypertrophy Density Split"
-              : level === 2
-                ? "Posterior Chain & Deadlifts"
-                : "HIIT & Mobility";
-        data.push({ date: isoStr, count: 1, level, duration, workout });
+        data.push({
+          date: isoStr,
+          count: 0,
+          level: 0,
+        });
       }
     }
     return data;
-  }, []);
+  }, [attendanceRecords, streakGraphMonths]);
 
   // ==========================================
   // 4. PAYMENTS STATE (REAL USER DATA & SUPPLEMENTS)
@@ -1778,29 +2065,38 @@ export default function CustomerDashboard({ onLogout }) {
     const list = [];
 
     // 1. Supplement & Store Orders
-    if (Array.isArray(storeOrders)) {
+    if (Array.isArray(storeOrders) && storeOrders.length > 0) {
       storeOrders.forEach((ord) => {
+        if (!ord) return;
         const summaryItems = (ord.items || [])
-          .map((i) => `${i.name} (x${i.quantity || 1})`)
+          .map((i) => `${i.name || i.title || "Item"} (x${i.quantity || 1})`)
           .join(" • ");
         const amountNum =
           typeof ord.amount === "number"
             ? ord.amount
-            : parseFloat(String(ord.amount || "0").replace(/[^\d.]/g, "")) || 0;
+            : parseFloat(String(ord.amount || ord.total || "0").replace(/[^\d.]/g, "")) || 0;
+        const ordDate =
+          ord.date ||
+          (ord.createdAt
+            ? new Date(ord.createdAt).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : new Date().toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              }));
+
         list.push({
           id:
-            ord.id || `TXN-ORD-${Math.floor(100000 + Math.random() * 900000)}`,
-          date:
-            ord.date ||
-            new Date().toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            }),
+            ord.id || ord.orderId || `ORD-TP-${Math.floor(100000 + Math.random() * 900000)}`,
+          date: ordDate,
           item:
             ord.items && ord.items[0]?.name
               ? `${ord.items[0].name}${ord.items.length > 1 ? ` + ${ord.items.length - 1} more items` : ""}`
-              : "Supplements & Gear Order",
+              : (ord.title || summaryItems || "Supplements & Gear Order"),
           category: "Supplements",
           method: ord.paymentMethod || "Paid (Online)",
           amount: `₹${amountNum.toLocaleString("en-IN")}`,
@@ -1997,38 +2293,47 @@ export default function CustomerDashboard({ onLogout }) {
       return [];
     }
     return storeOrders.map((ord) => {
+      if (!ord) return null;
       const summaryItems = (ord.items || [])
-        .map((i) => `${i.name} (x${i.quantity || 1})`)
+        .map((i) => `${i.name || i.title || "Item"} (x${i.quantity || 1})`)
         .join(" • ");
       const amountNum =
         typeof ord.amount === "number"
           ? ord.amount
-          : parseFloat(String(ord.amount || "0").replace(/[^\d.]/g, "")) || 0;
+          : parseFloat(String(ord.amount || ord.total || "0").replace(/[^\d.]/g, "")) || 0;
+      const ordDate =
+        ord.date ||
+        (ord.createdAt
+          ? new Date(ord.createdAt).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
+          : new Date().toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            }));
       return {
-        id: ord.id,
+        id: ord.id || ord.orderId || `ORD-TP-${Math.floor(100000 + Math.random() * 900000)}`,
         itemsCount: (ord.items || []).reduce(
           (acc, it) => acc + (it.quantity || 1),
           0,
         ),
-        itemsSummary: summaryItems || "Nutritional Supplements & Training Gear",
+        itemsSummary: summaryItems || ord.title || "Nutritional Supplements & Training Gear",
         items: ord.items || [],
         subtotal: ord.subtotal || amountNum,
         discount: ord.discount || 0,
         amount: `₹${amountNum.toLocaleString("en-IN")}`,
         rawAmount: amountNum,
         paymentMethod: ord.paymentMethod || "Paid (Online)",
-        date:
-          ord.date ||
-          new Date().toLocaleDateString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          }),
+        date: ordDate,
         status: ord.status || "Paid & Confirmed",
         customerName: ord.customerName || fullName,
         rawOrder: ord,
+        orderDetails: ord,
       };
-    });
+    }).filter(Boolean);
   }, [storeOrders, fullName]);
 
   const filteredTransactions = useMemo(() => {
@@ -2116,18 +2421,85 @@ export default function CustomerDashboard({ onLogout }) {
   const [supportTickets, setSupportTickets] = useState(() => {
     try {
       const saved = localStorage.getItem(
-        `titan_support_tickets_${user?.id || "default"}`,
+        `titan_support_tickets_${user?.id || user?._id || "default"}`,
       );
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
+      if (saved) return JSON.parse(saved);
+      const globalSaved = localStorage.getItem("titan_global_support_tickets");
+      if (globalSaved) {
+        const all = JSON.parse(globalSaved);
+        const my = all.filter(
+          (t) =>
+            t.customerId === (user?._id || user?.id) ||
+            t.customerEmail === user?.email ||
+            t.customerName === user?.name,
+        );
+        if (my.length > 0) return my;
+      }
+    } catch (e) {}
+    return [];
   });
+
+  const fetchCustomerTickets = useCallback(async () => {
+    try {
+      let remoteTickets = [];
+      try {
+        const res = await api.get("/api/tickets");
+        if (res.data?.status === "success" && Array.isArray(res.data?.data)) {
+          remoteTickets = res.data.data.filter(
+            (t) =>
+              t.customerId === (user?._id || user?.id) ||
+              t.customerEmail === user?.email ||
+              (t.customerName && user?.name && t.customerName.toLowerCase() === user.name.toLowerCase()),
+          );
+        }
+      } catch (apiErr) {}
+
+      const userKey = `titan_support_tickets_${user?.id || user?._id || "default"}`;
+      const localUser = JSON.parse(localStorage.getItem(userKey) || "[]");
+      const localGlobal = JSON.parse(localStorage.getItem("titan_global_support_tickets") || "[]").filter(
+        (t) =>
+          t.customerId === (user?._id || user?.id) ||
+          t.customerEmail === user?.email ||
+          (t.customerName && user?.name && t.customerName.toLowerCase() === user.name.toLowerCase()),
+      );
+
+      // Merge by ID
+      const map = new Map();
+      [...remoteTickets, ...localGlobal, ...localUser].forEach((t) => {
+        if (t && t.id) map.set(t.id, { ...map.get(t.id), ...t });
+      });
+      const merged = Array.from(map.values()).sort(
+        (a, b) => new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date),
+      );
+
+      if (merged.length > 0) {
+        setSupportTickets(merged);
+        localStorage.setItem(userKey, JSON.stringify(merged));
+      }
+    } catch (err) {
+      console.log("Error syncing customer tickets:", err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchCustomerTickets();
+    const handleTicketSync = () => {
+      fetchCustomerTickets();
+    };
+    window.addEventListener("storage", handleTicketSync);
+    window.addEventListener("titan_ticket_sync", handleTicketSync);
+    window.addEventListener("titan_ticket_updated", handleTicketSync);
+    return () => {
+      window.removeEventListener("storage", handleTicketSync);
+      window.removeEventListener("titan_ticket_sync", handleTicketSync);
+      window.removeEventListener("titan_ticket_updated", handleTicketSync);
+    };
+  }, [fetchCustomerTickets]);
 
   const [newTicket, setNewTicket] = useState({
     subject: "",
-    category: "Facility & Equipment",
-    priority: "Medium",
+    category: "Biometric Speed Gate",
+    priority: "High (Urgent)",
     description: "",
   });
 
@@ -2306,43 +2678,89 @@ export default function CustomerDashboard({ onLogout }) {
     }
   };
 
-  const handleCreateTicketSubmit = (e) => {
+  const handleCreateTicketSubmit = async (e) => {
     e.preventDefault();
     if (!newTicket.subject || !newTicket.description) {
       showToast("Please enter a subject and description for your ticket");
       return;
     }
+    const ticketId = `TCK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const createdTicket = {
-      id: `TCK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-      subject: newTicket.subject,
+      id: ticketId,
+      ticketId: ticketId,
+      customerId: user?._id || user?.id || null,
+      customerDisplayId: user?.displayId || `CUST-${(user?.id || user?._id || '301').toString().slice(-4)}`,
+      customerName: user?.name || "Gym Athlete",
+      customerEmail: user?.email || "",
+      customerPhone: user?.phone && user?.phone !== "N/A" ? user.phone : "",
+      customerAvatar: user?.avatar || "",
+      customerPlan: user?.membershipPlan || user?.plan || "Titan Elite All-Access",
+      subject: newTicket.subject.trim(),
       category: newTicket.category,
       priority: newTicket.priority,
+      description: newTicket.description.trim(),
       date: new Date().toLocaleDateString("en-US", {
         day: "2-digit",
         month: "short",
         year: "numeric",
       }),
+      time: new Date().toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      }),
       status: "Open",
       reply:
         "Ticket logged with Front Desk. Our management team will review and respond promptly.",
+      createdAt: new Date().toISOString(),
     };
-    const updated = [createdTicket, ...supportTickets];
+
+    // 1. Instant local state update
+    const updated = [createdTicket, ...supportTickets.filter((t) => t.id !== createdTicket.id)];
     setSupportTickets(updated);
+
+    // 2. User local storage
     try {
+      const userKey = `titan_support_tickets_${user?.id || user?._id || "default"}`;
+      localStorage.setItem(userKey, JSON.stringify(updated));
+    } catch (e) {}
+
+    // 3. Global storage for Receptionist Dashboard real-time ingestion
+    try {
+      const globalKey = "titan_global_support_tickets";
+      const savedGlobal = JSON.parse(localStorage.getItem(globalKey) || "[]");
+      const updatedGlobal = [createdTicket, ...savedGlobal.filter((t) => t.id !== createdTicket.id)];
+      localStorage.setItem(globalKey, JSON.stringify(updatedGlobal));
       localStorage.setItem(
-        `titan_support_tickets_${user?.id || "default"}`,
-        JSON.stringify(updated),
+        "titan_ticket_sync_event",
+        JSON.stringify({
+          type: "NEW_TICKET",
+          ticket: createdTicket,
+          timestamp: Date.now(),
+        })
       );
     } catch (e) {}
+
+    // 4. Custom events for real-time window synchronization
+    window.dispatchEvent(new CustomEvent("titan_ticket_created", { detail: createdTicket }));
+    window.dispatchEvent(new CustomEvent("titan_ticket_sync", { detail: createdTicket }));
+
+    // 5. Backend MongoDB API persistence
+    try {
+      await api.post("/api/tickets", createdTicket);
+    } catch (apiErr) {
+      console.log("Ticket backend sync note:", apiErr);
+    }
+
     setNewTicket({
       subject: "",
-      category: "Facility & Equipment",
-      priority: "Medium",
+      category: "Biometric Speed Gate",
+      priority: "High (Urgent)",
       description: "",
     });
     setTicketModalOpen(false);
     showToast(
-      "✓ Support ticket submitted successfully! Ticket ID: " + createdTicket.id,
+      "✓ Support ticket submitted successfully! Dispatched to Front Desk Receptionist (ID: " + createdTicket.id + ")",
     );
   };
 
@@ -2436,18 +2854,19 @@ export default function CustomerDashboard({ onLogout }) {
     mainNavSections.find((s) => s.id === activeTab) || mainNavSections[0];
 
   return (
-    <div className="bg-[#0B0B0E] min-h-screen text-slate-200 flex font-['Plus_Jakarta_Sans',sans-serif] selection:bg-[#FF1E27] selection:text-white antialiased customer-portal-wrapper no-scrollbar">
+    <div className="bg-[#0B0B0E] min-h-screen text-slate-200 flex font-['Outfit',sans-serif] tracking-normal selection:bg-[#FF1E27] selection:text-white antialiased customer-portal-wrapper no-scrollbar">
       {/* ========================================================= */}
       {/* 1. FLIPKART STYLE LEFT SIDEBAR NAVIGATION                 */}
       {/* ========================================================= */}
       <aside
+        data-lenis-prevent="true"
         className={`${
           sidebarOpen ? "w-72" : "w-20"
-        } bg-[#101014]/95 backdrop-blur-2xl border-r border-white/[0.08] flex flex-col justify-between transition-all duration-300 z-40 fixed top-0 bottom-0 left-0`}
+        } bg-[#101014]/95 backdrop-blur-2xl border-r border-white/[0.08] flex flex-col justify-between transition-all duration-300 z-40 fixed top-0 bottom-0 left-0 h-screen overflow-hidden shadow-2xl`}
       >
-        <div className="flex flex-col h-full overflow-hidden">
+        <div data-lenis-prevent="true" className="flex flex-col h-full overflow-hidden">
           {/* Top Brand / Logo Header */}
-          <div className="p-4 sm:p-5 flex items-center justify-between border-b border-white/[0.08]">
+          <div className="p-4 sm:p-5 flex items-center justify-between border-b border-white/[0.08] shrink-0">
             <Link
               to="/"
               className="flex items-center gap-3 group focus:outline-none min-w-0"
@@ -2486,35 +2905,11 @@ export default function CustomerDashboard({ onLogout }) {
             </button>
           </div>
 
-          {/* User Profile Capsule (Flipkart Header) */}
-          {sidebarOpen && (
-            <div className="p-3.5 mx-3 my-3 rounded-2xl bg-[#14141C] border border-white/[0.06] flex items-center gap-3 shadow-sm">
-              <div className="relative shrink-0">
-                <img
-                  src={profilePic}
-                  alt={fullName}
-                  className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow-sm"
-                />
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#14141C]" />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-white tracking-tight truncate">
-                    {fullName}
-                  </span>
-                  <span className="text-[9px] font-bold text-[#FF1E27] bg-[#FF1E27]/10 border border-[#FF1E27]/20 px-1.5 py-0.2 rounded font-mono">
-                    {hasActiveMembership ? "PRO" : "MEMBER"}
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-400 truncate">
-                  {email}
-                </span>
-              </div>
-            </div>
-          )}
-
           {/* SIDEBAR NAVIGATION ITEMS (6 MAIN SECTIONS WITH SUBSECTIONS) */}
-          <nav className="flex-1 px-3 py-2 space-y-1.5 overflow-y-auto overscroll-contain custom-scrollbar pb-8">
+          <nav
+            data-lenis-prevent="true"
+            className="flex-1 min-h-0 px-3 py-2 space-y-1.5 overflow-y-auto overscroll-contain no-scrollbar pb-16"
+          >
             {mainNavSections.map((sec) => {
               const Icon = sec.icon;
               const isMainActive = activeTab === sec.id;
@@ -2606,10 +3001,10 @@ export default function CustomerDashboard({ onLogout }) {
         <header className="sticky top-0 z-30 bg-[#101014]/90 backdrop-blur-xl border-b border-white/[0.08] px-6 sm:px-8 py-3.5 flex items-center justify-between">
           {/* Breadcrumb Navigation */}
           <div className="flex items-center gap-2.5">
-            <h1 className="text-sm sm:text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <h1 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
               <span className="text-slate-400">ATHLETE HUB</span>
               <span className="text-slate-600">/</span>
-              <span className="text-[#FF1E27] font-bold">
+              <span className="text-[#FF1E27] font-semibold">
                 {currentSection.label}
               </span>
               {activeSubTab && (
@@ -2652,11 +3047,19 @@ export default function CustomerDashboard({ onLogout }) {
                 onMouseEnter={() => setAccountDropdownOpen(true)}
                 className="flex items-center gap-2.5 bg-[#14141C] hover:bg-[#1c1c27] border border-white/[0.08] hover:border-white/25 px-3.5 py-1.5 rounded-full transition-all cursor-pointer shadow-md group"
               >
-                <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#FF1E27] to-[#E50914] text-white font-extrabold text-xs flex items-center justify-center uppercase shadow-sm">
-                  {fullName.charAt(0)}
+                <div className="w-7 h-7 rounded-full overflow-hidden bg-gradient-to-tr from-[#FF1E27] to-[#E50914] text-white font-extrabold text-xs flex items-center justify-center uppercase shadow-sm shrink-0">
+                  {profilePic || user?.avatar || user?.profilePic ? (
+                    <img
+                      src={profilePic || user?.avatar || user?.profilePic}
+                      alt={firstName || "Profile"}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    (firstName || user?.name || "U").charAt(0)
+                  )}
                 </div>
                 <span className="text-xs font-bold text-white max-w-[110px] truncate">
-                  {firstName}
+                  {firstName || (user?.name ? user.name.split(" ")[0] : "Athlete")}
                 </span>
                 {accountDropdownOpen ? (
                   <ChevronUp
@@ -2671,17 +3074,35 @@ export default function CustomerDashboard({ onLogout }) {
                 )}
               </button>
 
-              {/* Flipkart Dropdown Card (Exact 6 Sections Only) */}
+              {/* Flipkart Dropdown Card */}
               {accountDropdownOpen && (
                 <div
                   onMouseLeave={() => setAccountDropdownOpen(false)}
                   className="absolute right-0 top-full mt-2 w-72 bg-[#12161E] border border-white/15 rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] overflow-hidden z-[100] p-3 text-xs animate-fadeIn"
                 >
-                  <div className="px-3.5 py-2 border-b border-white/10 flex items-center justify-between">
-                    <span className="font-extrabold text-[11px] uppercase tracking-wider text-slate-400 font-mono">
-                      Your Account
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full bg-[#FF1E27]/20 text-[#FF1E27] border border-[#FF1E27]/40 text-[9px] font-mono font-bold">
+                  <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-7 h-7 rounded-full overflow-hidden bg-gradient-to-tr from-[#FF1E27] to-[#E50914] text-white font-extrabold text-[11px] flex items-center justify-center uppercase shadow-sm shrink-0">
+                        {profilePic || user?.avatar || user?.profilePic ? (
+                          <img
+                            src={profilePic || user?.avatar || user?.profilePic}
+                            alt={firstName || "Profile"}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          (firstName || user?.name || "U").charAt(0)
+                        )}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-bold text-xs text-white truncate max-w-[110px]">
+                          {fullName || user?.name || "Athlete"}
+                        </span>
+                        <span className="text-[10px] text-slate-400 truncate max-w-[110px]">
+                          {email || user?.email || "Athlete Account"}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-[#FF1E27]/20 text-[#FF1E27] border border-[#FF1E27]/40 text-[9px] font-mono font-bold shrink-0">
                       {hasActiveMembership ? "PRO MEMBER" : "MEMBER"}
                     </span>
                   </div>
@@ -2691,32 +3112,86 @@ export default function CustomerDashboard({ onLogout }) {
                       const SecIcon = sec.icon;
                       const isSecActive = activeTab === sec.id;
                       return (
-                        <button
-                          key={sec.id}
-                          onClick={() => handleTabChange(sec.id)}
-                          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium transition-all text-left cursor-pointer group ${
-                            isSecActive
-                              ? "bg-[#FF1E27]/15 text-[#FF1E27] font-bold border-l-2 border-[#FF1E27]"
-                              : "text-slate-200 hover:text-white hover:bg-white/10"
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <SecIcon
-                              size={16}
-                              className={
-                                isSecActive
-                                  ? "text-[#FF1E27]"
-                                  : "text-slate-400 group-hover:text-white"
-                              }
-                            />
-                            <span>{sec.label}</span>
-                          </div>
-                          {sec.badge && (
-                            <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-slate-400 text-[9px] font-mono font-bold">
-                              {sec.badge}
-                            </span>
+                        <React.Fragment key={sec.id}>
+                          <button
+                            onClick={() => handleTabChange(sec.id)}
+                            className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium transition-all text-left cursor-pointer group ${
+                              isSecActive
+                                ? "bg-[#FF1E27]/15 text-[#FF1E27] font-bold border-l-2 border-[#FF1E27]"
+                                : "text-slate-200 hover:text-white hover:bg-white/10"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <SecIcon
+                                size={16}
+                                className={
+                                  isSecActive
+                                    ? "text-[#FF1E27]"
+                                    : "text-slate-400 group-hover:text-white"
+                                }
+                              />
+                              <span>{sec.label}</span>
+                            </div>
+                            {sec.badge && (
+                              <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-slate-400 text-[9px] font-mono font-bold">
+                                {sec.badge}
+                              </span>
+                            )}
+                          </button>
+
+                          {/* Products & Store + My Cart after Payments */}
+                          {sec.id === "payments" && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setAccountDropdownOpen(false);
+                                  navigate("/products");
+                                }}
+                                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium transition-all text-left cursor-pointer group text-slate-200 hover:text-white hover:bg-white/10"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <ShoppingBag
+                                    size={16}
+                                    className="text-amber-400 group-hover:scale-110 transition-transform"
+                                  />
+                                  <span>Products & Store</span>
+                                </div>
+                                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px] font-mono font-bold">
+                                  STORE
+                                </span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setAccountDropdownOpen(false);
+                                  navigate("/cart");
+                                }}
+                                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-medium transition-all text-left cursor-pointer group text-slate-200 hover:text-white hover:bg-white/10"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <ShoppingCart
+                                    size={16}
+                                    className="text-[#FF1E27] group-hover:scale-110 transition-transform"
+                                  />
+                                  <span>My Cart</span>
+                                </div>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold ${
+                                    totalItemsCount > 0
+                                      ? "bg-[#FF1E27]/20 text-[#FF1E27] border border-[#FF1E27]/30"
+                                      : "bg-white/[0.06] text-slate-400"
+                                  }`}
+                                >
+                                  {totalItemsCount > 0
+                                    ? `${totalItemsCount} ${
+                                        totalItemsCount === 1 ? "ITEM" : "ITEMS"
+                                      }`
+                                    : "EMPTY"}
+                                </span>
+                              </button>
+                            </>
                           )}
-                        </button>
+                        </React.Fragment>
                       );
                     })}
                   </div>
@@ -2753,9 +3228,13 @@ export default function CustomerDashboard({ onLogout }) {
         {/* ========================================================= */}
         {currentSection.subsections &&
           currentSection.subsections.length > 0 && (
-            <div className="bg-[#0e0e12] border-b border-white/[0.06] px-6 sm:px-8 py-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 mr-2 shrink-0">
-                Subsections:
+            <div
+              data-lenis-prevent="true"
+              onWheel={handleHorizontalWheelScroll}
+              className="bg-[#0e0e12]/95 backdrop-blur-xl border-b border-white/[0.06] px-5 sm:px-8 py-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar sticky top-[57px] z-20 overscroll-x-contain"
+            >
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 mr-1 shrink-0">
+                View:
               </span>
               {currentSection.subsections.map((sub) => {
                 const isSubSelected = activeSubTab === sub.id;
@@ -2763,13 +3242,14 @@ export default function CustomerDashboard({ onLogout }) {
                   <button
                     key={sub.id}
                     onClick={() => handleSubTabChange(sub.id)}
-                    className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
                       isSubSelected
-                        ? "bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white shadow-[0_0_12px_rgba(255,30,39,0.35)]"
+                        ? "bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white shadow-[0_0_12px_rgba(255,30,39,0.35)] font-bold"
                         : "bg-[#14141C] text-slate-400 hover:text-white hover:bg-white/[0.06] border border-white/[0.06]"
                     }`}
                   >
-                    {sub.label}
+                    {isSubSelected && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+                    <span>{sub.label}</span>
                   </button>
                 );
               })}
@@ -2777,9 +3257,9 @@ export default function CustomerDashboard({ onLogout }) {
           )}
 
         {/* ========================================================= */}
-        {/* INNER DYNAMIC WORKSPACE                                   */}
+        {/* INNER DYNAMIC WORKSPACE (CLEAN CENTERED RESPONSIVE CONTAINER) */}
         {/* ========================================================= */}
-        <div className="p-4 sm:p-6 md:p-8 space-y-8 flex-1 min-w-0 max-w-full">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 flex-1 min-w-0 max-w-7xl mx-auto w-full">
           {/* ========================================================= */}
           {/* LIVE FRONT DESK MANUAL LOGIN OTP PROMPT (ACTIVE DISPATCH) */}
           {/* ========================================================= */}
@@ -3474,30 +3954,40 @@ export default function CustomerDashboard({ onLogout }) {
                               <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-xs font-medium">
                                 ✓ {ord.orderStatus}
                               </span>
-                              <button
-                                onClick={() => {
-                                  setReceiptModalData({
-                                    id: ord.id,
-                                    title: ord.title,
-                                    amount: ord.amount,
-                                    date: ord.date,
-                                    paymentMethod: ord.paymentStatus,
-                                    customerName: fullName,
-                                    category: ord.category || "Supplements",
-                                    items: ord.rawOrder?.items || [
-                                      {
-                                        name: ord.title,
-                                        price: ord.amount,
-                                        quantity: 1,
-                                      },
-                                    ],
-                                    orderDetails: ord.rawOrder || ord,
-                                  });
-                                }}
-                                className="px-3 py-1.5 rounded-lg bg-[#181822] hover:bg-[#FF1E27] text-slate-300 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5"
-                              >
-                                <Download size={12} /> Invoice
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setReceiptModalData({
+                                      id: ord.id,
+                                      title: ord.title,
+                                      amount: ord.amount,
+                                      date: ord.date,
+                                      paymentMethod: ord.paymentStatus,
+                                      customerName: fullName,
+                                      category: ord.category || "Supplements",
+                                      items: ord.rawOrder?.items || [
+                                        {
+                                          name: ord.title,
+                                          price: ord.amount,
+                                          quantity: 1,
+                                        },
+                                      ],
+                                      orderDetails: ord.rawOrder || ord,
+                                    });
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-lg bg-[#181822] hover:bg-white/15 text-slate-300 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 border border-white/[0.08]"
+                                  title="View 3D Thermal Receipt & Invoice"
+                                >
+                                  <Eye size={12} /> View
+                                </button>
+                                <button
+                                  onClick={() => handleDownloadInvoice(ord)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-[#FF1E27]/15 hover:bg-[#FF1E27] text-[#FF1E27] hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 border border-[#FF1E27]/30"
+                                  title="Download Official Tax Invoice File"
+                                >
+                                  <Download size={12} /> Download
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -3762,14 +4252,16 @@ export default function CustomerDashboard({ onLogout }) {
                       </span>
                       <div className="flex items-baseline gap-2">
                         <span className="text-2xl sm:text-3xl font-black text-amber-400 font-mono flex items-center gap-1">
-                          <Flame size={24} className="fill-amber-400" /> 6
+                          <Flame size={24} className="fill-amber-400" /> {streakMetrics.currentStreak}
                         </span>
                         <span className="text-xs text-slate-400">
-                          Days Active
+                          {streakMetrics.currentStreak === 1 ? "Day Active" : "Days Active"}
                         </span>
                       </div>
                       <span className="text-[10px] text-emerald-400 font-medium block">
-                        Personal Best: 14 Consecutive Days
+                        {streakMetrics.longestStreak > 0
+                          ? `Personal Best: ${streakMetrics.longestStreak} Consecutive Days`
+                          : "Start checking in to set a record"}
                       </span>
                     </div>
 
@@ -3779,14 +4271,16 @@ export default function CustomerDashboard({ onLogout }) {
                       </span>
                       <div className="flex items-baseline gap-2">
                         <span className="text-2xl sm:text-3xl font-black text-purple-400 font-mono">
-                          82
+                          {streakMetrics.avgDuration || 0}
                         </span>
                         <span className="text-xs text-slate-400">
                           Mins / Session
                         </span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-medium block">
-                        Optimal Hypertrophy Window
+                        {streakMetrics.totalSessions > 0
+                          ? `${streakMetrics.totalSessions} Total Verified Sessions`
+                          : "No sessions recorded yet"}
                       </span>
                     </div>
 
@@ -3815,27 +4309,16 @@ export default function CustomerDashboard({ onLogout }) {
                       <div className="flex items-center gap-2">
                         <CalendarCheck size={16} className="text-[#FF1E27]" />
                         <h3 className="text-sm font-bold text-white font-['Outfit',sans-serif]">
-                          Recent Gate Access Logs ({attendanceMonthFilter})
+                          Recent Gate Access Logs
                         </h3>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {["Aug 2026", "Jul 2026", "Jun 2026"].map((m) => (
-                          <button
-                            key={m}
-                            onClick={() => setAttendanceMonthFilter(m)}
-                            className={`px-3 py-1 rounded-xl text-xs font-medium transition-all cursor-pointer ${
-                              attendanceMonthFilter === m
-                                ? "bg-[#FF1E27] text-white font-semibold"
-                                : "bg-[#0D0D12] text-slate-400 hover:text-white border border-white/[0.06]"
-                            }`}
-                          >
-                            {m}
-                          </button>
-                        ))}
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto w-full no-scrollbar">
+                    <div
+                      data-lenis-prevent="true"
+                      onWheel={handleHorizontalWheelScroll}
+                      className="overflow-x-auto w-full no-scrollbar overscroll-x-contain cursor-auto"
+                    >
                       <table className="min-w-[860px] w-full text-left text-xs border-collapse">
                         <thead className="bg-[#14141E] text-slate-400 text-xs font-semibold tracking-wider border-b border-white/[0.06]">
                           <tr>
@@ -3852,45 +4335,59 @@ export default function CustomerDashboard({ onLogout }) {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.04] text-slate-200">
-                          {attendanceRecords.map((att) => (
-                            <tr
-                              key={att.id}
-                              className="hover:bg-white/[0.02] transition-colors"
-                            >
-                              <td className="p-4 font-mono text-[#00F0FF] font-medium">
-                                {att.id}
-                              </td>
-                              <td className="p-4 text-white font-medium">
-                                {att.date}
-                              </td>
-                              <td className="p-4 font-mono text-emerald-400 font-semibold">
-                                {att.checkIn}
-                              </td>
-                              <td className="p-4 font-mono text-slate-400">
-                                {att.checkOut}
-                              </td>
-                              <td className="p-4 font-mono text-purple-400">
-                                {att.duration}
-                              </td>
-                              <td className="p-4 text-slate-300 font-mono text-[11px]">
-                                {att.gate}
-                              </td>
-                              <td className="p-4 text-slate-400">{att.zone}</td>
-                              <td className="p-4 text-right">
-                                <span
-                                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium inline-flex items-center gap-1 ${
-                                    att.status === "Active Floor"
-                                      ? "bg-amber-950/60 text-amber-400 border border-amber-800 animate-pulse"
-                                      : "bg-emerald-950/60 text-emerald-400 border border-emerald-800"
-                                  }`}
-                                >
-                                  {att.status === "Active Floor"
-                                    ? "● In Session"
-                                    : "✓ Verified"}
-                                </span>
+                          {attendanceRecords.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="p-8 text-center text-slate-400">
+                                <div className="flex flex-col items-center justify-center gap-2">
+                                  <CalendarCheck size={28} className="text-slate-600 mb-1" />
+                                  <p className="font-semibold text-slate-300">No Check-in Records Found</p>
+                                  <p className="text-[11px] text-slate-500 max-w-sm">
+                                    Scan your Live QR code or NFC Turnstile key when entering the gym to record your real attendance and build your streak.
+                                  </p>
+                                </div>
                               </td>
                             </tr>
-                          ))}
+                          ) : (
+                            attendanceRecords.map((att) => (
+                              <tr
+                                key={att.id || att._id}
+                                className="hover:bg-white/[0.02] transition-colors"
+                              >
+                                <td className="p-4 font-mono text-[#00F0FF] font-medium">
+                                  {att.id || (att._id ? `ATT-${att._id.slice(-4).toUpperCase()}` : "ATT-001")}
+                                </td>
+                                <td className="p-4 text-white font-medium">
+                                  {att.date}
+                                </td>
+                                <td className="p-4 font-mono text-emerald-400 font-semibold">
+                                  {att.checkIn || att.timeIn || "07:00 AM"}
+                                </td>
+                                <td className="p-4 font-mono text-slate-400">
+                                  {att.checkOut || att.timeOut || "—"}
+                                </td>
+                                <td className="p-4 font-mono text-purple-400">
+                                  {att.duration || "—"}
+                                </td>
+                                <td className="p-4 text-slate-300 font-mono text-[11px]">
+                                  {att.gate || "Turnstile Gate A1"}
+                                </td>
+                                <td className="p-4 text-slate-400">{att.zone || "Strength Arena"}</td>
+                                <td className="p-4 text-right">
+                                  <span
+                                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium inline-flex items-center gap-1 ${
+                                      att.status === "Active Floor" || !att.checkOut
+                                        ? "bg-amber-950/60 text-amber-400 border border-amber-800 animate-pulse"
+                                        : "bg-emerald-950/60 text-emerald-400 border border-emerald-800"
+                                    }`}
+                                  >
+                                    {att.status === "Active Floor" || !att.checkOut
+                                      ? "● In Session"
+                                      : "✓ Verified"}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -4273,10 +4770,12 @@ export default function CustomerDashboard({ onLogout }) {
                           size={20}
                           className="text-amber-400 fill-amber-400"
                         />{" "}
-                        6 Days
+                        {streakMetrics.currentStreak} {streakMetrics.currentStreak === 1 ? "Day" : "Days"}
                       </p>
                       <span className="text-xs text-slate-400">
-                        Streak started on Monday, 25 Aug
+                        {streakMetrics.currentStreak > 0
+                          ? "Active streak running"
+                          : "No active streak today"}
                       </span>
                     </div>
 
@@ -4285,10 +4784,12 @@ export default function CustomerDashboard({ onLogout }) {
                         LONGEST RECORD STREAK
                       </span>
                       <p className="text-2xl font-black text-amber-400 font-mono">
-                        14 Days
+                        {streakMetrics.longestStreak} {streakMetrics.longestStreak === 1 ? "Day" : "Days"}
                       </p>
                       <span className="text-xs text-slate-400">
-                        Achieved during May 2026 Hypertrophy Cycle
+                        {streakMetrics.longestStreak > 0
+                          ? "Personal best attendance record"
+                          : "Start checking in to set a record"}
                       </span>
                     </div>
 
@@ -4297,10 +4798,10 @@ export default function CustomerDashboard({ onLogout }) {
                         TOTAL WORKOUT HOURS
                       </span>
                       <p className="text-2xl font-black text-purple-400 font-mono">
-                        148.5 Hrs
+                        {streakMetrics.totalHours} Hrs
                       </p>
                       <span className="text-xs text-emerald-400 font-medium">
-                        Top 5% consistency in gym facility
+                        {streakMetrics.totalSessions} Total verified {streakMetrics.totalSessions === 1 ? "session" : "sessions"}
                       </span>
                     </div>
                   </div>
@@ -4842,12 +5343,6 @@ export default function CustomerDashboard({ onLogout }) {
                         workout progression, form audits, and training regimen.
                       </p>
                     </div>
-                    <button
-                      onClick={() => setActiveSubTab("all")}
-                      className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-[#FF1E27] text-slate-200 hover:text-white text-xs font-semibold transition-all cursor-pointer flex items-center gap-2"
-                    >
-                      <Users size={14} /> View All Faculty
-                    </button>
                   </div>
 
                   {myAssignedTrainer ? (
@@ -4932,28 +5427,6 @@ export default function CustomerDashboard({ onLogout }) {
                           "{myAssignedTrainer.bio}"
                         </p>
                       )}
-
-                      {/* Action Buttons */}
-                      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                        <button
-                          onClick={() => setChatModalTrainer(myAssignedTrainer)}
-                          className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-semibold text-xs sm:text-sm shadow-md hover:brightness-110 transition-all cursor-pointer flex items-center justify-center gap-2"
-                        >
-                          <MessageSquare size={15} /> Chat with Assigned Coach
-                        </button>
-                        <button
-                          onClick={() => setActiveTab("workout-diet")}
-                          className="flex-1 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white font-semibold text-xs sm:text-sm transition-all cursor-pointer flex items-center justify-center gap-2"
-                        >
-                          <Dumbbell size={15} /> View Assigned Workout Plan
-                        </button>
-                        <button
-                          onClick={() => setActiveSubTab("all")}
-                          className="px-4 py-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] text-slate-400 hover:text-white text-xs font-semibold transition-all cursor-pointer"
-                        >
-                          Switch Coach
-                        </button>
-                      </div>
                     </div>
                   ) : (
                     <div className="p-10 sm:p-12 rounded-3xl bg-[#121217] border border-white/[0.08] shadow-sm text-center space-y-4 max-w-xl mx-auto">
@@ -4965,17 +5438,9 @@ export default function CustomerDashboard({ onLogout }) {
                           No Personal Coach Assigned Yet
                         </h3>
                         <p className="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-                          You do not currently have a dedicated master trainer
-                          assigned to your profile. Select a certified coach
-                          from our faculty to guide your progression.
+                          Your assigned master coach details will be displayed here once allocated by Front Desk Reception.
                         </p>
                       </div>
-                      <button
-                        onClick={() => setActiveSubTab("all")}
-                        className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-semibold text-xs sm:text-sm shadow-md hover:brightness-110 cursor-pointer transition-all inline-flex items-center gap-2"
-                      >
-                        <Users size={15} /> Choose a Trainer from Faculty
-                      </button>
                     </div>
                   )}
                 </div>
@@ -5014,7 +5479,7 @@ export default function CustomerDashboard({ onLogout }) {
                             className="p-5 sm:p-6 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-4 shadow-sm hover:border-[#FF1E27]/40 transition-all flex flex-col justify-between"
                           >
                             <div className="space-y-3">
-                              <div className="w-full h-44 rounded-xl overflow-hidden relative">
+                              <div className="w-full h-48 rounded-xl overflow-hidden relative">
                                 <img
                                   src={
                                     t.image ||
@@ -5024,7 +5489,7 @@ export default function CustomerDashboard({ onLogout }) {
                                   alt={t.name}
                                   className="w-full h-full object-cover"
                                 />
-                                <span className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md text-amber-400 text-[11px] font-semibold flex items-center gap-1">
+                                <span className="absolute top-2.5 right-2.5 px-2.5 py-0.5 rounded-full bg-black/75 backdrop-blur-md text-amber-400 text-[11px] font-semibold flex items-center gap-1 shadow-md">
                                   <Star
                                     size={11}
                                     className="fill-amber-400 text-amber-400"
@@ -5032,70 +5497,63 @@ export default function CustomerDashboard({ onLogout }) {
                                   {t.rating || "5.0"}
                                 </span>
                                 {isAssignedToMe && (
-                                  <span className="absolute bottom-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-emerald-950/80 backdrop-blur-md text-emerald-400 border border-emerald-700 text-[10px] font-bold">
+                                  <span className="absolute bottom-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-emerald-950/90 backdrop-blur-md text-emerald-400 border border-emerald-700 text-[10px] font-bold">
                                     ✓ Assigned to You
                                   </span>
                                 )}
                               </div>
 
-                              <div>
-                                <h3 className="text-base font-bold text-white font-['Outfit',sans-serif]">
-                                  {t.name}
-                                </h3>
-                                <span className="text-xs text-[#FF1E27] font-semibold block mt-0.5">
+                              <div className="space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <h3 className="text-base font-bold text-white font-['Outfit',sans-serif]">
+                                    {t.name}
+                                  </h3>
+                                  <span className="text-[10px] font-mono font-bold text-purple-400 bg-purple-950/60 border border-purple-800/60 px-2 py-0.5 rounded-md">
+                                    FACULTY
+                                  </span>
+                                </div>
+                                <span className="text-xs text-[#FF1E27] font-semibold block">
                                   {t.spec || "Master Strength Specialist"}
                                 </span>
-                                <span className="text-xs text-slate-400 block mt-0.5">
-                                  {t.experience || "6+ Years Experience"} •
-                                  Shift: {t.shift || "06:00 AM - 02:00 PM"}
-                                </span>
-                                <p className="text-xs text-slate-300 mt-2 line-clamp-2 leading-relaxed">
-                                  {t.bio}
-                                </p>
+                                <div className="text-xs text-slate-400 space-y-0.5 pt-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <Clock size={12} className="text-slate-500" />
+                                    <span>Shift: {t.shift || "06:00 AM - 02:00 PM"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Award size={12} className="text-slate-500" />
+                                    <span>{t.experience || "6+ Years Experience"}</span>
+                                  </div>
+                                  {t.room && (
+                                    <div className="flex items-center gap-1.5">
+                                      <MapPin size={12} className="text-slate-500" />
+                                      <span>Arena: {t.room}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                {t.bio && (
+                                  <p className="text-xs text-slate-300 pt-2 leading-relaxed border-t border-white/[0.04] mt-2">
+                                    {t.bio}
+                                  </p>
+                                )}
                               </div>
                             </div>
 
-                            <div className="space-y-3 pt-3 border-t border-white/[0.06]">
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-400">
-                                  Coaching Status:
-                                </span>
-                                <span
-                                  className={
-                                    isAssignedToMe
-                                      ? "text-emerald-400 font-bold"
-                                      : "text-slate-300 font-medium"
-                                  }
-                                >
-                                  {isAssignedToMe
-                                    ? "✓ Active Assigned Coach"
-                                    : "Available to Assign"}
-                                </span>
-                              </div>
-
-                              <div className="flex flex-col gap-2">
-                                {!isAssignedToMe ? (
-                                  <button
-                                    onClick={() => handleAssignTrainer(t)}
-                                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-semibold text-xs shadow-sm hover:brightness-110 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                                  >
-                                    <UserCheck size={14} /> Set as My Assigned
-                                    Coach
-                                  </button>
-                                ) : (
-                                  <div className="w-full py-2 rounded-xl bg-emerald-950/40 border border-emerald-800 text-emerald-400 font-semibold text-xs text-center">
-                                    ✓ Your Active Coach (Included)
-                                  </div>
-                                )}
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => setChatModalTrainer(t)}
-                                    className="w-full py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white font-medium text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                                  >
-                                    <MessageSquare size={13} /> Chat with Coach
-                                  </button>
-                                </div>
-                              </div>
+                            <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                              <span className="text-slate-400 text-[11px]">
+                                Faculty Status:
+                              </span>
+                              <span
+                                className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                                  isAssignedToMe
+                                    ? "bg-emerald-950/80 text-emerald-400 border border-emerald-800"
+                                    : "bg-white/[0.05] text-slate-300 border border-white/10"
+                                }`}
+                              >
+                                {isAssignedToMe
+                                  ? "● Active Assigned Coach"
+                                  : "● Available Faculty"}
+                              </span>
                             </div>
                           </div>
                         );
@@ -5259,7 +5717,11 @@ export default function CustomerDashboard({ onLogout }) {
 
                   {filteredTransactions.length > 0 ? (
                     <div className="rounded-2xl bg-[#121217] border border-white/[0.08] overflow-hidden shadow-sm">
-                      <div className="overflow-x-auto w-full no-scrollbar">
+                      <div
+                        data-lenis-prevent="true"
+                        onWheel={handleHorizontalWheelScroll}
+                        className="overflow-x-auto w-full no-scrollbar overscroll-x-contain cursor-auto"
+                      >
                         <table className="min-w-[1020px] w-full text-left text-xs border-collapse">
                           <thead className="bg-[#181822] text-slate-400 text-xs font-semibold tracking-wider border-b border-white/[0.08]">
                             <tr>
@@ -5359,17 +5821,10 @@ export default function CustomerDashboard({ onLogout }) {
                                     </span>
                                   </td>
                                   <td className="px-4 py-3.5 text-right whitespace-nowrap align-middle">
-                                    <button
-                                      onClick={() => {
-                                        setReceiptModalData({
-                                          id: tx.id,
-                                          title: tx.item,
-                                          amount: tx.amount,
-                                          date: tx.date,
-                                          paymentMethod: tx.method,
-                                          category: tx.category,
-                                          customerName: fullName,
-                                          orderDetails: tx.orderDetails || {
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        onClick={() => {
+                                          setReceiptModalData({
                                             id: tx.id,
                                             title: tx.item,
                                             amount: tx.amount,
@@ -5377,15 +5832,32 @@ export default function CustomerDashboard({ onLogout }) {
                                             paymentMethod: tx.method,
                                             category: tx.category,
                                             customerName: fullName,
-                                          },
-                                        });
-                                      }}
-                                      className="px-3 py-1.5 rounded-xl bg-[#181822] hover:bg-[#FF1E27] text-slate-300 hover:text-white transition-all cursor-pointer inline-flex items-center gap-1.5 font-medium text-xs border border-white/[0.06] whitespace-nowrap shadow-sm"
-                                      title="View Official Receipt & Invoice"
-                                    >
-                                      <Download size={13} />
-                                      <span>Invoice</span>
-                                    </button>
+                                            orderDetails: tx.orderDetails || {
+                                              id: tx.id,
+                                              title: tx.item,
+                                              amount: tx.amount,
+                                              date: tx.date,
+                                              paymentMethod: tx.method,
+                                              category: tx.category,
+                                              customerName: fullName,
+                                            },
+                                          });
+                                        }}
+                                        className="px-2.5 py-1.5 rounded-xl bg-[#181822] hover:bg-white/15 text-slate-300 hover:text-white transition-all cursor-pointer inline-flex items-center gap-1.5 font-medium text-xs border border-white/[0.06] whitespace-nowrap shadow-sm"
+                                        title="View 3D Thermal Receipt"
+                                      >
+                                        <Eye size={12} />
+                                        <span>View</span>
+                                      </button>
+                                      <button
+                                        onClick={() => handleDownloadInvoice(tx)}
+                                        className="px-2.5 py-1.5 rounded-xl bg-[#FF1E27]/15 hover:bg-[#FF1E27] text-[#FF1E27] hover:text-white transition-all cursor-pointer inline-flex items-center gap-1.5 font-medium text-xs border border-[#FF1E27]/30 whitespace-nowrap shadow-sm"
+                                        title="Download Official Tax Invoice File"
+                                      >
+                                        <Download size={12} />
+                                        <span>Download</span>
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -5411,7 +5883,7 @@ export default function CustomerDashboard({ onLogout }) {
                       </div>
                       <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                         <Link
-                          to="/my-cart"
+                          to="/products"
                           className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition-all inline-flex items-center gap-2"
                         >
                           <ShoppingBag size={14} /> Shop Supplements
@@ -5473,26 +5945,36 @@ export default function CustomerDashboard({ onLogout }) {
                             <span className="text-base font-bold text-white font-mono">
                               {mp.amount}
                             </span>
-                            <button
-                              onClick={() => {
-                                setReceiptModalData({
-                                  id: mp.id,
-                                  title: mp.plan,
-                                  amount: mp.amount,
-                                  date: mp.date,
-                                  paymentMethod:
-                                    mp.method ||
-                                    user?.paymentMethod ||
-                                    "Online Payment",
-                                  customerName: fullName,
-                                  category: "Membership",
-                                  orderDetails: mp,
-                                });
-                              }}
-                              className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-[#FF1E27] text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-2"
-                            >
-                              <Download size={13} /> Download Tax Invoice
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setReceiptModalData({
+                                    id: mp.id,
+                                    title: mp.plan,
+                                    amount: mp.amount,
+                                    date: mp.date,
+                                    paymentMethod:
+                                      mp.method ||
+                                      user?.paymentMethod ||
+                                      "Online Payment",
+                                    customerName: fullName,
+                                    category: "Membership",
+                                    orderDetails: mp,
+                                  });
+                                }}
+                                className="px-3 py-2 rounded-xl bg-white/[0.06] hover:bg-white/15 text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 border border-white/[0.08]"
+                                title="View 3D Thermal Receipt"
+                              >
+                                <Eye size={13} /> View
+                              </button>
+                              <button
+                                onClick={() => handleDownloadInvoice(mp)}
+                                className="px-3 py-2 rounded-xl bg-[#FF1E27]/15 hover:bg-[#FF1E27] text-[#FF1E27] hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 border border-[#FF1E27]/30"
+                                title="Download Official Tax Invoice File"
+                              >
+                                <Download size={13} /> Download
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -5536,7 +6018,7 @@ export default function CustomerDashboard({ onLogout }) {
                       </p>
                     </div>
                     <Link
-                      to="/my-cart"
+                      to="/products"
                       className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-all inline-flex items-center gap-2"
                     >
                       <Plus size={14} /> Buy More Supplements
@@ -5598,22 +6080,32 @@ export default function CustomerDashboard({ onLogout }) {
                               </span>
                             </div>
 
-                            <button
-                              onClick={() => {
-                                setReceiptModalData({
-                                  id: sp.id,
-                                  title: sp.itemsSummary,
-                                  amount: sp.amount,
-                                  date: sp.date,
-                                  paymentMethod: sp.paymentMethod,
-                                  category: "Supplements",
-                                  orderDetails: sp.rawOrder || sp,
-                                });
-                              }}
-                              className="px-4 py-2 rounded-xl bg-white/[0.06] hover:bg-[#FF1E27] text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-2"
-                            >
-                              <Download size={13} /> View Invoice & Receipt
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setReceiptModalData({
+                                    id: sp.id,
+                                    title: sp.itemsSummary,
+                                    amount: sp.amount,
+                                    date: sp.date,
+                                    paymentMethod: sp.paymentMethod,
+                                    category: "Supplements",
+                                    orderDetails: sp.rawOrder || sp,
+                                  });
+                                }}
+                                className="px-3 py-2 rounded-xl bg-white/[0.06] hover:bg-white/15 text-slate-200 hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 border border-white/[0.08]"
+                                title="View 3D Thermal Receipt"
+                              >
+                                <Eye size={13} /> View
+                              </button>
+                              <button
+                                onClick={() => handleDownloadInvoice(sp)}
+                                className="px-3 py-2 rounded-xl bg-[#FF1E27]/15 hover:bg-[#FF1E27] text-[#FF1E27] hover:text-white text-xs font-medium transition-all cursor-pointer flex items-center gap-1.5 border border-[#FF1E27]/30"
+                                title="Download Official Tax Invoice File"
+                              >
+                                <Download size={13} /> Download
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -5634,7 +6126,7 @@ export default function CustomerDashboard({ onLogout }) {
                         </p>
                       </div>
                       <Link
-                        to="/my-cart"
+                        to="/products"
                         className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs sm:text-sm shadow-sm hover:brightness-110 cursor-pointer transition-all inline-flex items-center gap-2"
                       >
                         <ShoppingBag size={15} /> Browse Supplements & Store
@@ -6564,42 +7056,77 @@ export default function CustomerDashboard({ onLogout }) {
                     ) : (
                       supportTickets.map((tck) => (
                         <div
-                          key={tck.id}
-                          className="p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-3 shadow-sm hover:border-white/20 transition-all"
+                          key={tck.id || tck.ticketId}
+                          className="p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-3.5 shadow-sm hover:border-white/20 transition-all"
                         >
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs text-[#00F0FF] font-medium">
-                                {tck.id}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-mono text-xs text-[#00F0FF] font-medium bg-[#00F0FF]/10 px-2 py-0.5 rounded border border-[#00F0FF]/20">
+                                {tck.ticketId || tck.id}
                               </span>
-                              <span className="px-2 py-0.5 rounded bg-white/[0.06] text-slate-400 text-[10px]">
+                              <span className="px-2 py-0.5 rounded bg-white/[0.06] text-slate-300 text-[10px] font-medium">
                                 {tck.category}
                               </span>
+                              {tck.priority && (
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                    tck.priority.toLowerCase().includes("urgent") ||
+                                    tck.priority.toLowerCase().includes("critical") ||
+                                    tck.priority.toLowerCase().includes("high")
+                                      ? "bg-[#FF1E27]/15 text-[#FF1E27] border border-[#FF1E27]/30"
+                                      : "bg-slate-800 text-slate-300"
+                                  }`}
+                                >
+                                  {tck.priority}
+                                </span>
+                              )}
                               <span className="text-xs text-slate-400">
-                                • {tck.date}
+                                • {tck.date} {tck.time ? `(${tck.time})` : ""}
                               </span>
                             </div>
                             <span
                               className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium ${
-                                tck.status === "Resolved"
+                                tck.status === "Resolved" || tck.status === "Closed"
                                   ? "bg-emerald-950/60 text-emerald-400 border border-emerald-800"
+                                  : tck.status === "In Progress"
+                                  ? "bg-cyan-950/60 text-cyan-400 border border-cyan-800"
                                   : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                               }`}
                             >
-                              ● {tck.status}
+                              ● {tck.status || "Open"}
                             </span>
                           </div>
 
-                          <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">
-                            {tck.subject}
-                          </h4>
+                          <div>
+                            <h4 className="text-sm font-semibold text-white font-['Outfit',sans-serif]">
+                              {tck.subject}
+                            </h4>
+                            {tck.description && (
+                              <p className="text-xs text-slate-300/90 mt-1.5 leading-relaxed bg-[#0A0A0D] p-3 rounded-xl border border-white/[0.04]">
+                                {tck.description}
+                              </p>
+                            )}
+                          </div>
 
                           {tck.reply && (
-                            <div className="p-3.5 rounded-xl bg-[#0D0D12] border border-white/[0.04] text-xs text-slate-300 space-y-1">
-                              <span className="text-[10px] text-[#FF1E27] font-semibold uppercase tracking-wider block">
-                                FRONT DESK RESPONSE:
-                              </span>
-                              <p>{tck.reply}</p>
+                            <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#14141B] to-[#121218] border border-white/[0.08] text-xs text-slate-200 space-y-1.5 shadow-inner">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-[#FF1E27] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF1E27]" />
+                                  FRONT DESK RESOLUTION NOTES
+                                </span>
+                                {tck.replyAt && (
+                                  <span className="text-[10px] font-mono text-slate-500">
+                                    {tck.replyAt}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-slate-300 leading-relaxed font-sans">{tck.reply}</p>
+                              {tck.replyBy && (
+                                <span className="text-[10px] text-slate-500 block pt-0.5">
+                                  Resolved by: {tck.replyBy}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>

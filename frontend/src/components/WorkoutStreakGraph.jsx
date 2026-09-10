@@ -10,12 +10,12 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cn } from "../lib/utils";
 
 export const VARIANTS = {
-  attendance: ["#ef4444", "#064e3b", "#047857", "#10b981", "#34d399"],
-  github: ["#ef4444", "#0e4429", "#006d32", "#26a641", "#39d353"],
-  titan: ["#ef4444", "#4a0404", "#7f1d1d", "#dc2626", "#ff1e27"],
-  emerald: ["#ef4444", "#047857", "#059669", "#10b981", "#22c55e"],
-  ocean: ["#ef4444", "#0c4a6e", "#0284c7", "#38bdf8", "#7dd3fc"],
-  violet: ["#ef4444", "#4c1d95", "#7c3aed", "#a855f7", "#c084fc"],
+  attendance: ["#161b22", "#064e3b", "#047857", "#10b981", "#34d399"],
+  github: ["#161b22", "#0e4429", "#006d32", "#26a641", "#39d353"],
+  titan: ["#161b22", "#4a0404", "#7f1d1d", "#dc2626", "#ff1e27"],
+  emerald: ["#161b22", "#047857", "#059669", "#10b981", "#22c55e"],
+  ocean: ["#161b22", "#0c4a6e", "#0284c7", "#38bdf8", "#7dd3fc"],
+  violet: ["#161b22", "#4c1d95", "#7c3aed", "#a855f7", "#c084fc"],
 };
 
 function dateFromISO(value) {
@@ -131,7 +131,7 @@ function formatContributionLabel(contribution) {
   }).format(parsed);
 
   if (contribution.count === 0 || contribution.level === 0) {
-    return `🔴 Rest / Absent Day · ${date}`;
+    return `Rest / No Check-in · ${date}`;
   }
 
   const durationStr = contribution.duration
@@ -285,17 +285,17 @@ export default function WorkoutStreakGraph({
           style={{
             backgroundColor:
               contribution.level === 0
-                ? "#ef4444"
-                : colors[contribution.level] || colors[0],
+                ? "rgba(255,255,255,0.04)"
+                : colors[contribution.level] || colors[1],
             borderRadius: resolvedCellRadius,
             border:
               contribution.level === 0
-                ? "1px solid rgba(239, 68, 68, 0.45)"
-                : "1px solid rgba(255,255,255,0.12)",
+                ? "1px solid rgba(255,255,255,0.06)"
+                : "1px solid rgba(255,255,255,0.15)",
             boxShadow:
               contribution.level === 0
-                ? "0 0 5px rgba(239, 68, 68, 0.25)"
-                : "none",
+                ? "none"
+                : `0 0 6px ${colors[contribution.level]}40`,
           }}
         />
       </motion.button>
@@ -409,9 +409,9 @@ export default function WorkoutStreakGraph({
                       style={{
                         backgroundColor:
                           hoveredContribution.contribution.level === 0
-                            ? "#ef4444"
-                            : colors[hoveredContribution.contribution.level],
-                        boxShadow: `0 0 8px ${hoveredContribution.contribution.level === 0 ? "#ef4444" : colors[hoveredContribution.contribution.level]}`,
+                            ? "rgba(255,255,255,0.2)"
+                            : colors[hoveredContribution.contribution.level] || colors[1],
+                        boxShadow: `0 0 8px ${hoveredContribution.contribution.level === 0 ? "rgba(255,255,255,0.2)" : (colors[hoveredContribution.contribution.level] || colors[1])}`,
                       }}
                     />
                     <span>
@@ -431,26 +431,25 @@ export default function WorkoutStreakGraph({
       {showLegend && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-white/[0.06] text-xs text-slate-400">
           <div className="flex flex-wrap items-center gap-5">
-            {/* Absent Legend Indicator (Red) */}
+            {/* Rest / Inactive Indicator */}
             <div className="flex items-center gap-2">
               <span
                 style={{
                   width: 13,
                   height: 13,
-                  backgroundColor: "#ef4444",
+                  backgroundColor: "rgba(255,255,255,0.05)",
                   borderRadius: 3,
-                  border: "1px solid rgba(239, 68, 68, 0.6)",
-                  boxShadow: "0 0 6px rgba(239, 68, 68, 0.45)",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
                 }}
               />
-              <span className="text-rose-400 font-bold text-xs">
-                🔴 Absent (Not Checked-In)
+              <span className="text-slate-400 text-xs">
+                No Check-In / Rest
               </span>
             </div>
 
             {/* Present Activity Volume Scale */}
             <div className="flex items-center gap-2">
-              <span className="text-slate-400 text-xs">Low</span>
+              <span className="text-slate-400 text-xs">Less</span>
               <div className="flex gap-1 items-center">
                 {colors.slice(1).map((color, idx) => (
                   <span
@@ -467,7 +466,7 @@ export default function WorkoutStreakGraph({
                 ))}
               </div>
               <span className="text-emerald-400 font-bold text-xs">
-                🟢 Present (High Volume)
+                More Active
               </span>
             </div>
           </div>

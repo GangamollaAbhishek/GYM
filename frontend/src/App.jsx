@@ -45,6 +45,7 @@ import ForbiddenPage from "./components/ForbiddenPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ScrollToTop from "./components/ScrollToTop";
 import MyCartPage from "./components/MyCartPage";
+import ProductsPage from "./components/ProductsPage";
 import ToastNotificationStack from "./components/ToastNotificationStack";
 
 import {
@@ -322,7 +323,20 @@ function MainAppContent() {
             }
           />
 
-          {/* MY CART & CHECKOUT PAGE ROUTES (REQUIRES LOGIN) */}
+          {/* OFFICIAL SUPPLEMENTS & PRODUCTS STORE ROUTE (NO NAVBAR) */}
+          <Route
+            path="/products"
+            element={
+              <>
+                <ProductsPage />
+                <Footer onScrollToTop={handleScrollToTop} />
+              </>
+            }
+          />
+          <Route path="/supplements" element={<Navigate to="/products" replace />} />
+          <Route path="/store" element={<Navigate to="/products" replace />} />
+
+          {/* MY CART & CHECKOUT PAGE ROUTES (REQUIRES LOGIN - NO NAVBAR) */}
           <Route
             path="/cart"
             element={
@@ -338,7 +352,6 @@ function MainAppContent() {
                   "RECEPTIONIST",
                 ]}
               >
-                <SpotlightNavbar user={user} onLogout={handleLogout} />
                 <MyCartPage />
                 <Footer onScrollToTop={handleScrollToTop} />
               </ProtectedRoute>

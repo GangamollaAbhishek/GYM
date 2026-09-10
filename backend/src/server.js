@@ -25,8 +25,9 @@ const Payment = require('./models/Payment');
 const CMS = require('./models/CMS');
 const Attendance = require('./models/Attendance');
 const Enquiry = require('./models/Enquiry');
+const Ticket = require('./models/Ticket');
 const { authenticateToken, authorizeRoles } = require('./middleware/authMiddleware');
-const { sendWelcomeCredentialsEmail } = require('./utils/mailer');
+const { sendWelcomeCredentialsEmail, sendStaffCredentialsEmail } = require('./utils/mailer');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
@@ -1103,11 +1104,52 @@ app.get('/api/users/:id', authenticateToken, async (req, res) => {
     if (!userDoc) {
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
+
+    // Fetch full historical attendance records for this athlete
+    await syncEndOfDayAttendance();
+    const orConditions = [
+      { userId: userDoc._id },
+      { customerId: String(userDoc._id) },
+    ];
+    if (userDoc.email) orConditions.push({ email: userDoc.email });
+    if (userDoc.phone && userDoc.phone !== 'N/A') orConditions.push({ phone: userDoc.phone });
+    if (userDoc.name) orConditions.push({ name: new RegExp(`^${userDoc.name.trim()}$`, 'i') });
+
+    const attendanceDocs = await Attendance.find({ $or: orConditions })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean()
+      .exec();
+
+    const formattedAttendance = attendanceDocs.map((l, idx) => ({
+      id: l.logId || `LOG-${String(l._id).slice(-4)}`,
+      _id: l._id,
+      logId: l.logId || `LOG-${String(l._id).slice(-4)}`,
+      customerId: l.customerId,
+      userId: l.userId,
+      name: l.name,
+      email: l.email,
+      phone: l.phone,
+      plan: l.plan || userDoc.membershipPlan || 'Active Pass',
+      gate: l.terminal || 'Turnstile Gate Alpha-1',
+      terminal: l.terminal || 'Turnstile Gate Alpha-1',
+      in: l.timeIn,
+      timeIn: l.timeIn,
+      out: l.timeOut || '--',
+      timeOut: l.timeOut || '--',
+      date: l.date || (l.createdAt ? new Date(l.createdAt).toISOString().slice(0, 10) : ''),
+      status: l.status || 'Active Inside',
+      duration: l.status === 'Checked Out' ? '1h 15m' : l.status === 'Inactive' ? 'Session Ended' : 'Active In Arena',
+      verification: l.verification || '✓ Verified Turnstile Pass',
+      createdAt: l.createdAt,
+    }));
+
     res.status(200).json({
       status: 'success',
       data: {
         ...userDoc,
-        id: String(userDoc._id)
+        id: String(userDoc._id),
+        attendanceLogs: formattedAttendance
       }
     });
   } catch (error) {
@@ -1388,13 +1430,31 @@ app.post('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist'
       amountPaid = Number(amount) || 0;
     }
 
-    const assignedPassword = (password && password.trim()) ? password.trim() : 'TitanPass@123';
+    const normalizedRole = (role || 'customer').toLowerCase().trim();
+    const isStaff = normalizedRole === 'trainer' || normalizedRole === 'receptionist' || normalizedRole === 'admin' || normalizedRole === 'staff';
+
+    // Generate secure temporary password if not provided or if standard placeholder was passed
+    let assignedPassword;
+    if (password && password.trim() && !password.includes('@123')) {
+      assignedPassword = password.trim();
+    } else {
+      const randomCode = Math.floor(1000 + Math.random() * 9000);
+      if (normalizedRole === 'trainer') {
+        assignedPassword = `TitanCoach@${randomCode}`;
+      } else if (normalizedRole === 'receptionist') {
+        assignedPassword = `TitanDesk@${randomCode}`;
+      } else if (normalizedRole === 'admin') {
+        assignedPassword = `TitanAdmin@${randomCode}`;
+      } else {
+        assignedPassword = `TitanPass@${randomCode}`;
+      }
+    }
 
     const newUser = new User({
       name: name.trim(),
       email: lowerEmail,
       phone: (phone || '').trim(),
-      role: (role || 'customer').toLowerCase().trim(),
+      role: normalizedRole,
       password: assignedPassword,
       membershipPlan,
       membershipStatus,
@@ -1407,30 +1467,43 @@ app.post('/api/users', authenticateToken, authorizeRoles('admin', 'receptionist'
 
     await newUser.save();
 
-    // Dispatch welcome credentials email to the new athlete
+    // Dispatch credentials email (Staff credentials for Trainer/Receptionist, Welcome for Customer)
     let emailStatus = { success: false };
     try {
-      emailStatus = await sendWelcomeCredentialsEmail({
-        to: newUser.email,
-        name: newUser.name,
-        email: newUser.email,
-        password: assignedPassword,
-        plan: newUser.membershipPlan,
-        duration: newUser.membershipDuration,
-        membershipExpiry: newUser.membershipExpiry,
-        amountPaid: newUser.amountPaid,
-        paymentMethod: newUser.paymentMethod
-      });
+      if (isStaff) {
+        emailStatus = await sendStaffCredentialsEmail({
+          to: newUser.email,
+          name: newUser.name,
+          email: newUser.email,
+          password: assignedPassword,
+          role: newUser.role,
+          shift: req.body.shift,
+          assignedRoom: req.body.room || req.body.assignedRoom
+        });
+      } else {
+        emailStatus = await sendWelcomeCredentialsEmail({
+          to: newUser.email,
+          name: newUser.name,
+          email: newUser.email,
+          password: assignedPassword,
+          plan: newUser.membershipPlan,
+          duration: newUser.membershipDuration,
+          membershipExpiry: newUser.membershipExpiry,
+          amountPaid: newUser.amountPaid,
+          paymentMethod: newUser.paymentMethod
+        });
+      }
     } catch (mailErr) {
-      console.error('Failed to dispatch welcome email:', mailErr.message);
+      console.error('Failed to dispatch credentials email:', mailErr.message);
     }
 
     res.status(201).json({
       status: 'success',
       message: emailStatus?.success
-        ? 'User created successfully and credentials sent to email!'
-        : 'User created successfully',
+        ? `${isStaff ? 'Staff account' : 'User'} created successfully and temporary login credentials sent to ${newUser.email}!`
+        : `${isStaff ? 'Staff account' : 'User'} created successfully!`,
       emailSent: emailStatus?.success || false,
+      temporaryPassword: assignedPassword,
       data: {
         id: newUser._id.toString(),
         name: newUser.name,
@@ -2459,9 +2532,18 @@ app.post('/api/attendance/quick-checkin', async (req, res) => {
 app.get('/api/attendance', async (req, res) => {
   try {
     await syncEndOfDayAttendance();
-    const logs = await Attendance.find()
+    const query = {};
+    if (req.query.userId) {
+      query.$or = [
+        { userId: req.query.userId },
+        { customerId: req.query.userId }
+      ];
+    } else if (req.query.email) {
+      query.email = req.query.email;
+    }
+    const logs = await Attendance.find(query)
       .sort({ createdAt: -1 })
-      .limit(100)
+      .limit(300)
       .lean()
       .exec();
 
@@ -2475,13 +2557,18 @@ app.get('/api/attendance', async (req, res) => {
       email: l.email,
       phone: l.phone,
       plan: l.plan,
-      terminal: l.terminal,
+      gate: l.terminal || 'Turnstile Gate Alpha-1',
+      terminal: l.terminal || 'Turnstile Gate Alpha-1',
+      in: l.timeIn,
       timeIn: l.timeIn,
-      timeOut: l.timeOut,
-      date: l.date,
-      status: l.status,
-      verification: l.verification,
+      out: l.timeOut || '--',
+      timeOut: l.timeOut || '--',
+      date: l.date || (l.createdAt ? new Date(l.createdAt).toISOString().slice(0, 10) : ''),
+      status: l.status || 'Active Inside',
+      duration: l.status === 'Checked Out' ? '1h 15m' : l.status === 'Inactive' ? 'Session Ended' : 'Active In Arena',
+      verification: l.verification || '✓ Verified Turnstile Pass',
       checkInTimestamp: l.checkInTimestamp || l.createdAt,
+      createdAt: l.createdAt,
     }));
 
     return res.status(200).json({
@@ -2492,6 +2579,61 @@ app.get('/api/attendance', async (req, res) => {
   } catch (error) {
     console.error('Fetch attendance error:', error);
     return res.status(500).json({ status: 'error', message: 'Failed to fetch attendance logs' });
+  }
+});
+
+// GET /api/attendance/customer/:identifier - Fetch individual customer attendance history
+app.get('/api/attendance/customer/:identifier', async (req, res) => {
+  try {
+    await syncEndOfDayAttendance();
+    const identifier = req.params.identifier;
+    const isObjectId = mongoose.Types.ObjectId.isValid(identifier);
+    const orConditions = [
+      { customerId: identifier },
+      { email: identifier },
+      { name: new RegExp(`^${identifier.trim()}$`, 'i') },
+    ];
+    if (isObjectId) {
+      orConditions.push({ userId: identifier });
+    }
+    const logs = await Attendance.find({ $or: orConditions })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean()
+      .exec();
+
+    const formatted = logs.map(l => ({
+      id: l.logId || `LOG-${String(l._id).slice(-4)}`,
+      _id: l._id,
+      logId: l.logId || `LOG-${String(l._id).slice(-4)}`,
+      customerId: l.customerId,
+      userId: l.userId,
+      name: l.name,
+      email: l.email,
+      phone: l.phone,
+      plan: l.plan,
+      gate: l.terminal || 'Turnstile Gate Alpha-1',
+      terminal: l.terminal || 'Turnstile Gate Alpha-1',
+      in: l.timeIn,
+      timeIn: l.timeIn,
+      out: l.timeOut || '--',
+      timeOut: l.timeOut || '--',
+      date: l.date || (l.createdAt ? new Date(l.createdAt).toISOString().slice(0, 10) : ''),
+      status: l.status || 'Active Inside',
+      duration: l.status === 'Checked Out' ? '1h 15m' : l.status === 'Inactive' ? 'Session Ended' : 'Active In Arena',
+      verification: l.verification || '✓ Verified Turnstile Pass',
+      checkInTimestamp: l.checkInTimestamp || l.createdAt,
+      createdAt: l.createdAt,
+    }));
+
+    return res.status(200).json({
+      status: 'success',
+      count: formatted.length,
+      data: formatted,
+    });
+  } catch (error) {
+    console.error('Fetch customer attendance error:', error);
+    return res.status(500).json({ status: 'error', message: 'Failed to fetch customer attendance' });
   }
 });
 
@@ -2711,6 +2853,337 @@ app.delete('/api/enquiries/:id', async (req, res) => {
     return res.status(500).json({
       status: 'error',
       message: 'Failed to delete enquiry: ' + (error.message || 'Server error'),
+    });
+  }
+});
+
+// ==========================================
+// CUSTOMER SUPPORT & SERVICE TICKETS API
+// ==========================================
+
+// POST /api/tickets - Customer raises a support/service ticket
+app.post('/api/tickets', async (req, res) => {
+  try {
+    const {
+      ticketId,
+      customerId,
+      customerDisplayId,
+      customerName,
+      customerEmail,
+      customerPhone,
+      customerAvatar,
+      customerPlan,
+      subject,
+      category,
+      priority,
+      description,
+      status,
+      reply,
+    } = req.body;
+
+    if (!subject || !description) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Ticket Subject and Description are required fields.',
+      });
+    }
+
+    const uniqueTicketId =
+      ticketId ||
+      `TCK-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newTicket = new Ticket({
+      ticketId: uniqueTicketId,
+      customerId: customerId && mongoose.isValidObjectId(customerId) ? customerId : null,
+      customerDisplayId: customerDisplayId || '',
+      customerName: customerName || 'Gym Athlete',
+      customerEmail: customerEmail || '',
+      customerPhone: customerPhone || '',
+      customerAvatar: customerAvatar || '',
+      customerPlan: customerPlan || 'Titan Elite All-Access',
+      subject: subject.trim(),
+      category: category || 'Facility & Equipment',
+      priority: priority || 'Medium',
+      description: description.trim(),
+      status: status || 'Open',
+      reply: reply || 'Ticket logged with Front Desk. Our management team will review and respond promptly.',
+      replyBy: '',
+      replyAt: '',
+      assignedTo: 'Front Desk Receptionist',
+      date: new Date().toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      }),
+      time: new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }),
+    });
+
+    await newTicket.save();
+
+    console.log(`🎫 [Support Ticket API] New ticket logged: ${newTicket.ticketId} by ${newTicket.customerName} (${newTicket.subject}) -> Synced to Receptionist Dashboard.`);
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Support ticket raised successfully and dispatched to Reception Desk!',
+      data: {
+        id: newTicket.ticketId,
+        _id: newTicket._id,
+        ticketId: newTicket.ticketId,
+        customerId: newTicket.customerId,
+        customerDisplayId: newTicket.customerDisplayId,
+        customerName: newTicket.customerName,
+        customerEmail: newTicket.customerEmail,
+        customerPhone: newTicket.customerPhone,
+        customerAvatar: newTicket.customerAvatar,
+        customerPlan: newTicket.customerPlan,
+        subject: newTicket.subject,
+        category: newTicket.category,
+        priority: newTicket.priority,
+        description: newTicket.description,
+        status: newTicket.status,
+        reply: newTicket.reply,
+        replyBy: newTicket.replyBy,
+        replyAt: newTicket.replyAt,
+        assignedTo: newTicket.assignedTo,
+        date: newTicket.date,
+        time: newTicket.time,
+        createdAt: newTicket.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error creating support ticket:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to create support ticket: ' + (error.message || 'Server error'),
+    });
+  }
+});
+
+// GET /api/tickets - Retrieve all support tickets (for Receptionist & Admin)
+app.get('/api/tickets', async (req, res) => {
+  try {
+    const { status, category, priority, customerId, email } = req.query;
+    const query = {};
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+    if (priority && priority !== 'all') {
+      query.priority = priority;
+    }
+    if (customerId) {
+      query.$or = [
+        { customerId: mongoose.isValidObjectId(customerId) ? customerId : null },
+        { customerDisplayId: customerId },
+      ];
+    }
+    if (email) {
+      query.customerEmail = email;
+    }
+
+    const tickets = await Ticket.find(query).sort({ createdAt: -1 }).lean().exec();
+
+    const formatted = tickets.map((t) => ({
+      id: t.ticketId || `TCK-${String(t._id).slice(-4)}`,
+      _id: t._id,
+      ticketId: t.ticketId || `TCK-${String(t._id).slice(-4)}`,
+      customerId: t.customerId,
+      customerDisplayId: t.customerDisplayId,
+      customerName: t.customerName,
+      customerEmail: t.customerEmail,
+      customerPhone: t.customerPhone,
+      customerAvatar: t.customerAvatar,
+      customerPlan: t.customerPlan,
+      subject: t.subject,
+      category: t.category,
+      priority: t.priority,
+      description: t.description,
+      status: t.status,
+      reply: t.reply,
+      replyBy: t.replyBy,
+      replyAt: t.replyAt,
+      assignedTo: t.assignedTo,
+      date: t.date || (t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' }) : ''),
+      time: t.time || (t.createdAt ? new Date(t.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : ''),
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+    }));
+
+    return res.status(200).json({
+      status: 'success',
+      count: formatted.length,
+      data: formatted,
+    });
+  } catch (error) {
+    console.error('Error fetching tickets:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to retrieve support tickets: ' + (error.message || 'Server error'),
+    });
+  }
+});
+
+// GET /api/tickets/my - Retrieve authenticated customer's tickets
+app.get('/api/tickets/my', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userEmail = req.user.email;
+
+    const queryConditions = [];
+    if (userId && mongoose.isValidObjectId(userId)) {
+      queryConditions.push({ customerId: userId });
+    }
+    if (userEmail) {
+      queryConditions.push({ customerEmail: userEmail });
+    }
+
+    const tickets = await Ticket.find({ $or: queryConditions.length > 0 ? queryConditions : [{ customerEmail: userEmail }] })
+      .sort({ createdAt: -1 })
+      .lean()
+      .exec();
+
+    return res.status(200).json({
+      status: 'success',
+      count: tickets.length,
+      data: tickets.map((t) => ({
+        id: t.ticketId || `TCK-${String(t._id).slice(-4)}`,
+        _id: t._id,
+        ticketId: t.ticketId || `TCK-${String(t._id).slice(-4)}`,
+        subject: t.subject,
+        category: t.category,
+        priority: t.priority,
+        description: t.description,
+        status: t.status,
+        reply: t.reply,
+        replyBy: t.replyBy,
+        replyAt: t.replyAt,
+        assignedTo: t.assignedTo,
+        date: t.date,
+        time: t.time,
+        createdAt: t.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('Error fetching customer tickets:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch tickets: ' + (error.message || 'Server error'),
+    });
+  }
+});
+
+// PUT /api/tickets/:id - Update ticket status / reply / assigned resolution
+app.put('/api/tickets/:id', async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const { status, reply, replyBy, priority, assignedTo, category } = req.body;
+
+    const updateFields = {};
+    if (status) updateFields.status = status;
+    if (reply !== undefined) {
+      updateFields.reply = reply;
+      updateFields.replyBy = replyBy || 'Front Desk Concierge';
+      updateFields.replyAt = new Date().toLocaleDateString('en-US', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+    if (replyBy) updateFields.replyBy = replyBy;
+    if (priority) updateFields.priority = priority;
+    if (assignedTo) updateFields.assignedTo = assignedTo;
+    if (category) updateFields.category = category;
+
+    const updated = await Ticket.findOneAndUpdate(
+      {
+        $or: [
+          { ticketId: targetId },
+          { _id: mongoose.isValidObjectId(targetId) ? targetId : null },
+        ],
+      },
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Support ticket not found.',
+      });
+    }
+
+    console.log(`🎫 [Support Ticket API] Ticket ${updated.ticketId} updated -> Status: ${updated.status}`);
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Ticket ${updated.ticketId} updated successfully.`,
+      data: {
+        id: updated.ticketId,
+        _id: updated._id,
+        ticketId: updated.ticketId,
+        customerId: updated.customerId,
+        customerName: updated.customerName,
+        customerEmail: updated.customerEmail,
+        customerPhone: updated.customerPhone,
+        subject: updated.subject,
+        category: updated.category,
+        priority: updated.priority,
+        description: updated.description,
+        status: updated.status,
+        reply: updated.reply,
+        replyBy: updated.replyBy,
+        replyAt: updated.replyAt,
+        assignedTo: updated.assignedTo,
+        date: updated.date,
+        time: updated.time,
+        updatedAt: updated.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Error updating ticket:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to update ticket: ' + (error.message || 'Server error'),
+    });
+  }
+});
+
+// DELETE /api/tickets/:id - Delete ticket
+app.delete('/api/tickets/:id', async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    const deleted = await Ticket.findOneAndDelete({
+      $or: [
+        { ticketId: targetId },
+        { _id: mongoose.isValidObjectId(targetId) ? targetId : null },
+      ],
+    });
+
+    if (!deleted) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Support ticket not found.',
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: `Support ticket ${deleted.ticketId} removed successfully.`,
+    });
+  } catch (error) {
+    console.error('Error deleting ticket:', error);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to delete ticket: ' + (error.message || 'Server error'),
     });
   }
 });

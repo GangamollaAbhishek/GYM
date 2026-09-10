@@ -821,7 +821,7 @@ export function ServicesSection({
       const t = new THREE.CanvasTexture(c);
       t.colorSpace = THREE.SRGBColorSpace;
       t.anisotropy = ANISO;
-      t.flipY = false;
+      t.flipY = true;
       t.premultiplyAlpha = false;
       return t;
     }

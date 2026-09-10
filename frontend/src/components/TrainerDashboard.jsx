@@ -55,8 +55,13 @@ import {
   ExternalLink,
   RefreshCw,
   LayoutDashboard,
+  Key,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import AppleSwitch from "./ui/AppleSwitch";
+import { checkShiftDutyStatus } from "../utils/shiftTiming";
 import PinnedList from "./smoothui/components/pinned-list";
 import WhyUsBento from "./WhyUsBento";
 import api from "../lib/api";
@@ -776,25 +781,24 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
   });
 
   const [activeDietForm, setActiveDietForm] = useState({
-    dailyCalories: "2,800 kcal",
-    protein: "180g (2.2g/kg)",
-    carbs: "320g",
-    fats: "65g",
-    waterIntake: "4.0 Liters Daily",
-    mealProtocol: "4 Meals + 1 Pre-Workout Meal + 1 Post-Workout Whey Shake",
-    supplements:
-      "Hydrolyzed Whey Isolate, Creatine Creapure 5g, BCAA Electrolytes, Multivitamin + Omega 3",
+    dailyCalories: "",
+    protein: "",
+    carbs: "",
+    fats: "",
+    waterIntake: "",
+    mealProtocol: "",
+    supplements: "",
   });
 
   const [newTrainerNote, setNewTrainerNote] = useState("");
   const [activeProgressForm, setActiveProgressForm] = useState({
-    currentWeight: "76 kg",
-    targetWeight: "80 kg Lean Mass",
-    bodyFat: "14.2%",
-    benchPressPR: "110 kg",
-    squatPR: "150 kg",
-    deadliftPR: "190 kg",
-    weeklyAttendanceScore: "96%",
+    currentWeight: "",
+    targetWeight: "",
+    bodyFat: "",
+    benchPressPR: "",
+    squatPR: "",
+    deadliftPR: "",
+    weeklyAttendanceScore: "",
   });
 
   const [chatInput, setChatInput] = useState("");
@@ -811,6 +815,54 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
   const [selectedCertFileName, setSelectedCertFileName] = useState("");
   const [viewingCertificateFile, setViewingCertificateFile] = useState(null);
 
+  // Trainer Change Password State
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passLoading, setPassLoading] = useState(false);
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (!passwordForm.newPassword || passwordForm.newPassword.length < 6) {
+      showToast("⚠️ New password must be at least 6 characters long");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      showToast("⚠️ New passwords do not match");
+      return;
+    }
+    setPassLoading(true);
+    try {
+      const res = await api.post("/api/auth/change-password", {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+      if (res.data?.status === "success") {
+        showToast("✓ Password updated and saved securely!");
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      } else {
+        showToast(res.data?.message || "Error updating password.");
+      }
+    } catch (err) {
+      console.error("Change password error:", err);
+      showToast(
+        err.response?.data?.message ||
+        "Failed to update password. Please verify current password."
+      );
+    } finally {
+      setPassLoading(false);
+    }
+  };
+
   // Fetch genuine customers from backend API
   const fetchLiveCustomers = async () => {
     setLoading(true);
@@ -825,7 +877,7 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
           (u) => u.role === "customer" || !u.role || u.role === "member",
         );
 
-        // Map genuine data from DB
+        // Map genuine data from DB without dummy data injection
         const mapped = customers.map((u, idx) => {
           const isAssigned =
             (u.assignedTrainer &&
@@ -835,81 +887,31 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
 
           return {
             id: u.id || u._id || `CUST-${idx + 1}`,
-            name: u.name || "Athlete Member",
-            email: u.email || "athlete@titanpulse.fit",
-            phone: u.phone && u.phone !== "N/A" ? u.phone : "+91 98765 43210",
-            membershipPlan: u.membershipPlan || "Obsidian Pro Member",
-            membershipStatus: u.membershipStatus || "Active",
+            name: u.name || "Member",
+            email: u.email || "--",
+            phone: u.phone && u.phone !== "N/A" ? u.phone : (u.phone || "--"),
+            membershipPlan: u.membershipPlan || u.plan || "Pro Membership",
+            membershipStatus: u.membershipStatus || u.status || "Active",
             isAssignedToMe: Boolean(isAssigned),
-            height: u.height || "178 cm",
-            weight: u.weight || "76 kg",
-            bodyFat: u.bodyFat || "14.2%",
-            bloodGroup: u.bloodGroup || "O+",
-            avatar:
-              u.avatar ||
-              `https://images.unsplash.com/photo-${1534528741775 + (idx % 6) * 60}?auto=format&fit=crop&w=300&q=80`,
-            workoutPlan: u.workoutPlan || {
-              split: "Push-Pull-Legs (Hypertrophy)",
-              frequency: "5 Days / Week",
-              intensity: "High Intensity RPE 8-9",
-              cardioProtocol: "20 Mins Incline Treadmill Post-Lift",
-              customNotes:
-                "Focus on explosive concentric cadence and 3s eccentric squats.",
-              updatedAt: "Recently updated",
-            },
-            dietPlan: u.dietPlan || {
-              dailyCalories: "2,800 kcal",
-              protein: "180g (2.2g/kg)",
-              carbs: "320g",
-              fats: "65g",
-              waterIntake: "4.0 Liters Daily",
-              mealProtocol:
-                "4 Meals + 1 Pre-Workout Meal + 1 Post-Workout Whey Shake",
-              supplements: [
-                "Hydrolyzed Whey Isolate",
-                "Creatine Creapure 5g",
-                "BCAA Electrolytes",
-                "Multivitamin + Omega 3",
-              ],
-              updatedAt: "Recently updated",
-            },
-            trainerNotes:
-              u.trainerNotes && u.trainerNotes.length > 0
-                ? u.trainerNotes
-                : [
-                    {
-                      note: "Great form progression on compound squats. Recommend moving working sets up by 5kg next week.",
-                      date: "28 Aug 2026",
-                      author: user?.name || "Master Coach",
-                    },
-                  ],
+            height: u.height || "",
+            weight: u.weight || "",
+            bodyFat: u.bodyFat || "",
+            bloodGroup: u.bloodGroup || "",
+            avatar: u.avatar || u.profilePic || "",
+            workoutPlan: u.workoutPlan || null,
+            dietPlan: u.dietPlan || null,
+            trainerNotes: u.trainerNotes && Array.isArray(u.trainerNotes) ? u.trainerNotes : [],
             progress: u.progress || {
-              currentWeight: u.weight || "76 kg",
-              targetWeight: "80 kg Lean Mass",
-              bodyFat: u.bodyFat || "14.2%",
-              benchPressPR: "110 kg",
-              squatPR: "150 kg",
-              deadliftPR: "190 kg",
-              weeklyAttendanceScore: "96%",
-              lastAuditDate: "30 Aug 2026",
+              currentWeight: u.weight || "",
+              targetWeight: u.targetWeight || "",
+              bodyFat: u.bodyFat || "",
+              benchPressPR: u.benchPressPR || "",
+              squatPR: u.squatPR || "",
+              deadliftPR: u.deadliftPR || "",
+              weeklyAttendanceScore: u.attendanceScore || "",
+              lastAuditDate: "",
             },
-            chatMessages:
-              u.chatMessages && u.chatMessages.length > 0
-                ? u.chatMessages
-                : [
-                    {
-                      sender: "athlete",
-                      senderName: u.name,
-                      text: "Hey Coach! Ready for tomorrow’s heavy deadlift session.",
-                      time: "10:15 AM",
-                    },
-                    {
-                      sender: "coach",
-                      senderName: user?.name || "Coach",
-                      text: "Excellent! Make sure to complete the warm-up mobility routine first.",
-                      time: "10:20 AM",
-                    },
-                  ],
+            chatMessages: u.chatMessages && Array.isArray(u.chatMessages) ? u.chatMessages : [],
           };
         });
 
@@ -950,12 +952,8 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
         split: cust.workoutPlan.split || "Push-Pull-Legs (Hypertrophy)",
         frequency: cust.workoutPlan.frequency || "5 Days / Week",
         intensity: cust.workoutPlan.intensity || "High Intensity RPE 8-9",
-        cardioProtocol:
-          cust.workoutPlan.cardioProtocol ||
-          "20 Mins Incline Treadmill Post-Lift",
-        customNotes:
-          cust.workoutPlan.customNotes ||
-          "Focus on explosive concentric cadence and 3s eccentric squats.",
+        cardioProtocol: cust.workoutPlan.cardioProtocol || "",
+        customNotes: cust.workoutPlan.customNotes || "",
         dailySplits: initialSplits,
       });
       setTrainerWorkoutDay(Object.keys(initialSplits)[0] || "day1");
@@ -967,9 +965,8 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
         split: "Push-Pull-Legs (Hypertrophy)",
         frequency: "5 Days / Week",
         intensity: "High Intensity RPE 8-9",
-        cardioProtocol: "20 Mins Incline Treadmill Post-Lift",
-        customNotes:
-          "Focus on explosive concentric cadence and 3s eccentric squats.",
+        cardioProtocol: "",
+        customNotes: "",
         dailySplits: defaultSplits,
       });
       setTrainerWorkoutDay("day1");
@@ -977,30 +974,47 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
 
     if (cust.dietPlan) {
       setActiveDietForm({
-        dailyCalories: cust.dietPlan.dailyCalories || "2,800 kcal",
-        protein: cust.dietPlan.protein || "180g (2.2g/kg)",
-        carbs: cust.dietPlan.carbs || "320g",
-        fats: cust.dietPlan.fats || "65g",
-        waterIntake: cust.dietPlan.waterIntake || "4.0 Liters Daily",
-        mealProtocol:
-          cust.dietPlan.mealProtocol ||
-          "4 Meals + 1 Pre-Workout Meal + 1 Post-Workout Whey Shake",
+        dailyCalories: cust.dietPlan.dailyCalories || "",
+        protein: cust.dietPlan.protein || "",
+        carbs: cust.dietPlan.carbs || "",
+        fats: cust.dietPlan.fats || "",
+        waterIntake: cust.dietPlan.waterIntake || "",
+        mealProtocol: cust.dietPlan.mealProtocol || "",
         supplements: Array.isArray(cust.dietPlan.supplements)
           ? cust.dietPlan.supplements.join(", ")
-          : cust.dietPlan.supplements ||
-            "Hydrolyzed Whey Isolate, Creatine Creapure",
+          : cust.dietPlan.supplements || "",
+      });
+    } else {
+      setActiveDietForm({
+        dailyCalories: "",
+        protein: "",
+        carbs: "",
+        fats: "",
+        waterIntake: "",
+        mealProtocol: "",
+        supplements: "",
       });
     }
 
     if (cust.progress) {
       setActiveProgressForm({
-        currentWeight: cust.progress.currentWeight || cust.weight || "76 kg",
-        targetWeight: cust.progress.targetWeight || "80 kg Lean Mass",
-        bodyFat: cust.progress.bodyFat || cust.bodyFat || "14.2%",
-        benchPressPR: cust.progress.benchPressPR || "110 kg",
-        squatPR: cust.progress.squatPR || "150 kg",
-        deadliftPR: cust.progress.deadliftPR || "190 kg",
-        weeklyAttendanceScore: cust.progress.weeklyAttendanceScore || "96%",
+        currentWeight: cust.progress.currentWeight || cust.weight || "",
+        targetWeight: cust.progress.targetWeight || "",
+        bodyFat: cust.progress.bodyFat || cust.bodyFat || "",
+        benchPressPR: cust.progress.benchPressPR || "",
+        squatPR: cust.progress.squatPR || "",
+        deadliftPR: cust.progress.deadliftPR || "",
+        weeklyAttendanceScore: cust.progress.weeklyAttendanceScore || cust.attendanceScore || "",
+      });
+    } else {
+      setActiveProgressForm({
+        currentWeight: cust.weight || "",
+        targetWeight: "",
+        bodyFat: cust.bodyFat || "",
+        benchPressPR: "",
+        squatPR: "",
+        deadliftPR: "",
+        weeklyAttendanceScore: cust.attendanceScore || "",
       });
     }
 
@@ -1331,6 +1345,55 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
       }
     } catch (e) {
       console.warn("Live coach profile sync:", e);
+    }
+  };
+
+  // Coach Duty Shift Timing & Live Online Status
+  const [currentMinuteTicker, setCurrentMinuteTicker] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentMinuteTicker(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const shiftDutyInfo = useMemo(() => {
+    return checkShiftDutyStatus(coachProfile.shift);
+  }, [coachProfile.shift, currentMinuteTicker]);
+
+  const [isCoachOnline, setIsCoachOnline] = useState(() => {
+    try {
+      const saved = localStorage.getItem("titan_trainer_online_status");
+      if (saved !== null) return JSON.parse(saved);
+    } catch (e) {}
+    return true;
+  });
+
+  const handleToggleCoachOnline = (checked) => {
+    if (!shiftDutyInfo.isShiftActive) {
+      showToast(
+        `⚠️ Duty shift has not started yet. Assigned Shift: ${shiftDutyInfo.shiftWindowText}. Online toggle unlocks when your shift begins (${shiftDutyInfo.startTimeFormatted}).`
+      );
+      return;
+    }
+    setIsCoachOnline(checked);
+    try {
+      localStorage.setItem("titan_trainer_online_status", JSON.stringify(checked));
+      window.dispatchEvent(
+        new CustomEvent("titan_trainer_status_change", {
+          detail: {
+            trainerId: user?.id || user?._id,
+            trainerName: coachProfile.name,
+            online: checked,
+            status: checked ? "On Duty" : "On Break",
+          },
+        })
+      );
+    } catch (e) {}
+    if (checked) {
+      showToast(
+        `🟢 Master Coach Online: Active on duty floor (${shiftDutyInfo.shiftWindowText})`
+      );
+    } else {
+      showToast("⚪ Master Coach Offline: Status set to On Break / Standby");
     }
   };
 
@@ -1944,18 +2007,19 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
   ];
 
   return (
-    <div className="min-h-screen bg-[#08090D] text-slate-200 flex font-['Plus_Jakarta_Sans',sans-serif] selection:bg-purple-600 selection:text-white antialiased">
+    <div className="min-h-screen bg-[#08090D] text-slate-200 flex font-['Outfit',sans-serif] tracking-normal selection:bg-purple-600 selection:text-white antialiased">
       {/* ========================================================= */}
       {/* LEFT SIDEBAR NAVIGATION                                   */}
       {/* ========================================================= */}
       <aside
+        data-lenis-prevent="true"
         className={`${
           sidebarOpen ? "w-72" : "w-20"
-        } bg-[#0F1117]/95 backdrop-blur-2xl border-r border-white/[0.08] flex flex-col justify-between transition-all duration-300 z-40 fixed top-0 bottom-0 left-0 shadow-2xl`}
+        } bg-[#0F1117]/95 backdrop-blur-2xl border-r border-white/[0.08] flex flex-col justify-between transition-all duration-300 z-40 fixed top-0 bottom-0 left-0 shadow-2xl h-screen overflow-hidden`}
       >
-        <div className="flex flex-col h-full overflow-hidden">
+        <div data-lenis-prevent="true" className="flex flex-col h-full overflow-hidden">
           {/* Top Brand / Logo Header */}
-          <div className="p-4 sm:p-5 flex items-center justify-between border-b border-white/[0.08]">
+          <div className="p-4 sm:p-5 flex items-center justify-between border-b border-white/[0.08] shrink-0">
             <Link
               to="/"
               className="flex items-center gap-3 group focus:outline-none min-w-0"
@@ -1988,7 +2052,7 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
 
           {/* Coach Profile Capsule */}
           {sidebarOpen && (
-            <div className="p-3.5 mx-3 my-3 rounded-2xl bg-[#151722] border border-purple-500/20 flex items-center gap-3 shadow-md">
+            <div className="p-3.5 mx-3 my-3 rounded-2xl bg-[#151722] border border-purple-500/20 flex items-center gap-3 shadow-md shrink-0">
               <div className="relative shrink-0 group">
                 <img
                   src={coachProfile.avatar}
@@ -2014,7 +2078,10 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
           )}
 
           {/* SIDEBAR NAVIGATION ITEMS */}
-          <nav className="flex-1 px-3 py-2 space-y-1.5 overflow-y-auto overscroll-contain custom-scrollbar pb-8">
+          <nav
+            data-lenis-prevent="true"
+            className="flex-1 min-h-0 px-3 py-2 space-y-1.5 overflow-y-auto overscroll-contain no-scrollbar pb-16"
+          >
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -2072,12 +2139,12 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
         <header className="sticky top-0 z-30 bg-[#0C0E14]/90 backdrop-blur-xl border-b border-white/[0.08] px-6 sm:px-8 py-3.5 flex items-center justify-between">
           {/* Breadcrumb Navigation */}
           <div className="flex items-center gap-2.5">
-            <h1 className="text-sm sm:text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
-              <span className="text-slate-400 font-heading">
+            <h1 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
+              <span className="text-slate-400">
                 MASTER COACH HUB
               </span>
               <span className="text-slate-600">/</span>
-              <span className="text-purple-400 font-bold">
+              <span className="text-purple-400 font-semibold">
                 {inspectingCustomer
                   ? `Athlete: ${inspectingCustomer.name}`
                   : editProfileOpen
@@ -2090,10 +2157,53 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
 
           {/* Right Header Badges & Actions */}
           <div className="flex items-center gap-3">
-            <span className="px-3 py-1.5 rounded-xl bg-purple-950/60 border border-purple-800/60 text-purple-300 text-xs font-mono font-semibold hidden sm:flex items-center gap-2 shadow-sm">
-              <Clock size={13} className="text-purple-400" /> Duty Shift:{" "}
-              {coachProfile.shift.split("(")[0]}
-            </span>
+            {/* Apple-Style Coach Duty Shift Timing & Online/Offline Switch */}
+            <div className="flex items-center gap-2.5 sm:gap-3.5 px-3 sm:px-4 py-1.5 rounded-2xl bg-[#141724]/90 border border-purple-800/40 backdrop-blur-xl shadow-lg">
+              <div className="flex flex-col items-end text-right">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      !shiftDutyInfo.isShiftActive
+                        ? "bg-amber-500 animate-pulse"
+                        : isCoachOnline
+                        ? "bg-emerald-400 shadow-[0_0_8px_#34d399]"
+                        : "bg-slate-500"
+                    }`}
+                  />
+                  <span className="text-xs font-bold text-white tracking-tight">
+                    {!shiftDutyInfo.isShiftActive
+                      ? "Off Duty Hours"
+                      : isCoachOnline
+                      ? "Online (On Duty)"
+                      : "Offline (Break)"}
+                  </span>
+                </div>
+                <span className="text-[10px] text-purple-300/80 font-mono leading-none mt-0.5 max-w-[140px] sm:max-w-none truncate">
+                  {!shiftDutyInfo.isShiftActive
+                    ? shiftDutyInfo.nextShiftMessage || shiftDutyInfo.shiftWindowText
+                    : shiftDutyInfo.shiftWindowText}
+                </span>
+              </div>
+
+              <div
+                onClick={() => {
+                  if (!shiftDutyInfo.isShiftActive) {
+                    showToast(
+                      `⚠️ Duty shift has not started yet. Assigned Shift: ${shiftDutyInfo.shiftWindowText}. Online toggle unlocks when your shift begins (${shiftDutyInfo.startTimeFormatted}).`
+                    );
+                  }
+                }}
+              >
+                <AppleSwitch
+                  checked={shiftDutyInfo.isShiftActive ? isCoachOnline : false}
+                  disabled={!shiftDutyInfo.isShiftActive}
+                  onCheckedChange={handleToggleCoachOnline}
+                  size="sm"
+                  tone="emerald"
+                  aria-label="Coach Duty Online/Offline Switch"
+                />
+              </div>
+            </div>
 
             <div className="relative">
               <button
@@ -2316,15 +2426,58 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                   <span className="text-[11px] text-slate-400">Verified Member Reviews</span>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-[#12141C] border border-white/[0.08] space-y-1 shadow-sm">
+                <div className="p-5 rounded-2xl bg-[#12141C] border border-purple-500/30 space-y-1.5 shadow-sm relative overflow-hidden">
                   <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider">DUTY SHIFT</span>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-purple-400">
+                      DUTY SHIFT STATUS
+                    </span>
                     <Clock size={16} className="text-purple-400" />
                   </div>
-                  <div className="text-base font-bold text-white font-mono truncate">{coachProfile.shift.split("(")[0]}</div>
-                  <span className="text-[11px] text-purple-300 flex items-center gap-1">
-                    <Sparkles size={12} /> Managed by Reception
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-white font-mono truncate">
+                        {coachProfile.shift.split("(")[0]}
+                      </div>
+                      <span className={`text-[10px] font-mono flex items-center gap-1 ${
+                        !shiftDutyInfo.isShiftActive
+                          ? "text-amber-400"
+                          : isCoachOnline
+                          ? "text-emerald-400"
+                          : "text-slate-400"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          !shiftDutyInfo.isShiftActive
+                            ? "bg-amber-400"
+                            : isCoachOnline
+                            ? "bg-emerald-400 animate-pulse"
+                            : "bg-slate-500"
+                        }`} />
+                        {!shiftDutyInfo.isShiftActive
+                          ? "Off Duty Window"
+                          : isCoachOnline
+                          ? "Online Floor Active"
+                          : "On Break / Offline"}
+                      </span>
+                    </div>
+                    <div
+                      onClick={() => {
+                        if (!shiftDutyInfo.isShiftActive) {
+                          showToast(
+                            `⚠️ Duty shift has not started yet. Assigned Shift: ${shiftDutyInfo.shiftWindowText}.`
+                          );
+                        }
+                      }}
+                    >
+                      <AppleSwitch
+                        checked={shiftDutyInfo.isShiftActive ? isCoachOnline : false}
+                        disabled={!shiftDutyInfo.isShiftActive}
+                        onCheckedChange={handleToggleCoachOnline}
+                        size="sm"
+                        tone="emerald"
+                        aria-label="Toggle Online Duty Status"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-5 rounded-2xl bg-[#12141C] border border-white/[0.08] space-y-1 shadow-sm">
@@ -3681,7 +3834,7 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                                   WEIGHT
                                 </span>
                                 <span className="font-bold text-white font-mono">
-                                  {cust.weight}
+                                  {cust.weight ? (String(cust.weight).toLowerCase().includes("kg") ? cust.weight : `${cust.weight} kg`) : "--"}
                                 </span>
                               </div>
                               <div className="p-2.5 rounded-xl bg-[#090A0E] border border-white/[0.04]">
@@ -3689,7 +3842,7 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                                   BODY FAT
                                 </span>
                                 <span className="font-bold text-emerald-400 font-mono">
-                                  {cust.bodyFat}
+                                  {cust.bodyFat ? (String(cust.bodyFat).includes("%") ? cust.bodyFat : `${cust.bodyFat}%`) : "--"}
                                 </span>
                               </div>
                               <div className="p-2.5 rounded-xl bg-[#090A0E] border border-white/[0.04]">
@@ -3697,8 +3850,11 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                                   ADHERENCE
                                 </span>
                                 <span className="font-bold text-purple-400 font-mono">
-                                  {cust.progress?.weeklyAttendanceScore ||
-                                    "96%"}
+                                  {cust.progress?.weeklyAttendanceScore || cust.attendanceScore
+                                    ? (String(cust.progress?.weeklyAttendanceScore || cust.attendanceScore).includes("%")
+                                      ? (cust.progress?.weeklyAttendanceScore || cust.attendanceScore)
+                                      : `${cust.progress?.weeklyAttendanceScore || cust.attendanceScore}%`)
+                                    : "--"}
                                 </span>
                               </div>
                             </div>
@@ -3708,19 +3864,19 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                               <div className="flex justify-between items-center text-slate-400">
                                 <span>Active Split:</span>
                                 <span className="text-white font-semibold truncate max-w-[140px]">
-                                  {cust.workoutPlan?.split || "Push-Pull-Legs"}
+                                  {cust.workoutPlan?.split || "Not Assigned"}
                                 </span>
                               </div>
                               <div className="flex justify-between items-center text-slate-400">
                                 <span>Phone:</span>
                                 <span className="text-slate-300 font-mono">
-                                  {cust.phone}
+                                  {cust.phone || "--"}
                                 </span>
                               </div>
                               <div className="flex justify-between items-center text-slate-400 truncate">
                                 <span>Email:</span>
                                 <span className="text-slate-300 truncate max-w-[140px]">
-                                  {cust.email}
+                                  {cust.email || "--"}
                                 </span>
                               </div>
                             </div>
@@ -4559,6 +4715,124 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
                         </div>
                       ))}
                     </div>
+                  </div>
+
+                  {/* Account Security & Password Change Card */}
+                  <div className="p-6 sm:p-8 rounded-3xl bg-[#12141C] border border-white/[0.08] shadow-xl space-y-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-white/[0.06]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 text-purple-400 flex items-center justify-center">
+                          <Key size={18} />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-white font-['Outfit',sans-serif]">
+                            Account Security & Password
+                          </h3>
+                          <p className="text-xs text-slate-400">
+                            Update your trainer portal access password and keep your credentials secure.
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-purple-950/80 text-purple-300 border border-purple-800 text-[10px] font-mono font-semibold">
+                        🔒 Hashed in MongoDB
+                      </span>
+                    </div>
+
+                    <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl text-xs">
+                      <div className="space-y-1.5">
+                        <label className="text-slate-300 font-medium">
+                          Current Password (Optional)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showCurrentPassword ? "text" : "password"}
+                            value={passwordForm.currentPassword}
+                            onChange={(e) =>
+                              setPasswordForm({
+                                ...passwordForm,
+                                currentPassword: e.target.value,
+                              })
+                            }
+                            placeholder="Enter current password if set"
+                            className="w-full px-4 py-3 rounded-xl bg-[#090A0E] border border-white/10 text-white text-xs outline-none focus:border-purple-500 pr-10 font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          >
+                            {showCurrentPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-slate-300 font-medium">
+                            New Password
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showNewPassword ? "text" : "password"}
+                              value={passwordForm.newPassword}
+                              onChange={(e) =>
+                                setPasswordForm({
+                                  ...passwordForm,
+                                  newPassword: e.target.value,
+                                })
+                              }
+                              placeholder="Min. 6 characters"
+                              className="w-full px-4 py-3 rounded-xl bg-[#090A0E] border border-white/10 text-white text-xs outline-none focus:border-purple-500 pr-10 font-mono"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                              {showNewPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-slate-300 font-medium">
+                            Confirm New Password
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showConfirmPassword ? "text" : "password"}
+                              value={passwordForm.confirmPassword}
+                              onChange={(e) =>
+                                setPasswordForm({
+                                  ...passwordForm,
+                                  confirmPassword: e.target.value,
+                                })
+                              }
+                              placeholder="Re-enter new password"
+                              className="w-full px-4 py-3 rounded-xl bg-[#090A0E] border border-white/10 text-white text-xs outline-none focus:border-purple-500 pr-10 font-mono"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                            >
+                              {showConfirmPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={passLoading}
+                        className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 mt-2"
+                      >
+                        <Lock size={13} />
+                        {passLoading ? "Updating Password..." : "Update Password"}
+                      </button>
+                    </form>
                   </div>
                 </div>
               )}

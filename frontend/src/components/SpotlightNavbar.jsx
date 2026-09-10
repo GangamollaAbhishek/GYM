@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   ShoppingBag,
+  ShoppingCart,
   Sparkles,
   Shield,
   LayoutDashboard,
@@ -755,6 +756,56 @@ export function SpotlightNavbar({
                                 className="text-emerald-400 group-hover:scale-110 transition-transform"
                               />
                               <span>Payments</span>
+                            </button>
+
+                            {/* Products & Store */}
+                            <button
+                              onClick={() => {
+                                setAccountDropdownOpen(false);
+                                navigate("/products");
+                              }}
+                              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
+                            >
+                              <div className="flex items-center gap-3">
+                                <ShoppingBag
+                                  size={16}
+                                  className="text-amber-400 group-hover:scale-110 transition-transform"
+                                />
+                                <span>Products & Store</span>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold">
+                                STORE
+                              </span>
+                            </button>
+
+                            {/* My Cart */}
+                            <button
+                              onClick={() => {
+                                setAccountDropdownOpen(false);
+                                navigate("/cart");
+                              }}
+                              className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
+                            >
+                              <div className="flex items-center gap-3">
+                                <ShoppingCart
+                                  size={16}
+                                  className="text-[#FF2E4C] group-hover:scale-110 transition-transform"
+                                />
+                                <span>My Cart</span>
+                              </div>
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold ${
+                                  totalItemsCount > 0
+                                    ? "bg-[#FF2E4C]/20 text-[#FF2E4C] border border-[#FF2E4C]/30"
+                                    : "bg-white/[0.06] text-slate-400"
+                                }`}
+                              >
+                                {totalItemsCount > 0
+                                  ? `${totalItemsCount} ${
+                                      totalItemsCount === 1 ? "ITEM" : "ITEMS"
+                                    }`
+                                  : "EMPTY"}
+                              </span>
                             </button>
 
                             <button
