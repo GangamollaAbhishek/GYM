@@ -601,8 +601,225 @@ const sendStaffCredentialsEmail = async ({
   }
 };
 
+/**
+ * Sends a manual turnstile check-in OTP passcode email to the customer.
+ */
+const sendManualCheckInOtpEmail = async ({
+  to,
+  name,
+  email,
+  otp,
+  expiresInMins = 2,
+  receptionistName = 'Front Desk Receptionist',
+  portalUrl = process.env.PORTAL_URL || process.env.FRONTEND_URL || 'https://gym.speshway.site/'
+}) => {
+  try {
+    const transporter = createTransporter();
+    const recipientEmail = to || email;
+    const athleteName = name || 'Valued Athlete';
+
+    if (!recipientEmail) {
+      console.warn('⚠️ [Mailer] Customer email is missing, cannot send OTP email.');
+      return { success: false, error: 'Recipient email missing' };
+    }
+
+    if (!transporter) {
+      console.log(`\n=============================================================`);
+      console.log(`📧 [SIMULATED EMAIL - MANUAL CHECK-IN OTP]`);
+      console.log(`To: ${recipientEmail}`);
+      console.log(`Athlete: ${athleteName}`);
+      console.log(`Check-In OTP: ${otp}`);
+      console.log(`Expires In: ${expiresInMins} minutes`);
+      console.log(`=============================================================\n`);
+      return { success: false, simulated: true, reason: 'SMTP credentials missing in .env' };
+    }
+
+    const fromSender =
+      process.env.SMTP_FROM ||
+      process.env.EMAIL_FROM ||
+      `"TITAN PULSE 3D FITNESS" <${process.env.SMTP_USER || process.env.EMAIL_USER}>`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turnstile Gate Manual Check-In Passcode</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0A0A0D;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #E2E8F0;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #0A0A0D;
+      padding: 30px 0;
+    }
+    .main-table {
+      max-width: 540px;
+      width: 100%;
+      margin: 0 auto;
+      background-color: #121318;
+      border: 1px solid rgba(255, 46, 76, 0.25);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+    }
+    .hero-banner {
+      background: linear-gradient(135deg, #FF2E4C 0%, #B8001F 100%);
+      padding: 28px 24px;
+      text-align: center;
+    }
+    .hero-title {
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      color: #FFFFFF;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .hero-subtitle {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+      margin: 6px 0 0 0;
+      letter-spacing: 0.5px;
+    }
+    .content-body {
+      padding: 28px 24px;
+      text-align: center;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 8px;
+    }
+    .intro-text {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #94A3B8;
+      margin-bottom: 24px;
+    }
+    .otp-box {
+      background: #090A0E;
+      border: 2px dashed rgba(255, 46, 76, 0.5);
+      border-radius: 16px;
+      padding: 24px 16px;
+      margin: 0 auto 24px auto;
+      max-width: 320px;
+    }
+    .otp-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #FF2E4C;
+      margin-bottom: 12px;
+    }
+    .otp-code {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: #00F0FF;
+      text-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+      margin: 0;
+      line-height: 1;
+    }
+    .otp-timer {
+      font-size: 11px;
+      color: #F59E0B;
+      font-weight: 700;
+      margin-top: 12px;
+      letter-spacing: 0.5px;
+    }
+    .instruction-card {
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 3px solid #00F0FF;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      text-align: left;
+      margin-bottom: 24px;
+      font-size: 12px;
+      color: #CBD5E1;
+      line-height: 1.5;
+    }
+    .footer {
+      background: #0D0E13;
+      padding: 20px;
+      text-align: center;
+      font-size: 11px;
+      color: #64748B;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <table class="main-table" cellpadding="0" cellspacing="0">
+      <tr>
+        <td class="hero-banner">
+          <h1 class="hero-title">⚡ TITAN PULSE FITNESS</h1>
+          <p class="hero-subtitle">FRONT DESK TURNSTILE ACCESS PASSCODE</p>
+        </td>
+      </tr>
+      <tr>
+        <td class="content-body">
+          <div class="greeting">Hello, ${athleteName}! 👋</div>
+          <p class="intro-text">
+            A manual turnstile gate check-in has been initiated at the front desk by <strong>${receptionistName}</strong>. Please provide the 4-digit verification passcode below to complete your check-in:
+          </p>
+
+          <div class="otp-box">
+            <div class="otp-label">🔑 4-Digit Check-In Passcode</div>
+            <div class="otp-code">${otp}</div>
+            <div class="otp-timer">⏱️ Valid for ${expiresInMins}:00 Minutes</div>
+          </div>
+
+          <div class="instruction-card">
+            <strong>📋 Check-In Instructions:</strong> Read or show this 4-digit code to the receptionist to immediately unlock and record your workout session.
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="footer">
+          &copy; ${new Date().getFullYear()} <strong>TITAN PULSE FITNESS HUB</strong>.<br>
+          Front Desk Manual Verification Stream &bull; All Rights Reserved.<br>
+          If you did not request this manual check-in, you can safely disregard this email.
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
+    `;
+
+    const info = await transporter.sendMail({
+      from: fromSender,
+      to: recipientEmail,
+      subject: `🔑 [${otp}] Your Titan Pulse Turnstile Check-In Passcode`,
+      text: `Hello ${athleteName},\n\nYour Front Desk Turnstile Check-In Passcode is: ${otp}\n\nValid for ${expiresInMins} minutes.\n\nPlease provide this code to the receptionist to complete your check-in.\n\nTitan Pulse Fitness Hub`,
+      html
+    });
+
+    console.log(`✅ [Mailer] Manual Check-In OTP email sent to ${recipientEmail} (OTP: ${otp}, MsgId: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [Mailer] Error sending check-in OTP email to ${to}:`, err.message);
+    return { success: false, error: err.message };
+  }
+};
+
 module.exports = {
   createTransporter,
   sendWelcomeCredentialsEmail,
-  sendStaffCredentialsEmail
+  sendStaffCredentialsEmail,
+  sendManualCheckInOtpEmail
 };

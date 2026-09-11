@@ -157,6 +157,9 @@ export const AuthProvider = ({ children }) => {
     try {
       localStorage.removeItem("titan_token");
       localStorage.removeItem("titan_user");
+      localStorage.removeItem("titan_cart");
+      sessionStorage.removeItem("titan_token");
+      sessionStorage.removeItem("titan_user");
     } catch (e) {
       console.error("Error during logout:", e);
     }

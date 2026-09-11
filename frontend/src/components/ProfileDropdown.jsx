@@ -68,7 +68,7 @@ export default function ProfileDropdown({ onLogout }) {
       onLogout();
     } else {
       logout();
-      navigate("/");
+      navigate("/login", { replace: true });
     }
   };
 

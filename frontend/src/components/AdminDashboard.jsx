@@ -83,6 +83,13 @@ import AgentBentoGrid from "./AgentBentoGrid";
 import { useLandingPageCMS } from "../context/LandingPageCMSContext";
 import { useAuth } from "../context/AuthContext";
 import api from "../lib/api";
+import {
+  checkShiftDutyStatus,
+  getTodayStaffDutyRecord,
+  startStaffDutySession,
+  endStaffDutySession,
+  calculateDutyHours,
+} from "../utils/shiftTiming";
 
 // Motion Spring Variants for Notifications
 const itemVariants = {
@@ -963,25 +970,38 @@ export default function AdminDashboard({ user, onLogout }) {
               u.email !== "trainer@titangym.com" &&
               !u.name?.toLowerCase().includes("marcus vance")
           )
-          .map((u, idx) => ({
-            id: u.displayId || `TRN-${501 + idx}`,
-            userId: u.id,
-            name: u.name,
-            email: u.email,
-            phone: u.phone && u.phone !== "N/A" ? u.phone : "N/A",
-            spec: u.spec || "Master Coach & Conditioning",
-            clients: liveCustomers.filter(
-              (c) =>
-                (c.assignedTrainer === u.id ||
-                  c.assignedTrainerName === u.name) &&
-                c.plan !== "No Active Plan",
-            ).length,
-            shift: u.shift || "06:00 AM - 02:00 PM",
-            room: u.assignedRoom || "Main Strength & Conditioning Arena",
-            days: u.workingDays || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-            rating: "5.0 ★",
-            status: "On Duty",
-          }));
+          .map((u, idx) => {
+            const dutyRec = getTodayStaffDutyRecord(
+              u.displayId || u.id,
+              "trainer",
+              u.shift || "06:00 AM - 02:00 PM",
+              u.name,
+              u.email,
+              u.id
+            );
+            return {
+              id: u.displayId || `TRN-${501 + idx}`,
+              userId: u.id,
+              name: u.name,
+              email: u.email,
+              phone: u.phone && u.phone !== "N/A" ? u.phone : "N/A",
+              spec: u.spec || u.specialization || "Master Coach & Conditioning",
+              clients: liveCustomers.filter(
+                (c) =>
+                  (c.assignedTrainer === u.id ||
+                    c.assignedTrainerName === u.name) &&
+                  c.plan !== "No Active Plan",
+              ).length,
+              shift: u.shift || "06:00 AM - 02:00 PM",
+              room: u.assignedRoom || "Main Strength & Conditioning Arena",
+              days: u.workingDays || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+              rating: "5.0 ★",
+              status: dutyRec?.status || "Off Duty",
+              dutyHours: dutyRec?.dutyHours || "0.0 hrs",
+              timeIn: dutyRec?.timeIn || "--",
+              timeOut: dutyRec?.timeOut || "--",
+            };
+          });
         setTrainersList(liveTrainers);
 
         // 3. Genuine Registered Receptionists / Front Desk (Exclude dummy seed accounts)
@@ -993,18 +1013,31 @@ export default function AdminDashboard({ user, onLogout }) {
               u.name !== "Front Desk Receptionist" &&
               !u.email?.toLowerCase().includes("receptionist@titangym.com"),
           )
-          .map((u, idx) => ({
-            id: u.displayId || `REC-${201 + idx}`,
-            userId: u.id,
-            name: u.name,
-            email: u.email,
-            phone: u.phone && u.phone !== "N/A" ? u.phone : "N/A",
-            terminal: u.assignedRoom || "Gate Terminal A1",
-            shift: u.shift || "Morning (06:00 AM - 02:00 PM)",
-            days: u.workingDays || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-            checkinsToday: 0,
-            status: "Online",
-          }));
+          .map((u, idx) => {
+            const dutyRec = getTodayStaffDutyRecord(
+              u.displayId || u.id,
+              "receptionist",
+              u.shift || "06:00 AM - 02:00 PM",
+              u.name,
+              u.email,
+              u.id
+            );
+            return {
+              id: u.displayId || `REC-${201 + idx}`,
+              userId: u.id,
+              name: u.name,
+              email: u.email,
+              phone: u.phone && u.phone !== "N/A" ? u.phone : "N/A",
+              terminal: u.assignedRoom || "Gate Terminal A1",
+              shift: u.shift || "Morning (06:00 AM - 02:00 PM)",
+              days: u.workingDays || ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+              checkinsToday: 0,
+              status: dutyRec?.status || "Offline",
+              dutyHours: dutyRec?.dutyHours || "0.0 hrs",
+              timeIn: dutyRec?.timeIn || "--",
+              timeOut: dutyRec?.timeOut || "--",
+            };
+          });
         setReceptionistsList(liveReceptionists);
 
         // 4. Synchronize Real Attendance Lists with MongoDB database
@@ -1107,34 +1140,58 @@ export default function AdminDashboard({ user, onLogout }) {
         }
 
         setTrainerAttendanceList(
-          liveTrainers.map((t, idx) => ({
-            id: `LOG-T${201 + idx}`,
-            trainerId: t.id,
-            name: t.name,
-            spec: t.spec || "Master Coach",
-            shift: t.shift || "Morning (06:00 AM - 02:00 PM)",
-            timeIn: "06:00 AM",
-            timeOut: "--",
-            dutyHours: "4.5 hrs",
-            status: t.status || "On Duty",
-            zone: t.room || "Main Olympic Arena",
-            clientsToday: t.clients || 0,
-          }))
+          liveTrainers.map((t, idx) => {
+            const dutyRec = getTodayStaffDutyRecord(
+              t.id,
+              "trainer",
+              t.shift || "06:00 AM - 02:00 PM",
+              t.name,
+              t.email,
+              t.userId
+            );
+            return {
+              id: `LOG-T${201 + idx}`,
+              trainerId: t.id,
+              userId: t.userId,
+              name: t.name,
+              email: t.email,
+              spec: t.spec || "Master Coach",
+              shift: t.shift || "Morning (06:00 AM - 02:00 PM)",
+              timeIn: dutyRec?.timeIn || "--",
+              timeOut: dutyRec?.timeOut || "--",
+              dutyHours: dutyRec?.dutyHours || "0.0 hrs",
+              status: dutyRec?.status || "Off Duty",
+              zone: t.room || "Main Olympic Arena",
+              clientsToday: t.clients || 0,
+            };
+          })
         );
 
         setReceptionistAttendanceList(
-          liveReceptionists.map((r, idx) => ({
-            id: `LOG-R${301 + idx}`,
-            staffId: r.id,
-            name: r.name,
-            desk: r.terminal || "Front Desk Concierge Alpha",
-            shift: r.shift || "Morning (06:00 AM - 02:00 PM)",
-            timeIn: "05:45 AM",
-            timeOut: "--",
-            dutyHours: "6.0 hrs",
-            status: r.status || "Online",
-            scansProcessed: liveCustomers.length,
-          }))
+          liveReceptionists.map((r, idx) => {
+            const dutyRec = getTodayStaffDutyRecord(
+              r.id,
+              "receptionist",
+              r.shift || "Morning (06:00 AM - 02:00 PM)",
+              r.name,
+              r.email,
+              r.userId
+            );
+            return {
+              id: `LOG-R${301 + idx}`,
+              staffId: r.id,
+              userId: r.userId,
+              name: r.name,
+              email: r.email,
+              desk: r.terminal || "Front Desk Concierge Alpha",
+              shift: r.shift || "Morning (06:00 AM - 02:00 PM)",
+              timeIn: dutyRec?.timeIn || "--",
+              timeOut: dutyRec?.timeOut || "--",
+              dutyHours: dutyRec?.dutyHours || "0.0 hrs",
+              status: dutyRec?.status || "Offline",
+              scansProcessed: liveCustomers.length,
+            };
+          })
         );
       }
     } catch (err) {
@@ -1328,10 +1385,12 @@ export default function AdminDashboard({ user, onLogout }) {
     };
 
     window.addEventListener("titan_attendance_sync", handleSync);
+    window.addEventListener("titan_duty_status_changed", handleSync);
     window.addEventListener("titan_enquiry_sync", handleSync);
     window.addEventListener("storage", handleSync);
     return () => {
       window.removeEventListener("titan_attendance_sync", handleSync);
+      window.removeEventListener("titan_duty_status_changed", handleSync);
       window.removeEventListener("titan_enquiry_sync", handleSync);
       window.removeEventListener("storage", handleSync);
     };
@@ -1916,28 +1975,98 @@ export default function AdminDashboard({ user, onLogout }) {
 
   // Toggle Trainer duty status
   const handleToggleTrainerDuty = (id, newStatus) => {
+    const trainer = trainersList.find((t) => t.id === id || t.userId === id || t.name === id);
+    const trainerName = trainer?.name || id;
+    const trainerShift = trainer?.shift || "06:00 AM - 02:00 PM";
+    const trainerEmail = trainer?.email || "";
+    const trainerUserId = trainer?.userId || id;
+
+    let updatedRec = null;
+    if (newStatus === "On Duty") {
+      updatedRec = startStaffDutySession(id, trainerName, "trainer", trainerShift, trainerEmail, trainerUserId);
+    } else {
+      updatedRec = endStaffDutySession(id, trainerName, "trainer", trainerShift, trainerEmail, trainerUserId);
+    }
+
     setTrainerAttendanceList((prev) =>
       prev.map((t) =>
-        t.id === id || t.trainerId === id ? { ...t, status: newStatus } : t
+        t.id === id || t.trainerId === id || t.userId === id || t.name === trainerName
+          ? {
+              ...t,
+              status: newStatus,
+              timeIn: updatedRec?.timeIn || t.timeIn,
+              timeOut: updatedRec?.timeOut || t.timeOut,
+              dutyHours: updatedRec?.dutyHours || t.dutyHours,
+            }
+          : t
       )
     );
     setTrainersList((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status: newStatus } : t))
+      prev.map((t) =>
+        t.id === id || t.userId === id || t.name === trainerName
+          ? {
+              ...t,
+              status: newStatus,
+              dutyHours: updatedRec?.dutyHours || t.dutyHours,
+              timeIn: updatedRec?.timeIn || t.timeIn,
+              timeOut: updatedRec?.timeOut || t.timeOut,
+            }
+          : t
+      )
     );
-    showToast(`✓ Trainer duty status updated to: ${newStatus}`);
+    showToast(
+      newStatus === "On Duty"
+        ? `✓ Coach ${trainerName} clocked in at ${updatedRec?.timeIn || "now"} (On Duty)`
+        : `✓ Coach ${trainerName} clocked out at ${updatedRec?.timeOut || "now"} • ${updatedRec?.dutyHours || "0.0 hrs"} logged`
+    );
   };
 
   // Toggle Receptionist duty status
   const handleToggleReceptionistDuty = (id, newStatus) => {
+    const staff = receptionistsList.find((r) => r.id === id || r.userId === id || r.name === id);
+    const staffName = staff?.name || id;
+    const staffShift = staff?.shift || "06:00 AM - 02:00 PM";
+    const staffEmail = staff?.email || "";
+    const staffUserId = staff?.userId || id;
+
+    let updatedRec = null;
+    if (newStatus === "Online") {
+      updatedRec = startStaffDutySession(id, staffName, "receptionist", staffShift, staffEmail, staffUserId);
+    } else {
+      updatedRec = endStaffDutySession(id, staffName, "receptionist", staffShift, staffEmail, staffUserId);
+    }
+
     setReceptionistAttendanceList((prev) =>
       prev.map((r) =>
-        r.id === id || r.staffId === id ? { ...r, status: newStatus } : r
+        r.id === id || r.staffId === id || r.userId === id || r.name === staffName
+          ? {
+              ...r,
+              status: newStatus,
+              timeIn: updatedRec?.timeIn || r.timeIn,
+              timeOut: updatedRec?.timeOut || r.timeOut,
+              dutyHours: updatedRec?.dutyHours || r.dutyHours,
+            }
+          : r
       )
     );
     setReceptionistsList((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
+      prev.map((r) =>
+        r.id === id || r.userId === id || r.name === staffName
+          ? {
+              ...r,
+              status: newStatus,
+              dutyHours: updatedRec?.dutyHours || r.dutyHours,
+              timeIn: updatedRec?.timeIn || r.timeIn,
+              timeOut: updatedRec?.timeOut || r.timeOut,
+            }
+          : r
+      )
     );
-    showToast(`✓ Front desk staff status updated to: ${newStatus}`);
+    showToast(
+      newStatus === "Online"
+        ? `✓ Front Desk ${staffName} clocked in at ${updatedRec?.timeIn || "now"} (Online)`
+        : `✓ Front Desk ${staffName} clocked out at ${updatedRec?.timeOut || "now"} • ${updatedRec?.dutyHours || "0.0 hrs"} logged`
+    );
   };
 
   // Export Comprehensive Attendance Ledger to CSV
@@ -2117,35 +2246,63 @@ export default function AdminDashboard({ user, onLogout }) {
       setCustomerAttendanceList([newRec, ...customerAttendanceList]);
       showToast(`✓ Logged attendance entry for customer: ${manualAttendanceForm.name}`);
     } else if (manualAttendanceForm.category === "trainer") {
+      const staffId = manualAttendanceForm.userId || `TRN-${Date.now().toString().slice(-3)}`;
+      const staffName = manualAttendanceForm.name;
+      const isDutyOn = manualAttendanceForm.status === "On Duty" || manualAttendanceForm.status === "Active Inside";
+      
+      let dutyRec = null;
+      if (isDutyOn) {
+        dutyRec = startStaffDutySession(staffId, staffName, "trainer", manualAttendanceForm.shift || "06:00 AM - 02:00 PM");
+      } else {
+        dutyRec = endStaffDutySession(staffId, staffName, "trainer", manualAttendanceForm.shift || "06:00 AM - 02:00 PM");
+      }
+
       const newRec = {
         id: logId,
-        trainerId: manualAttendanceForm.userId || `TRN-${Date.now().toString().slice(-3)}`,
-        name: manualAttendanceForm.name,
+        trainerId: staffId,
+        name: staffName,
         spec: "Master Strength Coach",
         shift: manualAttendanceForm.shift || "Morning (06:00 AM - 02:00 PM)",
-        timeIn: manualAttendanceForm.timeIn || nowTime,
-        timeOut: manualAttendanceForm.status === "On Duty" ? "--" : nowTime,
-        dutyHours: manualAttendanceForm.status === "On Duty" ? "1.0 hrs" : "0 hrs",
-        status: manualAttendanceForm.status === "Active Inside" ? "On Duty" : manualAttendanceForm.status,
+        timeIn: dutyRec?.timeIn || manualAttendanceForm.timeIn || nowTime,
+        timeOut: isDutyOn ? "--" : (dutyRec?.timeOut || nowTime),
+        dutyHours: dutyRec?.dutyHours || (isDutyOn ? "0.1 hrs" : "0.0 hrs"),
+        status: isDutyOn ? "On Duty" : "Off Duty",
         zone: manualAttendanceForm.zone || "Main Olympic Floor",
         clientsToday: 1,
       };
       setTrainerAttendanceList([newRec, ...trainerAttendanceList]);
+      setTrainersList((prev) =>
+        prev.map((t) => (t.id === staffId || t.name === staffName ? { ...t, status: newRec.status, dutyHours: newRec.dutyHours } : t))
+      );
       showToast(`✓ Logged shift duty for coach: ${manualAttendanceForm.name}`);
     } else {
+      const staffId = manualAttendanceForm.userId || `REC-${Date.now().toString().slice(-3)}`;
+      const staffName = manualAttendanceForm.name;
+      const isOnline = manualAttendanceForm.status === "Online" || manualAttendanceForm.status === "Active Inside";
+
+      let dutyRec = null;
+      if (isOnline) {
+        dutyRec = startStaffDutySession(staffId, staffName, "receptionist", manualAttendanceForm.shift || "06:00 AM - 02:00 PM");
+      } else {
+        dutyRec = endStaffDutySession(staffId, staffName, "receptionist", manualAttendanceForm.shift || "06:00 AM - 02:00 PM");
+      }
+
       const newRec = {
         id: logId,
-        staffId: manualAttendanceForm.userId || `REC-${Date.now().toString().slice(-3)}`,
-        name: manualAttendanceForm.name,
+        staffId: staffId,
+        name: staffName,
         desk: manualAttendanceForm.desk || "Front Desk Concierge Alpha",
         shift: manualAttendanceForm.shift || "Morning (06:00 AM - 02:00 PM)",
-        timeIn: manualAttendanceForm.timeIn || nowTime,
-        timeOut: manualAttendanceForm.status === "Online" ? "--" : nowTime,
-        dutyHours: manualAttendanceForm.status === "Online" ? "1.0 hrs" : "0 hrs",
-        status: manualAttendanceForm.status === "Active Inside" ? "Online" : manualAttendanceForm.status,
+        timeIn: dutyRec?.timeIn || manualAttendanceForm.timeIn || nowTime,
+        timeOut: isOnline ? "--" : (dutyRec?.timeOut || nowTime),
+        dutyHours: dutyRec?.dutyHours || (isOnline ? "0.1 hrs" : "0.0 hrs"),
+        status: isOnline ? "Online" : "Offline",
         scansProcessed: 12,
       };
       setReceptionistAttendanceList([newRec, ...receptionistAttendanceList]);
+      setReceptionistsList((prev) =>
+        prev.map((r) => (r.id === staffId || r.name === staffName ? { ...r, status: newRec.status, dutyHours: newRec.dutyHours } : r))
+      );
       showToast(`✓ Logged terminal duty for front desk: ${manualAttendanceForm.name}`);
     }
 
@@ -3509,7 +3666,8 @@ export default function AdminDashboard({ user, onLogout }) {
           <button
             onClick={() => {
               if (onLogout) onLogout();
-              navigate("/");
+              else logout();
+              navigate("/login", { replace: true });
             }}
             className={`w-full flex items-center ${sidebarOpen ? "justify-start gap-2.5 px-3 py-2" : "justify-center py-2"} text-xs text-[#8E8E98] hover:text-[#FF1E27] transition-colors cursor-pointer font-medium rounded-xl hover:bg-white/5`}
             title="Log Out"
@@ -8902,41 +9060,6 @@ export default function AdminDashboard({ user, onLogout }) {
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     Ledger Online
                   </span>
-
-                  <button
-                    onClick={() => {
-                      fetchPayments();
-                      showToast("✓ Synchronized latest payment ledger from database!");
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-[#090C0E] border border-white/10 hover:border-white/20 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-                  >
-                    <RefreshCw size={13} />
-                    <span>Sync Ledger</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      if (paymentsList.length === 0) {
-                        showToast("No payment records available to export.");
-                        return;
-                      }
-                      const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-                        JSON.stringify(paymentsList, null, 2)
-                      )}`;
-                      const link = document.createElement("a");
-                      link.href = jsonString;
-                      link.download = `Titan_Pulse_Ledger_${new Date().toISOString().slice(0, 10)}.json`;
-                      document.body.appendChild(link);
-                      link.click();
-                      document.body.removeChild(link);
-                      showToast("✓ Downloaded raw financial JSON ledger!");
-                    }}
-                    className="px-3.5 py-2 rounded-xl bg-[#090C0E] border border-white/10 hover:border-white/20 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
-                    title="Export JSON Data"
-                  >
-                    <FileText size={13} className="text-amber-400" />
-                    <span>JSON Dump</span>
-                  </button>
 
                   <button
                     onClick={() => {

@@ -156,7 +156,7 @@ function MainAppContent() {
   const handleLogout = () => {
     logout();
     triggerToast("Logged out successfully.");
-    navigate("/");
+    navigate("/login", { replace: true });
   };
 
   const openSignInModal = () => {
@@ -186,42 +186,11 @@ function MainAppContent() {
   };
 
   const navItems = [
-    { label: "Home", href: "#", icon: Home, i: "#E50914", j: "#FF2E4C" },
-    {
-      label: "Programs",
-      href: "#explore-escape",
-      icon: Flame,
-      i: "#E50914",
-      j: "#FF2E4C",
-    },
-    {
-      label: "Supplements",
-      href: "#preworkout-showcase",
-      icon: Zap,
-      i: "#E50914",
-      j: "#FF2E4C",
-    },
-    {
-      label: "Trainers",
-      href: "#trainers-deck",
-      icon: Users,
-      i: "#E50914",
-      j: "#FF2E4C",
-    },
-    {
-      label: "Memberships",
-      href: "#services-section",
-      icon: Crown,
-      i: "#E50914",
-      j: "#FF2E4C",
-    },
-    {
-      label: "Locations",
-      href: "#locations",
-      icon: MapPin,
-      i: "#E50914",
-      j: "#FF2E4C",
-    },
+    { label: "Home", href: "#home" },
+    { label: "About", href: "#about" },
+    { label: "Events", href: "#events" },
+    { label: "Sponsors", href: "#sponsors" },
+    { label: "Pricing", href: "#pricing" },
   ];
 
   return (
