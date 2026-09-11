@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Package,
   Lock,
+  LogOut,
   CalendarCheck,
   Apple,
   Settings,
@@ -1709,6 +1710,7 @@ export default function CustomerDashboard({ onLogout }) {
   const [activeCheckInOtp, setActiveCheckInOtp] = useState(null);
   const [otpCopied, setOtpCopied] = useState(false);
   const [otpSecondsLeft, setOtpSecondsLeft] = useState(120);
+  const [otpModalDismissed, setOtpModalDismissed] = useState(false);
 
   // Live countdown timer for active 2-minute OTP
   useEffect(() => {
@@ -2783,10 +2785,9 @@ export default function CustomerDashboard({ onLogout }) {
       id: "attendance",
       label: "Attendance",
       icon: CalendarCheck,
-      badge: "Live QR",
+      badge: null,
       subsections: [
         { id: "logs", label: "Attendance Logs" },
-        { id: "qr", label: "Gate Access Pass" },
         { id: "analytics", label: "Monthly Streaks" },
       ],
     },
@@ -2988,6 +2989,23 @@ export default function CustomerDashboard({ onLogout }) {
               );
             })}
           </nav>
+        </div>
+
+        {/* Bottom Section: Log Out */}
+        <div className="p-3.5 border-t border-[#202028] bg-[#0C0C10]">
+          {/* Log Out Link */}
+          <button
+            onClick={() => {
+              if (onLogout) onLogout();
+              else logout();
+              navigate("/login", { replace: true });
+            }}
+            className={`w-full flex items-center ${sidebarOpen ? "justify-start gap-2.5 px-3 py-2" : "justify-center py-2"} text-xs text-[#8E8E98] hover:text-[#FF1E27] transition-colors cursor-pointer font-medium rounded-xl hover:bg-white/5`}
+            title="Log Out"
+          >
+            <LogOut size={15} />
+            {sidebarOpen && <span>Log out</span>}
+          </button>
         </div>
       </aside>
 
@@ -3202,12 +3220,12 @@ export default function CustomerDashboard({ onLogout }) {
                         setAccountDropdownOpen(false);
                         if (onLogout) onLogout();
                         else logout();
-                        navigate("/");
+                        navigate("/login", { replace: true });
                       }}
-                      className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-slate-400 hover:text-[#FF1E27] hover:bg-[#FF1E27]/10 font-semibold transition-colors text-left cursor-pointer"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-[#8E8E98] hover:text-[#FF1E27] hover:bg-white/5 font-medium transition-colors text-left cursor-pointer"
                     >
-                      <Lock size={15} />
-                      <span>Log Out</span>
+                      <LogOut size={15} />
+                      <span>Log out</span>
                     </button>
                   </div>
                 </div>
@@ -4223,7 +4241,7 @@ export default function CustomerDashboard({ onLogout }) {
                   </div>
 
                   {/* Attendance KPI Summary Row */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-2 shadow-sm">
                       <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider block">
                         MONTHLY ATTENDANCE
@@ -4283,24 +4301,6 @@ export default function CustomerDashboard({ onLogout }) {
                           : "No sessions recorded yet"}
                       </span>
                     </div>
-
-                    <div className="p-5 rounded-2xl bg-[#121217] border border-white/[0.08] space-y-2 shadow-sm">
-                      <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider block">
-                        TURNSTILE GATE KEY
-                      </span>
-                      <div className="flex items-center gap-2 pt-0.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span className="text-sm font-bold text-emerald-400 font-mono">
-                          GATE KEY ACTIVE
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 block font-mono">
-                        RFID #
-                        {user?._id
-                          ? user._id.slice(-6).toUpperCase()
-                          : "A1-4092"}
-                      </span>
-                    </div>
                   </div>
 
                   {/* Attendance Log Table */}
@@ -4319,17 +4319,17 @@ export default function CustomerDashboard({ onLogout }) {
                       onWheel={handleHorizontalWheelScroll}
                       className="overflow-x-auto w-full no-scrollbar overscroll-x-contain cursor-auto"
                     >
-                      <table className="min-w-[860px] w-full text-left text-xs border-collapse">
+                      <table className="min-w-[1020px] w-full text-left text-xs border-collapse">
                         <thead className="bg-[#14141E] text-slate-400 text-xs font-semibold tracking-wider border-b border-white/[0.06]">
                           <tr>
-                            <th className="p-4 font-medium">Log ID</th>
-                            <th className="p-4 font-medium">Date</th>
-                            <th className="p-4 font-medium">Check-In</th>
-                            <th className="p-4 font-medium">Check-Out</th>
-                            <th className="p-4 font-medium">Duration</th>
-                            <th className="p-4 font-medium">Turnstile Gate</th>
-                            <th className="p-4 font-medium">Zone</th>
-                            <th className="p-4 font-medium text-right">
+                            <th className="py-3.5 px-5 font-semibold whitespace-nowrap">Log ID</th>
+                            <th className="py-3.5 px-5 font-semibold whitespace-nowrap">Date</th>
+                            <th className="py-3.5 px-5 font-semibold whitespace-nowrap">Check-In</th>
+                            <th className="py-3.5 px-5 font-semibold whitespace-nowrap">Check-Out</th>
+                            <th className="py-3.5 px-5 font-semibold whitespace-nowrap">Duration</th>
+                            <th className="py-3.5 px-5 font-semibold whitespace-nowrap">Turnstile Gate</th>
+                            <th className="py-3.5 px-5 font-semibold whitespace-nowrap">Zone</th>
+                            <th className="py-3.5 px-5 font-semibold text-right whitespace-nowrap">
                               Status
                             </th>
                           </tr>
@@ -4353,28 +4353,30 @@ export default function CustomerDashboard({ onLogout }) {
                                 key={att.id || att._id}
                                 className="hover:bg-white/[0.02] transition-colors"
                               >
-                                <td className="p-4 font-mono text-[#00F0FF] font-medium">
+                                <td className="py-3.5 px-5 font-mono text-[#00F0FF] font-semibold whitespace-nowrap">
                                   {att.id || (att._id ? `ATT-${att._id.slice(-4).toUpperCase()}` : "ATT-001")}
                                 </td>
-                                <td className="p-4 text-white font-medium">
+                                <td className="py-3.5 px-5 text-white font-medium whitespace-nowrap">
                                   {att.date}
                                 </td>
-                                <td className="p-4 font-mono text-emerald-400 font-semibold">
+                                <td className="py-3.5 px-5 font-mono text-emerald-400 font-semibold whitespace-nowrap">
                                   {att.checkIn || att.timeIn || "07:00 AM"}
                                 </td>
-                                <td className="p-4 font-mono text-slate-400">
+                                <td className="py-3.5 px-5 font-mono text-slate-400 whitespace-nowrap">
                                   {att.checkOut || att.timeOut || "—"}
                                 </td>
-                                <td className="p-4 font-mono text-purple-400">
+                                <td className="py-3.5 px-5 font-mono text-purple-400 whitespace-nowrap">
                                   {att.duration || "—"}
                                 </td>
-                                <td className="p-4 text-slate-300 font-mono text-[11px]">
+                                <td className="py-3.5 px-5 text-slate-300 font-medium whitespace-nowrap">
                                   {att.gate || "Turnstile Gate A1"}
                                 </td>
-                                <td className="p-4 text-slate-400">{att.zone || "Strength Arena"}</td>
-                                <td className="p-4 text-right">
+                                <td className="py-3.5 px-5 text-slate-400 whitespace-nowrap">
+                                  {att.zone || "Strength Arena"}
+                                </td>
+                                <td className="py-3.5 px-5 text-right whitespace-nowrap">
                                   <span
-                                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-medium inline-flex items-center gap-1 ${
+                                    className={`px-3 py-1 rounded-full text-[11px] font-semibold inline-flex items-center gap-1.5 whitespace-nowrap ${
                                       att.status === "Active Floor" || !att.checkOut
                                         ? "bg-amber-950/60 text-amber-400 border border-amber-800 animate-pulse"
                                         : "bg-emerald-950/60 text-emerald-400 border border-emerald-800"
@@ -4391,208 +4393,6 @@ export default function CustomerDashboard({ onLogout }) {
                         </tbody>
                       </table>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* SUBSECTION 2: DIGITAL BIOMETRIC TURNSTILE GATE PASS (QR / NFC) */}
-              {activeSubTab === "qr" && (
-                <div className="space-y-6">
-                  <div className="pb-4 border-b border-white/[0.08]">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight font-['Outfit',sans-serif]">
-                      Digital Turnstile NFC / QR Access Pass
-                    </h2>
-                    <p className="text-xs sm:text-sm text-slate-400 mt-1">
-                      Scan this dynamic encrypted token at any Titan biometric
-                      optical turnstile scanner, or use your 2-minute Front Desk OTP passcode below for manual entry.
-                    </p>
-                  </div>
-
-                  {/* LIVE 2:00-MINUTE FRONT DESK MANUAL LOGIN OTP SECTION */}
-                  {activeCheckInOtp?.hasActiveOtp ? (
-                    <div className="max-w-md mx-auto p-6 sm:p-7 rounded-3xl bg-gradient-to-b from-[#1c180e] via-[#12110c] to-[#0A0A0D] border-2 border-amber-500/60 shadow-[0_0_40px_rgba(245,158,11,0.28)] space-y-5 relative overflow-hidden animate-fadeIn">
-                      <div className="absolute -top-16 -right-16 w-44 h-44 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
-
-                      {/* Header */}
-                      <div className="flex items-center justify-between pb-3.5 border-b border-amber-500/20">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
-                            <Key size={16} />
-                          </div>
-                          <div>
-                            <span className="font-black text-xs sm:text-sm text-amber-300 tracking-wider font-['Outfit',sans-serif] uppercase block">
-                              FRONT DESK OTP PASS
-                            </span>
-                            <span className="text-[10px] text-slate-400">Receptionist Manual Check-In</span>
-                          </div>
-                        </div>
-
-                        {/* Live 2:00 Min Countdown Badge */}
-                        <div
-                          className={`px-3 py-1 rounded-full text-[11px] font-mono font-bold flex items-center gap-1.5 shadow-sm ${
-                            otpSecondsLeft > 0
-                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
-                              : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                          }`}
-                        >
-                          <Clock size={12} />
-                          <span>{otpSecondsLeft > 0 ? formatOtpTimer(otpSecondsLeft) : "EXPIRED"}</span>
-                        </div>
-                      </div>
-
-                      {/* Animated Progress Bar for 2-Minute Validity */}
-                      <div className="space-y-1">
-                        <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-1000 ease-linear rounded-full ${
-                              otpSecondsLeft > 30
-                                ? "bg-gradient-to-r from-amber-400 to-amber-500"
-                                : "bg-gradient-to-r from-rose-500 to-red-600 animate-pulse"
-                            }`}
-                            style={{ width: `${Math.max(0, Math.min(100, (otpSecondsLeft / 120) * 100))}%` }}
-                          />
-                        </div>
-                        <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-                          <span>Validity: 2:00 Mins</span>
-                          <span className={otpSecondsLeft <= 30 ? "text-rose-400 font-bold" : "text-amber-400"}>
-                            {otpSecondsLeft > 0 ? `${otpSecondsLeft}s left` : "Code expired"}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 4-Digit Display Cells */}
-                      <div className="py-2">
-                        <div className="flex justify-center items-center gap-2.5 sm:gap-3.5">
-                          {String(activeCheckInOtp.otp || "----")
-                            .slice(0, 4)
-                            .padEnd(4, "-")
-                            .split("")
-                            .map((digit, idx) => (
-                              <div
-                                key={idx}
-                                className={`w-14 h-16 sm:w-16 sm:h-20 rounded-2xl flex items-center justify-center font-mono font-black text-2xl sm:text-3xl shadow-lg border transition-all ${
-                                  otpSecondsLeft > 0
-                                    ? "bg-[#0c0c10] border-amber-500/50 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
-                                    : "bg-slate-900/50 border-slate-800 text-slate-600 line-through"
-                                }`}
-                              >
-                                {digit}
-                              </div>
-                            ))}
-                        </div>
-                      </div>
-
-                      {/* Copy & Status Action */}
-                      <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5">
-                        {otpSecondsLeft > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard?.writeText(activeCheckInOtp.otp);
-                              setOtpCopied(true);
-                              showToast("✓ OTP copied to clipboard!");
-                              setTimeout(() => setOtpCopied(false), 2500);
-                            }}
-                            className="w-full py-2.5 px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
-                          >
-                            {otpCopied ? (
-                              <>
-                                <Check size={14} className="text-emerald-400" />
-                                <span className="text-emerald-400">Passcode Copied!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Download size={14} className="-rotate-90" />
-                                <span>Copy 4-Digit Passcode</span>
-                              </>
-                            )}
-                          </button>
-                        ) : (
-                          <div className="w-full py-2.5 px-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium text-center">
-                            ⚠️ This OTP passcode has expired. Please ask the front desk to re-generate.
-                          </div>
-                        )}
-                      </div>
-
-                      <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-                        {otpSecondsLeft > 0
-                          ? "Share this 4-digit OTP passcode with the front desk receptionist for immediate manual turnstile check-in."
-                          : "Manual gate entry token timed out after 2:00 minutes for security."}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="max-w-md mx-auto p-4 rounded-2xl bg-[#111116] border border-white/[0.08] flex items-center justify-between gap-3 text-xs text-slate-400">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 shrink-0">
-                          <Key size={14} />
-                        </div>
-                        <span>Front Desk Manual Entry: Passcode will appear here when requested</span>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/10 shrink-0">
-                        2:00 Min Expiry
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="max-w-md mx-auto p-7 sm:p-8 rounded-3xl bg-gradient-to-b from-[#181824] to-[#0E0E14] border border-white/[0.12] shadow-2xl space-y-6 text-center">
-                    <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
-                      <div className="flex items-center gap-2.5">
-                        <Crown size={18} className="text-[#FF1E27]" />
-                        <span className="font-black text-sm text-white tracking-wider font-['Outfit',sans-serif] uppercase">
-                          TITAN TURNSTILE KEY
-                        </span>
-                      </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800 text-[10px] font-bold">
-                        ● LIVE TOKEN
-                      </span>
-                    </div>
-
-                    {/* QR Code Container */}
-                    <div className="p-5 rounded-2xl bg-white shadow-2xl inline-block mx-auto relative group">
-                      <div className="w-48 h-48 bg-white flex items-center justify-center">
-                        <svg
-                          viewBox="0 0 100 100"
-                          className="w-full h-full text-slate-900"
-                          fill="currentColor"
-                        >
-                          <path d="M0,0 h30 v30 h-30 z M10,10 h10 v10 h-10 z" />
-                          <path d="M70,0 h30 v30 h-30 z M80,10 h10 v10 h-10 z" />
-                          <path d="M0,70 h30 v30 h-30 z M10,80 h10 v10 h-10 z" />
-                          <rect x="35" y="10" width="8" height="15" />
-                          <rect x="50" y="10" width="12" height="8" />
-                          <rect x="10" y="35" width="15" height="8" />
-                          <rect x="70" y="35" width="20" height="8" />
-                          <rect x="35" y="45" width="30" height="10" />
-                          <rect x="35" y="70" width="10" height="20" />
-                          <rect x="55" y="65" width="15" height="15" />
-                          <rect x="80" y="75" width="10" height="15" />
-                        </svg>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <h4 className="text-base font-bold text-white">
-                        {fullName || user?.name || "Athlete Member"}
-                      </h4>
-                      <p className="text-xs text-slate-400 font-mono">
-                        Member ID: #
-                        {user?._id
-                          ? user._id.slice(-6).toUpperCase()
-                          : "A1-4092"}
-                      </p>
-                      <span className="text-xs text-[#FF1E27] font-semibold block">
-                        {membershipPlan && membershipPlan !== "No Active Plan"
-                          ? membershipPlan
-                          : "Pro Membership Pass"}
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={handleSelfCheckIn}
-                      className="w-full py-3 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#E50914] text-white font-bold text-xs sm:text-sm shadow-md hover:brightness-110 cursor-pointer transition-all flex items-center justify-center gap-2"
-                    >
-                      <Zap size={16} /> Tap to Simulate Turnstile Gate Entry
-                    </button>
                   </div>
                 </div>
               )}
@@ -4953,12 +4753,6 @@ export default function CustomerDashboard({ onLogout }) {
                           className="px-5 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-white font-medium text-xs sm:text-sm transition-all cursor-pointer"
                         >
                           Explore Upgrade Tiers
-                        </button>
-                        <button
-                          onClick={() => setQrModalOpen(true)}
-                          className="px-5 py-2.5 rounded-xl bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800 text-emerald-400 font-medium text-xs sm:text-sm transition-all cursor-pointer flex items-center gap-2"
-                        >
-                          <QrCode size={15} /> View Digital Gate Key
                         </button>
                       </div>
                     </div>
@@ -7848,6 +7642,125 @@ export default function CustomerDashboard({ onLogout }) {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Real-time Front Desk Check-in OTP Passcode Floating Modal */}
+      {activeCheckInOtp?.hasActiveOtp && otpSecondsLeft > 0 && !otpModalDismissed && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+          <div className="max-w-md w-full p-6 sm:p-7 rounded-3xl bg-gradient-to-b from-[#1c180e] via-[#12110c] to-[#0A0A0D] border-2 border-amber-500/70 shadow-[0_0_50px_rgba(245,158,11,0.35)] space-y-5 relative overflow-hidden animate-scaleUp">
+            <div className="absolute -top-16 -right-16 w-48 h-48 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-amber-500/25">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-400 flex items-center justify-center shrink-0">
+                  <Key size={18} />
+                </div>
+                <div>
+                  <span className="font-black text-sm text-amber-300 tracking-wider font-['Outfit',sans-serif] uppercase block">
+                    FRONT DESK CHECK-IN PASSCODE
+                  </span>
+                  <span className="text-[11px] text-slate-400">Receptionist Manual Gate Entry</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="px-3 py-1 rounded-full text-[11px] font-mono font-bold flex items-center gap-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                  <Clock size={12} />
+                  <span>{formatOtpTimer(otpSecondsLeft)}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOtpModalDismissed(true)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Minimize passcode"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-1">
+              <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className="h-full transition-all duration-1000 ease-linear rounded-full bg-gradient-to-r from-amber-400 to-amber-500"
+                  style={{ width: `${Math.max(0, Math.min(100, (otpSecondsLeft / 120) * 100))}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                <span>Validity: 2:00 Mins (Also sent to your email)</span>
+                <span className="text-amber-400 font-bold">{otpSecondsLeft}s left</span>
+              </div>
+            </div>
+
+            {/* 4-Digit Display Cells */}
+            <div className="py-2">
+              <div className="flex justify-center items-center gap-2.5 sm:gap-3.5">
+                {String(activeCheckInOtp.otp || "----")
+                  .slice(0, 4)
+                  .padEnd(4, "-")
+                  .split("")
+                  .map((digit, idx) => (
+                    <div
+                      key={idx}
+                      className="w-14 h-16 sm:w-16 sm:h-20 rounded-2xl flex items-center justify-center font-mono font-black text-2xl sm:text-3xl shadow-lg border bg-[#0c0c10] border-amber-500/60 text-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.25)]"
+                    >
+                      {digit}
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(activeCheckInOtp.otp);
+                  setOtpCopied(true);
+                  showToast("✓ Passcode copied to clipboard!");
+                  setTimeout(() => setOtpCopied(false), 2500);
+                }}
+                className="w-full py-2.5 px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+              >
+                {otpCopied ? (
+                  <>
+                    <Check size={14} className="text-emerald-400" />
+                    <span className="text-emerald-400">Passcode Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Download size={14} className="-rotate-90" />
+                    <span>Copy 4-Digit Passcode</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOtpModalDismissed(true)}
+                className="w-full sm:w-auto py-2.5 px-4 rounded-xl bg-white/[0.06] hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-medium transition-all"
+              >
+                Dismiss
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-400 text-center leading-relaxed">
+              Show or read this 4-digit passcode to the receptionist to immediately verify and clock in your workout session.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Minimized Passcode Floating Badge */}
+      {activeCheckInOtp?.hasActiveOtp && otpSecondsLeft > 0 && otpModalDismissed && (
+        <div
+          onClick={() => setOtpModalDismissed(false)}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#1c180e] border border-amber-500/60 shadow-[0_0_25px_rgba(245,158,11,0.4)] text-amber-300 text-xs font-bold cursor-pointer hover:scale-105 transition-all animate-bounce"
+        >
+          <Key size={16} className="text-amber-400" />
+          <span>Check-In Passcode: <span className="font-mono text-white text-sm tracking-wider font-black">{activeCheckInOtp.otp}</span> ({otpSecondsLeft}s)</span>
         </div>
       )}
 

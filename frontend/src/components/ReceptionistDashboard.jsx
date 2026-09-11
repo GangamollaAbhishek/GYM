@@ -2,7 +2,13 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import AppleSwitch from "./ui/AppleSwitch";
-import { checkShiftDutyStatus } from "../utils/shiftTiming";
+import {
+  checkShiftDutyStatus,
+  getTodayStaffDutyRecord,
+  startStaffDutySession,
+  endStaffDutySession,
+  calculateDutyHours,
+} from "../utils/shiftTiming";
 import {
   LayoutDashboard,
   UserPlus,
@@ -324,13 +330,32 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     return checkShiftDutyStatus(receptionistShiftString);
   }, [receptionistShiftString, currentMinuteTicker]);
 
+  const receptionistStaffId = String(user?.id || user?._id || "receptionist-me");
+  const todayReceptionDuty = getTodayStaffDutyRecord(
+    receptionistStaffId,
+    "receptionist",
+    receptionistShiftString,
+    user?.name,
+    user?.email,
+    user?.id || user?._id
+  );
+
   const [isReceptionOnline, setIsReceptionOnline] = useState(() => {
-    try {
-      const saved = localStorage.getItem("titan_reception_online_status");
-      if (saved !== null) return JSON.parse(saved);
-    } catch (e) {}
-    return true;
+    return todayReceptionDuty?.status === "Online";
   });
+
+  // Keep state synchronized with real duty session
+  useEffect(() => {
+    const rec = getTodayStaffDutyRecord(
+      receptionistStaffId,
+      "receptionist",
+      receptionistShiftString,
+      user?.name,
+      user?.email,
+      user?.id || user?._id
+    );
+    setIsReceptionOnline(rec?.status === "Online");
+  }, [receptionistStaffId, receptionistShiftString, user, currentMinuteTicker]);
 
   const handleToggleReceptionOnline = (checked) => {
     if (!shiftDutyInfo.isShiftActive) {
@@ -339,16 +364,33 @@ export default function ReceptionistDashboard({ user, onLogout }) {
       );
       return;
     }
-    setIsReceptionOnline(checked);
-    try {
-      localStorage.setItem("titan_reception_online_status", JSON.stringify(checked));
-    } catch (e) {}
+
     if (checked) {
+      const record = startStaffDutySession(
+        receptionistStaffId,
+        user?.name || "Front Desk",
+        "receptionist",
+        receptionistShiftString,
+        user?.email || "",
+        user?.id || user?._id
+      );
+      setIsReceptionOnline(true);
       showToast(
-        `🟢 Terminal Gate Online: Front Desk active on duty (${shiftDutyInfo.shiftWindowText})`
+        `🟢 Terminal Gate Online: Clocked in at ${record.timeIn} (${shiftDutyInfo.shiftWindowText})`
       );
     } else {
-      showToast("⚪ Terminal Gate Offline: Front Desk set to Standby / Break");
+      const record = endStaffDutySession(
+        receptionistStaffId,
+        user?.name || "Front Desk",
+        "receptionist",
+        receptionistShiftString,
+        user?.email || "",
+        user?.id || user?._id
+      );
+      setIsReceptionOnline(false);
+      showToast(
+        `⚪ Terminal Gate Offline: Clocked out at ${record.timeOut} • ${record.dutyHours} completed today.`
+      );
     }
   };
 
@@ -412,24 +454,12 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               status: (l.date && l.date < todayStr && l.status === "Active Inside") ? "Inactive" : (l.status || "Active Inside"),
             }));
             setAttendanceLogs(normalized);
-          } else if (attendanceLogs.length === 0) {
-            setAttendanceLogs(
-              liveCustomers.slice(0, 8).map((c, idx) => ({
-                id: `LOG-${101 + idx}`,
-                name: c.name,
-                customerId: c.id,
-                plan: c.plan,
-                terminal: idx % 2 === 0 ? "Turnstile Gate Alpha-1" : "Turnstile Gate Bravo-2",
-                timeIn: idx % 2 === 0 ? "06:30 AM" : "07:15 AM",
-                timeOut: idx % 3 === 0 ? "08:15 AM" : "--",
-                status: idx % 3 === 0 ? "Checked Out" : "Active Inside",
-                verification: "Biometric NFC Pass",
-                date: todayStr,
-              }))
-            );
+          } else {
+            setAttendanceLogs([]);
           }
         } catch (attErr) {
           console.log("Using local attendance fallback:", attErr);
+          setAttendanceLogs([]);
         }
 
         // Live Enquiries fetched from MongoDB
@@ -473,13 +503,16 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 c.assignedTrainerName?.toLowerCase() === u.name?.toLowerCase()
             ).length;
 
-            // Ensure trainer status is never a customer membership string
-            let trainerStatus = "Available";
-            if (u.trainerStatus) {
-              trainerStatus = u.trainerStatus;
-            } else if (u.status && !["No Membership", "Active", "Expired", "Due Soon"].includes(u.status)) {
-              trainerStatus = u.status;
-            }
+            // Fetch real-time duty status from duty session logs
+            const dutyRec = getTodayStaffDutyRecord(
+              u.displayId || u.id,
+              "trainer",
+              u.shift || "06:00 AM - 02:00 PM",
+              u.name,
+              u.email,
+              u.id
+            );
+            const trainerStatus = dutyRec?.status || "Off Duty";
 
             return {
               id: u.displayId || `TRN-${501 + idx}`,
@@ -489,6 +522,9 @@ export default function ReceptionistDashboard({ user, onLogout }) {
               shift: u.shift || "06:00 AM - 02:00 PM",
               clientsToday: realAssignedCount,
               status: trainerStatus,
+              dutyHours: dutyRec?.dutyHours || "0.0 hrs",
+              timeIn: dutyRec?.timeIn || "--",
+              timeOut: dutyRec?.timeOut || "--",
               phone: u.phone && u.phone !== "N/A" ? u.phone : "N/A",
               email: u.email || "",
               room: u.room || "Main Strength & Conditioning Arena",
@@ -589,6 +625,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
 
     window.addEventListener("storage", handleSync);
     window.addEventListener("titan_attendance_sync", handleSync);
+    window.addEventListener("titan_duty_status_changed", handleSync);
     window.addEventListener("titan_enquiry_sync", handleSync);
     window.addEventListener("titan_ticket_created", handleTicketCreated);
     window.addEventListener("titan_ticket_sync", handleSync);
@@ -597,6 +634,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     return () => {
       window.removeEventListener("storage", handleSync);
       window.removeEventListener("titan_attendance_sync", handleSync);
+      window.removeEventListener("titan_duty_status_changed", handleSync);
       window.removeEventListener("titan_enquiry_sync", handleSync);
       window.removeEventListener("titan_ticket_created", handleTicketCreated);
       window.removeEventListener("titan_ticket_sync", handleSync);
@@ -2023,7 +2061,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
     },
     {
       id: "settings",
-      label: "Station Settings",
+      label: "Settings",
       icon: Settings,
     },
   ];
@@ -2274,18 +2312,20 @@ export default function ReceptionistDashboard({ user, onLogout }) {
           </nav>
         </div>
 
-        {/* Bottom Section: User Info & Log Out */}
-        <div className="p-4 border-t border-[#202028] bg-[#0C0C10]">
+        {/* Bottom Section: Log Out */}
+        <div className="p-3.5 border-t border-[#202028] bg-[#0C0C10]">
+          {/* Log Out Link */}
           <button
             onClick={() => {
               if (onLogout) onLogout();
-              navigate("/");
+              else logout();
+              navigate("/login", { replace: true });
             }}
             className={`w-full flex items-center ${sidebarOpen ? "justify-start gap-2.5 px-3 py-2" : "justify-center py-2"} text-xs text-[#8E8E98] hover:text-[#FF1E27] transition-colors cursor-pointer font-medium rounded-xl hover:bg-white/5`}
             title="Log Out"
           >
-            <LogOut size={16} />
-            {sidebarOpen && <span>Log out ({user?.name || "Front Desk"})</span>}
+            <LogOut size={15} />
+            {sidebarOpen && <span>Log out</span>}
           </button>
         </div>
       </aside>
@@ -4497,7 +4537,7 @@ export default function ReceptionistDashboard({ user, onLogout }) {
                 <div>
                   <h2 className="font-outfit font-extrabold text-white tracking-tight text-xl sm:text-2xl flex items-center gap-2.5">
                     <Settings className="text-[#FF2E4C]" size={24} />
-                    Account & Station Settings
+                    Settings
                   </h2>
                   <p className="text-xs text-slate-400 font-normal mt-0.5">
                     Manage your receptionist profile, update login credentials, and configure front desk station preferences.

@@ -61,7 +61,13 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import AppleSwitch from "./ui/AppleSwitch";
-import { checkShiftDutyStatus } from "../utils/shiftTiming";
+import {
+  checkShiftDutyStatus,
+  getTodayStaffDutyRecord,
+  startStaffDutySession,
+  endStaffDutySession,
+  calculateDutyHours,
+} from "../utils/shiftTiming";
 import PinnedList from "./smoothui/components/pinned-list";
 import WhyUsBento from "./WhyUsBento";
 import api from "../lib/api";
@@ -1359,13 +1365,32 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
     return checkShiftDutyStatus(coachProfile.shift);
   }, [coachProfile.shift, currentMinuteTicker]);
 
+  const coachId = String(user?.id || user?._id || "trainer-me");
+  const todayDuty = getTodayStaffDutyRecord(
+    coachId,
+    "trainer",
+    coachProfile.shift,
+    coachProfile.name,
+    coachProfile.email,
+    user?.id || user?._id
+  );
+
   const [isCoachOnline, setIsCoachOnline] = useState(() => {
-    try {
-      const saved = localStorage.getItem("titan_trainer_online_status");
-      if (saved !== null) return JSON.parse(saved);
-    } catch (e) {}
-    return true;
+    return todayDuty?.status === "On Duty";
   });
+
+  // Keep online state synchronized with duty session
+  useEffect(() => {
+    const rec = getTodayStaffDutyRecord(
+      coachId,
+      "trainer",
+      coachProfile.shift,
+      coachProfile.name,
+      coachProfile.email,
+      user?.id || user?._id
+    );
+    setIsCoachOnline(rec?.status === "On Duty");
+  }, [coachId, coachProfile.shift, coachProfile.name, coachProfile.email, user, currentMinuteTicker]);
 
   const handleToggleCoachOnline = (checked) => {
     if (!shiftDutyInfo.isShiftActive) {
@@ -1374,26 +1399,33 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
       );
       return;
     }
-    setIsCoachOnline(checked);
-    try {
-      localStorage.setItem("titan_trainer_online_status", JSON.stringify(checked));
-      window.dispatchEvent(
-        new CustomEvent("titan_trainer_status_change", {
-          detail: {
-            trainerId: user?.id || user?._id,
-            trainerName: coachProfile.name,
-            online: checked,
-            status: checked ? "On Duty" : "On Break",
-          },
-        })
-      );
-    } catch (e) {}
+
     if (checked) {
+      const record = startStaffDutySession(
+        coachId,
+        coachProfile.name,
+        "trainer",
+        coachProfile.shift,
+        coachProfile.email,
+        user?.id || user?._id
+      );
+      setIsCoachOnline(true);
       showToast(
-        `🟢 Master Coach Online: Active on duty floor (${shiftDutyInfo.shiftWindowText})`
+        `🟢 Master Coach Online: Clocked in at ${record.timeIn} (${shiftDutyInfo.shiftWindowText})`
       );
     } else {
-      showToast("⚪ Master Coach Offline: Status set to On Break / Standby");
+      const record = endStaffDutySession(
+        coachId,
+        coachProfile.name,
+        "trainer",
+        coachProfile.shift,
+        coachProfile.email,
+        user?.id || user?._id
+      );
+      setIsCoachOnline(false);
+      showToast(
+        `⚪ Master Coach Offline: Clocked out at ${record.timeOut} • ${record.dutyHours} completed today.`
+      );
     }
   };
 
@@ -2127,6 +2159,23 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
             })}
           </nav>
         </div>
+
+        {/* Bottom Section: Log Out */}
+        <div className="p-3.5 border-t border-[#202028] bg-[#0C0C10]">
+          {/* Log Out Link */}
+          <button
+            onClick={() => {
+              if (onLogout) onLogout();
+              else logout();
+              navigate("/login", { replace: true });
+            }}
+            className={`w-full flex items-center ${sidebarOpen ? "justify-start gap-2.5 px-3 py-2" : "justify-center py-2"} text-xs text-[#8E8E98] hover:text-[#FF1E27] transition-colors cursor-pointer font-medium rounded-xl hover:bg-white/5`}
+            title="Log Out"
+          >
+            <LogOut size={15} />
+            {sidebarOpen && <span>Log out</span>}
+          </button>
+        </div>
       </aside>
 
       {/* ========================================================= */}
@@ -2333,7 +2382,7 @@ export default function TrainerDashboard({ user: propUser, onLogout }) {
               onClick={() => {
                 if (onLogout) onLogout();
                 else logout();
-                navigate("/");
+                navigate("/login", { replace: true });
               }}
               className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-[#FF1E27]/20 border border-white/10 hover:border-[#FF1E27]/40 text-slate-400 hover:text-[#FF1E27] transition-all cursor-pointer"
               title="Log Out"

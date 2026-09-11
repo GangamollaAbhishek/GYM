@@ -27,7 +27,7 @@ const Attendance = require('./models/Attendance');
 const Enquiry = require('./models/Enquiry');
 const Ticket = require('./models/Ticket');
 const { authenticateToken, authorizeRoles } = require('./middleware/authMiddleware');
-const { sendWelcomeCredentialsEmail, sendStaffCredentialsEmail } = require('./utils/mailer');
+const { sendWelcomeCredentialsEmail, sendStaffCredentialsEmail, sendManualCheckInOtpEmail } = require('./utils/mailer');
 
 const app = express();
 const PORT = process.env.PORT || 5050;
@@ -88,18 +88,66 @@ const autoSeedAdmin = async () => {
       console.log('👑 Original Admin user (abhishek / abhigangamolla@gmail.com) verified in database.');
     }
 
-    // Clean up any legacy dummy customer, trainer, and receptionist seeds from MongoDB
-    await User.deleteMany({
-      $or: [
-        { email: 'customer@titangym.com' },
-        { email: 'trainer@titangym.com' },
-        { email: 'receptionist@titangym.com' },
-        { name: 'Front Desk Receptionist' },
-        { name: 'Coach Marcus Vance' },
-        { name: { $regex: /Marcus Vance/i } },
-        { name: { $regex: /Front Desk Receptionist/i } },
-      ],
-    });
+    // 2. Seed Master Coach Jayanth if not existing
+    const trainerEmail = 'jayanth@titangym.com';
+    const existingTrainer = await User.findOne({ email: trainerEmail });
+    if (!existingTrainer) {
+      const coach = new User({
+        name: 'Coach Jayanth',
+        email: trainerEmail,
+        password: 'Abhinani@4154',
+        phone: '+91 9876543211',
+        role: 'trainer',
+        shift: '06:00 AM - 02:00 PM',
+        specialization: 'Master IFBB Pro Strength Coach',
+        assignedRoom: 'Main Olympic Arena',
+        workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        experience: '8+ Years Elite Coaching',
+        bio: 'Certified strength, biomechanics and performance specialist.',
+        rating: '5.0',
+      });
+      await coach.save();
+      console.log('💪 Master Coach Jayanth seeded in database!');
+    }
+
+    // 3. Seed Front Desk Receptionist if not existing
+    const receptionEmail = 'receptionist@titangym.com';
+    const existingReceptionist = await User.findOne({ email: receptionEmail });
+    if (!existingReceptionist) {
+      const rec = new User({
+        name: 'Priya Sharma',
+        email: receptionEmail,
+        password: 'Abhinani@4154',
+        phone: '+91 9876543212',
+        role: 'receptionist',
+        shift: 'Morning (06:00 AM - 02:00 PM)',
+        assignedRoom: 'Gate Terminal Alpha-1',
+        workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+      });
+      await rec.save();
+      console.log('🛎️ Front Desk Receptionist seeded in database!');
+    }
+
+    // 4. Seed VIP Customer / Athlete if not existing
+    const custEmail = 'customer@titangym.com';
+    const existingCust = await User.findOne({ email: custEmail });
+    if (!existingCust) {
+      const cust = new User({
+        name: 'Alex Mercer',
+        email: custEmail,
+        password: 'Abhinani@4154',
+        phone: '+91 9876543213',
+        role: 'customer',
+        membershipPlan: 'PRO MEMBERSHIP',
+        membershipStatus: 'Active',
+        membershipStartDate: new Date().toISOString().slice(0, 10),
+        membershipExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        amountPaid: 2499,
+        assignedTrainerName: 'Coach Jayanth',
+      });
+      await cust.save();
+      console.log('⚡ VIP Athlete Alex Mercer seeded in database!');
+    }
   } catch (err) {
     console.error('⚠️ Auto-seed admin error:', err.message);
   }
@@ -2272,15 +2320,50 @@ app.post('/api/attendance/request-otp', async (req, res) => {
     if (email) activeOtpMap.set(String(email).toLowerCase(), otpData);
     activeOtpMap.set(name.toLowerCase().trim(), otpData);
 
-    console.log(`🔑 Manual Check-In OTP generated for ${name} (${customerId || userId}): [ ${generatedOtp} ] (Expires in 2:00 mins)`);
+    // Resolve target customer email for dispatching OTP email
+    let targetEmail = (email || '').trim();
+    if (!targetEmail) {
+      try {
+        if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+          const dbUser = await User.findById(userId);
+          if (dbUser && dbUser.email) targetEmail = dbUser.email.trim();
+        }
+        if (!targetEmail && name) {
+          const dbUser = await User.findOne({ name: new RegExp(`^${name.trim()}$`, 'i') });
+          if (dbUser && dbUser.email) targetEmail = dbUser.email.trim();
+        }
+      } catch (dbErr) {
+        console.warn('Error fetching customer email for OTP dispatch:', dbErr.message);
+      }
+    }
+
+    if (targetEmail) {
+      otpData.email = targetEmail;
+      activeOtpMap.set(targetEmail.toLowerCase(), otpData);
+
+      // Asynchronously send the OTP email
+      sendManualCheckInOtpEmail({
+        to: targetEmail,
+        name: name || 'Valued Athlete',
+        email: targetEmail,
+        otp: generatedOtp,
+        expiresInMins: 2,
+        receptionistName: 'Front Desk Receptionist'
+      }).catch((mailErr) => {
+        console.error('❌ Failed to dispatch OTP email to customer:', mailErr.message);
+      });
+    }
+
+    console.log(`🔑 Manual Check-In OTP generated for ${name} (${customerId || userId}): [ ${generatedOtp} ] (Sent to ${targetEmail || 'portal'}) (Expires in 2:00 mins)`);
 
     return res.status(200).json({
       status: 'success',
-      message: `OTP successfully sent to customer portal for ${name}`,
+      message: `OTP successfully sent to customer portal and email for ${name}`,
       data: {
         customerId: otpData.customerId,
         userId: otpData.userId,
         name: otpData.name,
+        email: targetEmail || '',
         expiresAt: otpData.expiresAt,
         requestedAt: otpData.requestedAt,
         // In local development, also provide the OTP in debug payload for convenience
