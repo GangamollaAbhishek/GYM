@@ -68,16 +68,43 @@ export default function ProfileDropdown({ onLogout }) {
       onLogout();
     } else {
       logout();
-      navigate("/login", { replace: true });
     }
+    navigate("/", { replace: true });
   };
 
-  const role = (user.role || "customer").toLowerCase().trim();
+  const rawRole = String(user.role || "CUSTOMER").toUpperCase().trim();
+  const role = rawRole === "SUPERADMIN" ? "SUPER_ADMIN" : rawRole;
+  const isSuperAdmin = role === "SUPER_ADMIN";
+  const isAdmin = isSuperAdmin || role === "ADMIN";
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* 1. ADMIN PILL */}
-      {role === "admin" ? (
+      {/* 1. SUPER_ADMIN PILL */}
+      {isSuperAdmin ? (
+        <button
+          onClick={() => setDropdownOpen(!dropdownOpen)}
+          onMouseEnter={() => setDropdownOpen(true)}
+          className="flex items-center gap-1.5 bg-gradient-to-r from-[#1E1114] to-[#25131A] hover:from-[#2B151C] hover:to-[#331821] border border-amber-500/50 hover:border-amber-400 px-3.5 py-1.5 rounded-full transition-all cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.25)] group"
+        >
+          <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-400 via-[#FF2E4C] to-[#E50914] text-white flex items-center justify-center shadow-md">
+            <Crown size={13} className="text-white" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-white max-w-[110px] truncate">
+              {user.name ? user.name.split(" ")[0] : "Super Admin"}
+            </span>
+            <span className="px-1.5 py-0.2 rounded bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[8px] font-mono font-black uppercase tracking-wider">
+              SUPER HQ
+            </span>
+          </div>
+          {dropdownOpen ? (
+            <ChevronUp size={13} className="text-amber-400 transition-transform" />
+          ) : (
+            <ChevronDown size={13} className="text-slate-400 group-hover:text-white transition-transform" />
+          )}
+        </button>
+      ) : role === "ADMIN" ? (
+        /* 2. GYM ADMIN PILL */
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           onMouseEnter={() => setDropdownOpen(true)}
@@ -88,10 +115,10 @@ export default function ProfileDropdown({ onLogout }) {
           </div>
           <div className="flex items-center gap-1">
             <span className="text-xs font-bold text-white max-w-[90px] truncate">
-              {user.name ? user.name.split(" ")[0] : "Admin"}
+              {user.name ? user.name.split(" ")[0] : "Gym Admin"}
             </span>
-            <span className="px-1 py-0.2 rounded bg-[#FF1E27]/20 border border-[#FF1E27]/30 text-[#FF1E27] text-[8px] font-mono font-black uppercase">
-              HQ
+            <span className="px-1.5 py-0.2 rounded bg-[#FF1E27]/20 border border-[#FF1E27]/30 text-[#FF1E27] text-[8px] font-mono font-black uppercase">
+              GYM ADMIN
             </span>
           </div>
           {dropdownOpen ? (
@@ -100,8 +127,8 @@ export default function ProfileDropdown({ onLogout }) {
             <ChevronDown size={13} className="text-slate-400 group-hover:text-white transition-transform" />
           )}
         </button>
-      ) : role === "receptionist" ? (
-        /* 2. RECEPTIONIST PILL */
+      ) : role === "RECEPTIONIST" ? (
+        /* 3. RECEPTIONIST PILL */
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           onMouseEnter={() => setDropdownOpen(true)}
@@ -122,8 +149,8 @@ export default function ProfileDropdown({ onLogout }) {
             <ChevronDown size={13} className="text-slate-400" />
           )}
         </button>
-      ) : role === "trainer" ? (
-        /* 3. TRAINER PILL */
+      ) : role === "TRAINER" ? (
+        /* 4. TRAINER PILL */
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           onMouseEnter={() => setDropdownOpen(true)}
@@ -145,7 +172,7 @@ export default function ProfileDropdown({ onLogout }) {
           )}
         </button>
       ) : (
-        /* 4. CUSTOMER / ATHLETE PILL (MATCHES USER SCREENSHOT) */
+        /* 5. CUSTOMER / ATHLETE PILL */
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           onMouseEnter={() => setDropdownOpen(true)}
@@ -184,18 +211,115 @@ export default function ProfileDropdown({ onLogout }) {
             onMouseLeave={() => setDropdownOpen(false)}
             className="absolute right-0 top-full mt-2 w-72 bg-[#12161E] border border-white/15 rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.85)] overflow-hidden z-[110] p-3 text-xs"
           >
-            {/* 1. ADMIN VIEW */}
-            {role === "admin" && (
+            {/* 1. SUPER ADMIN DEDICATED VIEW */}
+            {isSuperAdmin && (
+              <>
+                <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-[#221217] via-[#2A151C] to-[#1A0E13] -mx-3 -mt-3 mb-2 rounded-t-3xl">
+                  <div className="flex items-center gap-2">
+                    <Crown size={15} className="text-amber-400" />
+                    <span className="font-extrabold text-[11px] uppercase tracking-wider text-white font-mono">
+                      Super Admin Command HQ
+                    </span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-mono font-bold">
+                    MASTER ROOT
+                  </span>
+                </div>
+
+                <div className="py-1 space-y-0.5 max-h-80 overflow-y-auto no-scrollbar">
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      navigate("/super-admin");
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-[#FF2E4C]/15 border border-amber-500/30 text-white font-semibold transition-colors text-left cursor-pointer group"
+                  >
+                    <Crown size={16} className="text-amber-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-amber-300">Super Admin Dashboard</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      navigate("/super-admin");
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
+                  >
+                    <Globe size={16} className="text-cyan-400 group-hover:scale-110 transition-transform" />
+                    <span>Multi-Arena & Facilities</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      navigate("/super-admin");
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
+                  >
+                    <Users size={16} className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                    <span>Staff & Role Governance</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      navigate("/super-admin");
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
+                  >
+                    <Activity size={16} className="text-purple-400 group-hover:scale-110 transition-transform" />
+                    <span>Platform Telemetry & Audit</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      navigate("/admin");
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 font-medium transition-colors text-left cursor-pointer group border-t border-white/5 mt-1"
+                  >
+                    <LayoutDashboard size={15} className="text-rose-400 group-hover:scale-110 transition-transform" />
+                    <span className="text-xs">Switch to Gym Admin Portal</span>
+                  </button>
+                </div>
+
+                <div className="pt-2 border-t border-white/10 mt-1 space-y-1.5">
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      navigate("/super-admin");
+                    }}
+                    className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 via-[#FF2E4C] to-[#E0002A] text-white font-extrabold text-xs flex items-center justify-between hover:brightness-110 transition-all cursor-pointer shadow-[0_0_20px_rgba(245,158,11,0.35)]"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Crown size={14} />
+                      <span>Launch Super HQ</span>
+                    </span>
+                    <ArrowRight size={14} />
+                  </button>
+                  <button
+                    onClick={handleUserLogout}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-rose-400 hover:text-white hover:bg-rose-500/20 font-semibold transition-colors text-left cursor-pointer"
+                  >
+                    <LogOut size={15} />
+                    <span>Log Out</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* 2. GYM ADMIN VIEW */}
+            {role === "ADMIN" && !isSuperAdmin && (
               <>
                 <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between bg-[#1A1215] -mx-3 -mt-3 mb-2 rounded-t-3xl">
                   <div className="flex items-center gap-2">
                     <Shield size={14} className="text-[#FF1E27]" />
                     <span className="font-extrabold text-[11px] uppercase tracking-wider text-white font-mono">
-                      Admin Command HQ
+                      Gym Admin Portal
                     </span>
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-[#FF1E27]/20 text-[#FF1E27] border border-[#FF1E27]/40 text-[9px] font-mono font-bold">
-                    ROOT ACCESS
+                    GYM BRANCH
                   </span>
                 </div>
 
@@ -208,18 +332,7 @@ export default function ProfileDropdown({ onLogout }) {
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                   >
                     <LayoutDashboard size={16} className="text-[#FF1E27] group-hover:scale-110 transition-transform" />
-                    <span>Admin Command Center</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      navigate("/admin");
-                    }}
-                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
-                  >
-                    <Globe size={16} className="text-cyan-400 group-hover:scale-110 transition-transform" />
-                    <span>Landing Pages (CMS)</span>
+                    <span>Gym Dashboard Overview</span>
                   </button>
 
                   <button
@@ -230,7 +343,7 @@ export default function ProfileDropdown({ onLogout }) {
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                   >
                     <UserCheck size={16} className="text-emerald-400 group-hover:scale-110 transition-transform" />
-                    <span>Customer Management</span>
+                    <span>Member & Athlete Records</span>
                   </button>
 
                   <button
@@ -241,7 +354,7 @@ export default function ProfileDropdown({ onLogout }) {
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                   >
                     <Dumbbell size={16} className="text-purple-400 group-hover:scale-110 transition-transform" />
-                    <span>Trainer Management</span>
+                    <span>Trainer Roster & Shifts</span>
                   </button>
 
                   <button
@@ -252,7 +365,7 @@ export default function ProfileDropdown({ onLogout }) {
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                   >
                     <UserCog size={16} className="text-amber-400 group-hover:scale-110 transition-transform" />
-                    <span>Receptionist Staff</span>
+                    <span>Front Desk Receptionists</span>
                   </button>
 
                   <button
@@ -263,27 +376,34 @@ export default function ProfileDropdown({ onLogout }) {
                     className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-200 hover:text-white hover:bg-white/10 font-medium transition-colors text-left cursor-pointer group"
                   >
                     <ShieldCheck size={16} className="text-blue-400 group-hover:scale-110 transition-transform" />
-                    <span>Membership Plans</span>
+                    <span>Membership Packages</span>
                   </button>
                 </div>
 
-                <div className="pt-2 border-t border-white/10 mt-1">
+                <div className="pt-2 border-t border-white/10 mt-1 space-y-1.5">
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
                       navigate("/admin");
                     }}
-                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#B91C1C] text-white font-bold text-xs flex items-center justify-between hover:brightness-110 transition-all cursor-pointer shadow-[0_0_15px_rgba(255,30,39,0.4)]"
+                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#FF1E27] to-[#B91C1C] text-white font-bold text-xs flex items-center justify-between hover:brightness-110 transition-all cursor-pointer shadow-[0_0_15px_rgba(255,30,39,0.3)]"
                   >
-                    <span>Launch Admin Portal</span>
+                    <span>Launch Gym Admin Portal</span>
                     <ArrowRight size={14} />
+                  </button>
+                  <button
+                    onClick={handleUserLogout}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-rose-400 hover:text-white hover:bg-rose-500/20 font-semibold transition-colors text-left cursor-pointer"
+                  >
+                    <LogOut size={15} />
+                    <span>Log Out</span>
                   </button>
                 </div>
               </>
             )}
 
             {/* 2. RECEPTIONIST VIEW */}
-            {role === "receptionist" && (
+            {role === "RECEPTIONIST" && (
               <>
                 <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between bg-[#1F1912] -mx-3 -mt-3 mb-2 rounded-t-3xl">
                   <span className="font-extrabold text-[11px] uppercase tracking-wider text-amber-400 font-mono">
@@ -307,7 +427,7 @@ export default function ProfileDropdown({ onLogout }) {
                   </button>
                 </div>
 
-                <div className="pt-2 border-t border-white/10 mt-1">
+                <div className="pt-2 border-t border-white/10 mt-1 space-y-1">
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
@@ -318,12 +438,19 @@ export default function ProfileDropdown({ onLogout }) {
                     <span>Open Front Desk</span>
                     <ArrowRight size={14} />
                   </button>
+                  <button
+                    onClick={handleUserLogout}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-rose-400 hover:text-white hover:bg-rose-500/20 font-semibold transition-colors text-left cursor-pointer"
+                  >
+                    <LogOut size={15} />
+                    <span>Log Out</span>
+                  </button>
                 </div>
               </>
             )}
 
             {/* 3. TRAINER VIEW */}
-            {role === "trainer" && (
+            {role === "TRAINER" && (
               <>
                 <div className="px-3.5 py-2.5 border-b border-white/10 flex items-center justify-between bg-[#1B1324] -mx-3 -mt-3 mb-2 rounded-t-3xl">
                   <span className="font-extrabold text-[11px] uppercase tracking-wider text-purple-300 font-mono">
@@ -347,7 +474,7 @@ export default function ProfileDropdown({ onLogout }) {
                   </button>
                 </div>
 
-                <div className="pt-2 border-t border-white/10 mt-1">
+                <div className="pt-2 border-t border-white/10 mt-1 space-y-1">
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
@@ -357,6 +484,13 @@ export default function ProfileDropdown({ onLogout }) {
                   >
                     <span>Open Trainer Hub</span>
                     <ArrowRight size={14} />
+                  </button>
+                  <button
+                    onClick={handleUserLogout}
+                    className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-rose-400 hover:text-white hover:bg-rose-500/20 font-semibold transition-colors text-left cursor-pointer"
+                  >
+                    <LogOut size={15} />
+                    <span>Log Out</span>
                   </button>
                 </div>
               </>

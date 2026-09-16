@@ -25,8 +25,24 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['admin', 'customer', 'receptionist', 'trainer'],
-      default: 'customer',
+      enum: ['SUPER_ADMIN', 'ADMIN', 'RECEPTIONIST', 'TRAINER', 'CUSTOMER'],
+      default: 'CUSTOMER',
+      uppercase: true,
+      trim: true,
+    },
+    activities: {
+      type: [String],
+      enum: ['GYM', 'YOGA', 'ZUMBA', 'BASKETBALL', 'BADMINTON', 'SWIMMING'],
+      default: ['GYM'],
+    },
+    branchId: {
+      type: String,
+      default: 'main_branch',
+      trim: true,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
     },
     // Membership Management Fields
     membershipPlan: {
@@ -224,9 +240,17 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
 
 // Pre-save hook to hash password and normalize role
 userSchema.pre('save', async function (next) {
-  if (this.role === 'member') {
-    this.role = 'customer';
+  if (this.role) {
+    const r = String(this.role).toUpperCase().trim();
+    if (r === 'SUPER_ADMIN' || r === 'SUPERADMIN') this.role = 'SUPER_ADMIN';
+    else if (r === 'ADMIN') this.role = 'ADMIN';
+    else if (r === 'RECEPTIONIST' || r === 'RECEPTION') this.role = 'RECEPTIONIST';
+    else if (r === 'TRAINER' || r === 'COACH') this.role = 'TRAINER';
+    else this.role = 'CUSTOMER';
+  } else {
+    this.role = 'CUSTOMER';
   }
+
   if (!this.isModified('password')) {
     return next();
   }

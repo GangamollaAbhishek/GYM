@@ -21,15 +21,15 @@ export default function ForbiddenPage() {
       navigate("/login");
       return;
     }
-    const role = (user.role || "").toLowerCase().trim();
-    if (role === "admin") {
+    const role = String(user.role || "").toUpperCase().trim();
+    if (role === "SUPER_ADMIN" || role === "ADMIN") {
       navigate("/admin");
-    } else if (role === "receptionist") {
+    } else if (role === "RECEPTIONIST") {
       navigate("/receptionist");
-    } else if (role === "trainer") {
+    } else if (role === "TRAINER") {
       navigate("/trainer");
     } else {
-      navigate("/");
+      navigate("/account?tab=personal&sub=profile");
     }
   };
 

@@ -99,16 +99,56 @@ html.lenis body {
   box-shadow: 0 0 35px rgba(0, 240, 255, 0.45);
 }
 
+.glow-gold {
+  box-shadow: 0 0 35px rgba(245, 158, 11, 0.35);
+}
+
 .text-gradient-crimson {
-  background: linear-gradient(135deg, #ffffff 20%, #ff2e4c 75%, #ff526b 100%);
+  background: linear-gradient(135deg, #ffffff 15%, #ff2e4c 75%, #ff526b 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .text-gradient-cyan {
-  background: linear-gradient(135deg, #ffffff 20%, #00f0ff 80%, #70f7ff 100%);
+  background: linear-gradient(135deg, #ffffff 15%, #00f0ff 80%, #70f7ff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, #fffbeb 10%, #fbbf24 60%, #f59e0b 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.text-gradient-silver {
+  background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glass-panel-luxury {
+  background: rgba(14, 18, 24, 0.72);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.glass-panel-card {
+  background: linear-gradient(180deg, rgba(20, 26, 34, 0.8) 0%, rgba(12, 16, 22, 0.85) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45);
+}
+
+.card-lift {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease;
+}
+
+.card-lift:hover {
+  transform: translateY(-5px);
 }
 
 .perspective-1000 {

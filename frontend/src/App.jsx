@@ -24,6 +24,22 @@ import CylinderSection from "./components/landing/showcases/CylinderSection";
 import ExploreEscape from "./components/landing/sections/explore-escape";
 import ServicesSection from "./components/landing/sections/ServicesSection";
 
+// PAMS Fitness & Sports Redesigned Landing Components
+import PamsNavbar from "./components/landing/pams/PamsNavbar";
+import PamsHero from "./components/landing/pams/PamsHero";
+import PamsFitnessSportsSplit from "./components/landing/pams/PamsFitnessSportsSplit";
+import PamsFitnessCategories from "./components/landing/pams/PamsFitnessCategories";
+import PamsSportsCategories from "./components/landing/pams/PamsSportsCategories";
+import PamsFeaturedActivities from "./components/landing/pams/PamsFeaturedActivities";
+import PamsCoachesSection from "./components/landing/pams/PamsCoachesSection";
+import PamsBookSession from "./components/landing/pams/PamsBookSession";
+import PamsMemberships from "./components/landing/pams/PamsMemberships";
+import PamsWhySection from "./components/landing/pams/PamsWhySection";
+import PamsCommunity from "./components/landing/pams/PamsCommunity";
+import PamsFinalCTA from "./components/landing/pams/PamsFinalCTA";
+import PamsFooter from "./components/landing/pams/PamsFooter";
+import PamsBookingModal from "./components/landing/pams/PamsBookingModal";
+
 import PopularDestinations from "./components/landing/sections/popular-destinations";
 import LetsDrive from "./components/landing/sections/lets-drive";
 import ParallaxGallery from "./components/landing/sections/parallax-gallery";
@@ -37,10 +53,11 @@ import ParallaxFeatureZoom from "./components/landing/showcases/ParallaxFeatureZ
 import Footer from "./components/layout/footer";
 import AuthPage from "./pages/AuthPage";
 import AuthModal from "./components/auth/AuthModal";
-import AdminDashboard from "./components/dashboard/admin/AdminDashboard";
-import ReceptionistDashboard from "./components/dashboard/receptionist/ReceptionistDashboard";
-import TrainerDashboard from "./components/dashboard/trainer/TrainerDashboard";
-import CustomerDashboard from "./components/dashboard/customer/CustomerDashboard";
+import AdminDashboard from "./modules/fitness/gym/dashboards/admin/AdminDashboard";
+import SuperAdminDashboard from "./modules/fitness/gym/dashboards/superadmin/SuperAdminDashboard";
+import ReceptionistDashboard from "./modules/fitness/gym/dashboards/receptionist/ReceptionistDashboard";
+import TrainerDashboard from "./modules/fitness/gym/dashboards/trainer/TrainerDashboard";
+import CustomerDashboard from "./modules/fitness/gym/dashboards/customer/CustomerDashboard";
 import ForbiddenPage from "./pages/ForbiddenPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import ScrollToTop from "./components/layout/ScrollToTop";
@@ -74,6 +91,8 @@ function MainAppContent() {
   const [passModalOpen, setPassModalOpen] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [toasts, setToasts] = useState([]);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [bookingModalActivity, setBookingModalActivity] = useState(null);
 
   const triggerToast = (msg, type = "info") => {
     const id = Date.now() + Math.random();
@@ -82,6 +101,7 @@ function MainAppContent() {
       (msg.includes("Welcome") ||
         msg.includes("success") ||
         msg.includes("Confirmed") ||
+        msg.includes("Reserved") ||
         msg.includes("✓"));
     const newToast = {
       id,
@@ -97,6 +117,11 @@ function MainAppContent() {
 
   const dismissToast = (id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const openBookingModalWithActivity = (act) => {
+    setBookingModalActivity(act || { name: "PAMS All-Access Session" });
+    setBookingModalOpen(true);
   };
 
   // Auth Modal States
@@ -123,10 +148,11 @@ function MainAppContent() {
 
   const handleReserveSpot = (zoneName) => {
     if (user) {
-      const role = (user.role || "").toLowerCase().trim();
-      if (role === "admin") navigate("/admin");
-      else if (role === "receptionist") navigate("/receptionist");
-      else if (role === "trainer") navigate("/trainer");
+      const role = String(user.role || "").toUpperCase().trim();
+      if (role === "SUPER_ADMIN") navigate("/super-admin");
+      else if (role === "ADMIN") navigate("/admin");
+      else if (role === "RECEPTIONIST") navigate("/receptionist");
+      else if (role === "TRAINER") navigate("/trainer");
       else navigate("/account?tab=personal&sub=profile");
       return;
     }
@@ -135,10 +161,11 @@ function MainAppContent() {
 
   const handleBookCoach = (coachName) => {
     if (user) {
-      const role = (user.role || "").toLowerCase().trim();
-      if (role === "admin") navigate("/admin");
-      else if (role === "receptionist") navigate("/receptionist");
-      else if (role === "trainer") navigate("/trainer");
+      const role = String(user.role || "").toUpperCase().trim();
+      if (role === "SUPER_ADMIN") navigate("/super-admin");
+      else if (role === "ADMIN") navigate("/admin");
+      else if (role === "RECEPTIONIST") navigate("/receptionist");
+      else if (role === "TRAINER") navigate("/trainer");
       else navigate("/account?tab=trainers&sub=book");
       return;
     }
@@ -148,7 +175,7 @@ function MainAppContent() {
   const handleAuthSuccess = (userData, mode) => {
     triggerToast(
       mode === "sign-up"
-        ? `Welcome to TITAN PULSE, ${userData.name}!`
+        ? `Welcome to PAMS, ${userData.name}!`
         : `Welcome back, ${userData.name}!`,
     );
   };
@@ -156,15 +183,16 @@ function MainAppContent() {
   const handleLogout = () => {
     logout();
     triggerToast("Logged out successfully.");
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const openSignInModal = () => {
     if (user) {
-      const role = (user.role || "").toLowerCase().trim();
-      if (role === "admin") navigate("/admin");
-      else if (role === "receptionist") navigate("/receptionist");
-      else if (role === "trainer") navigate("/trainer");
+      const role = String(user.role || "").toUpperCase().trim();
+      if (role === "SUPER_ADMIN") navigate("/super-admin");
+      else if (role === "ADMIN") navigate("/admin");
+      else if (role === "RECEPTIONIST") navigate("/receptionist");
+      else if (role === "TRAINER") navigate("/trainer");
       else navigate("/account?tab=personal&sub=profile");
       return;
     }
@@ -174,10 +202,11 @@ function MainAppContent() {
 
   const openSignUpModal = () => {
     if (user) {
-      const role = (user.role || "").toLowerCase().trim();
-      if (role === "admin") navigate("/admin");
-      else if (role === "receptionist") navigate("/receptionist");
-      else if (role === "trainer") navigate("/trainer");
+      const role = String(user.role || "").toUpperCase().trim();
+      if (role === "SUPER_ADMIN") navigate("/super-admin");
+      else if (role === "ADMIN") navigate("/admin");
+      else if (role === "RECEPTIONIST") navigate("/receptionist");
+      else if (role === "TRAINER") navigate("/trainer");
       else navigate("/account?tab=personal&sub=profile");
       return;
     }
@@ -212,85 +241,125 @@ function MainAppContent() {
       {/* Main App Layout */}
       {!loading && (
         <Routes>
-          {/* LANDING PAGE ROUTE */}
+          {/* REDESIGNED PAMS FITNESS & SPORTS LANDING PAGE */}
           <Route
             path="/"
             element={
               <>
-                {/* GSAP Transition Scribble Reveal Effect */}
-                <TransitionScribble />
-
-                {/* Full-width Spotlight Header Navbar */}
-                <SpotlightNavbar
-                  items={navItems}
+                {/* 1. PAMS Sticky Modern Navbar with Fitness & Sports Megamenus */}
+                <PamsNavbar
                   user={user}
                   onLogout={handleLogout}
                   onJoinClick={openSignUpModal}
                   onLoginClick={openSignInModal}
+                  onBookClick={() => openBookingModalWithActivity({ name: "General Activity Session" })}
                 />
 
-                {/* Cinematic Hero Section */}
-                <Hero
-                  onJoinClick={openSignUpModal}
-                  onSearchSubmit={(query) => {
-                    const msg = `Pass Search: "${query.goal}" scheduled for ${query.date}.`;
-                    triggerToast(msg);
-                    setModalMessage(msg);
-                    setPassModalOpen(true);
+                {/* 2. Hero Section */}
+                <PamsHero
+                  onExploreFitness={() => {
+                    const el = document.getElementById("fitness-section");
+                    if (el) {
+                      if (window.__lenis) window.__lenis.scrollTo(el, { offset: -80, duration: 1.2 });
+                      else el.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
+                  onExploreSports={() => {
+                    const el = document.getElementById("sports-section");
+                    if (el) {
+                      if (window.__lenis) window.__lenis.scrollTo(el, { offset: -80, duration: 1.2 });
+                      else el.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
+                  onBookSession={() => openBookingModalWithActivity({ name: "Custom Fitness or Sports Session" })}
+                />
+
+                {/* 3. Fitness vs Sports Major Split Section */}
+                <PamsFitnessSportsSplit
+                  onSelectFitness={() => {
+                    const el = document.getElementById("fitness-section");
+                    if (el) {
+                      if (window.__lenis) window.__lenis.scrollTo(el, { offset: -80, duration: 1.2 });
+                      else el.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
+                  onSelectSports={() => {
+                    const el = document.getElementById("sports-section");
+                    if (el) {
+                      if (window.__lenis) window.__lenis.scrollTo(el, { offset: -80, duration: 1.2 });
+                      else el.scrollIntoView({ behavior: "smooth" });
+                    }
                   }}
                 />
 
-                {/* Kinetic Horizontal Pinning Words Section */}
-                <HorizontalWords />
-
-                {/* 3D Perspective Scroll Fly-Through Grid Showcase */}
-                <KineticFlythroughGrid />
-
-                {/* Section 3: "Explore Programs" Bento Grid */}
-                <ExploreEscape onReserveSpot={handleReserveSpot} />
-
-                {/* Section 4: Interactive 3D Pre-Workout Can Player Product Showcase */}
-                <PreworkoutShowcaseSection onReserveSpot={handleReserveSpot} />
-
-                {/* 3D 360° Cylinder Carousel Arena Section */}
-                <CylinderSection />
-
-                {/* Master Trainers 3D Stacked Card Faculty */}
-                <TrainerCardDeck />
-
-                {/* 8th Section: 3D Interactive Services & Membership Showcase */}
-                <ServicesSection
-                  id="services-section"
-                  onClaimPass={handleReserveSpot}
-                  onBookPT={handleBookCoach}
+                {/* 4. Fitness Categories (Gym - connected to existing module, Yoga, Zumba) */}
+                <PamsFitnessCategories
+                  user={user}
+                  onBookActivity={(activity) => openBookingModalWithActivity({ title: `${activity} Session` })}
                 />
 
-                {/* Apple-style SmoothUI Line-by-Line Architectural Reveal */}
-                <LineByLineShowcase />
+                {/* 5. Sports Categories (Basketball, Badminton, Swimming) */}
+                <PamsSportsCategories
+                  onBookSport={(sport) => openBookingModalWithActivity({ title: `${sport} Arena Session` })}
+                />
 
-                {/* Parallax Zoom-Out & Blur Feature Showcase */}
-                <ParallaxFeatureZoom />
+                {/* 6. Featured Activities Schedule */}
+                <PamsFeaturedActivities
+                  onBookSession={(session) => openBookingModalWithActivity(session)}
+                />
 
-                {/* Signature Workout Zones Sticky Horizontal Scroll */}
-                <PopularDestinations onReserveSpot={handleReserveSpot} />
+                {/* 7. Trainers & Coaches Section */}
+                <PamsCoachesSection
+                  onBookCoach={(coach) => openBookingModalWithActivity({ title: `1-on-1 with Coach ${coach.name}` })}
+                />
 
-                {/* "Why We Dominate" 3D Stacking Cards Deck */}
-                <WhyChoose />
+                {/* 8. Interactive Book a Session Widget */}
+                <PamsBookSession
+                  onBookingSubmit={(bookingData) => {
+                    triggerToast(`Spot Confirmed: ${bookingData.activity} on ${bookingData.date} at ${bookingData.time}!`);
+                  }}
+                />
 
-                {/* Locations & Coaches Spotlight */}
-                <PopularSpots onBookCoach={handleBookCoach} />
+                {/* 9. Membership Passes */}
+                <PamsMemberships
+                  user={user}
+                  onSelectPlan={(plan) => {
+                    triggerToast(`Selected ${plan.name}. Navigating to member portal...`);
+                    if (user) {
+                      navigate("/account?tab=payments");
+                    } else {
+                      openSignInModal();
+                    }
+                  }}
+                />
 
-                {/* Transformation Constellation Canvas */}
-                <ConstellationTestimonials />
+                {/* 10. Why PAMS Bento Section */}
+                <PamsWhySection />
 
-                {/* Live Gym Network & Check-In Map */}
-                <TravelNetwork />
+                {/* 11. Athlete Community & Voices */}
+                <PamsCommunity />
 
-                {/* Kinetic Typography Footer */}
-                <Footer onScrollToTop={handleScrollToTop} />
+                {/* 12. High-Energy Final CTA Banner */}
+                <PamsFinalCTA
+                  onGetStarted={() => {
+                    const el = document.getElementById("memberships-section");
+                    if (el) {
+                      if (window.__lenis) window.__lenis.scrollTo(el, { offset: -80, duration: 1.2 });
+                      else el.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
+                  onExploreSports={() => openBookingModalWithActivity({ name: "Sports Arena Pass" })}
+                />
+
+                {/* 13. Rich PAMS Footer */}
+                <PamsFooter onScrollToTop={handleScrollToTop} user={user} />
               </>
             }
           />
+
+          {/* DEDICATED GYM DIRECT SHORTCUT ROUTES (PRESERVES EXISTING GYM FUNCTIONALITY) */}
+          <Route path="/gym" element={<Navigate to="/account" replace />} />
+          <Route path="/fitness/gym" element={<Navigate to="/account" replace />} />
 
           {/* OFFICIAL SUPPLEMENTS & PRODUCTS STORE ROUTE (NO NAVBAR) */}
           <Route
@@ -347,9 +416,25 @@ function MainAppContent() {
 
           {/* PROTECTED DEDICATED ROLE-BASED DASHBOARD ROUTES */}
           <Route
+            path="/super-admin"
+            element={
+              <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                <SuperAdminDashboard user={user} onLogout={handleLogout} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin"
+            element={
+              <ProtectedRoute allowedRoles={["SUPER_ADMIN"]}>
+                <SuperAdminDashboard user={user} onLogout={handleLogout} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin"
             element={
-              <ProtectedRoute allowedRoles={["admin", "ADMIN"]}>
+              <ProtectedRoute allowedRoles={["SUPER_ADMIN", "ADMIN", "admin"]}>
                 <AdminDashboard user={user} onLogout={handleLogout} />
               </ProtectedRoute>
             }
@@ -359,10 +444,11 @@ function MainAppContent() {
             element={
               <ProtectedRoute
                 allowedRoles={[
-                  "receptionist",
                   "RECEPTIONIST",
-                  "admin",
+                  "receptionist",
+                  "SUPER_ADMIN",
                   "ADMIN",
+                  "admin",
                 ]}
               >
                 <ReceptionistDashboard user={user} onLogout={handleLogout} />
@@ -373,7 +459,13 @@ function MainAppContent() {
             path="/trainer"
             element={
               <ProtectedRoute
-                allowedRoles={["trainer", "TRAINER", "admin", "ADMIN"]}
+                allowedRoles={[
+                  "TRAINER",
+                  "trainer",
+                  "SUPER_ADMIN",
+                  "ADMIN",
+                  "admin",
+                ]}
               >
                 <TrainerDashboard user={user} onLogout={handleLogout} />
               </ProtectedRoute>
@@ -384,14 +476,15 @@ function MainAppContent() {
             element={
               <ProtectedRoute
                 allowedRoles={[
-                  "customer",
                   "CUSTOMER",
-                  "admin",
-                  "ADMIN",
-                  "trainer",
+                  "customer",
                   "TRAINER",
-                  "receptionist",
+                  "trainer",
                   "RECEPTIONIST",
+                  "receptionist",
+                  "ADMIN",
+                  "admin",
+                  "SUPER_ADMIN",
                 ]}
               >
                 <CustomerDashboard user={user} onLogout={handleLogout} />
@@ -403,14 +496,15 @@ function MainAppContent() {
             element={
               <ProtectedRoute
                 allowedRoles={[
-                  "customer",
                   "CUSTOMER",
-                  "admin",
-                  "ADMIN",
-                  "trainer",
+                  "customer",
                   "TRAINER",
-                  "receptionist",
+                  "trainer",
                   "RECEPTIONIST",
+                  "receptionist",
+                  "ADMIN",
+                  "admin",
+                  "SUPER_ADMIN",
                 ]}
               >
                 <CustomerDashboard user={user} onLogout={handleLogout} />
@@ -474,6 +568,16 @@ function MainAppContent() {
         initialMode={authMode}
         onClose={() => setAuthModalOpen(false)}
         onSuccess={handleAuthSuccess}
+      />
+
+      {/* PAMS Quick Booking Modal */}
+      <PamsBookingModal
+        isOpen={bookingModalOpen}
+        onClose={() => setBookingModalOpen(false)}
+        initialActivity={bookingModalActivity}
+        onBookingSuccess={(booking) => {
+          triggerToast(`Reservation Confirmed for ${booking.activity}!`);
+        }}
       />
 
       {/* VIP Pass Modal */}

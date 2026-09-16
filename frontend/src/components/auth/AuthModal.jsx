@@ -88,16 +88,7 @@ export default function AuthModal({
         setTimeout(() => {
           if (onSuccess) onSuccess(result.user, "sign-in");
           onClose();
-          const role = (result.user.role || "").toLowerCase().trim();
-          if (role === "admin") {
-            navigate("/admin");
-          } else if (role === "receptionist") {
-            navigate("/receptionist");
-          } else if (role === "trainer") {
-            navigate("/trainer");
-          } else {
-            navigate("/account?tab=personal&sub=profile");
-          }
+          navigate("/");
         }, 1800);
       } else {
         setSignInSuccess(false);
@@ -145,7 +136,7 @@ export default function AuthModal({
         setTimeout(() => {
           if (onSuccess) onSuccess(result.user, "sign-up");
           onClose();
-          navigate("/account?tab=personal&sub=profile");
+          navigate("/");
         }, 1800);
       } else {
         setSignUpSuccess(false);
