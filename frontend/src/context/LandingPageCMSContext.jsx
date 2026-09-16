@@ -3,9 +3,9 @@ import api from "../lib/api";
 
 const defaultLandingData = {
   brand: {
-    name: "TITAN•PULSE",
-    subname: "3D FITNESS SYSTEM",
-    tagline: "RISE ABOVE AVERAGE. DOMINATE YOUR LIMITS.",
+    name: "PAMS",
+    subname: "FITNESS & SPORTS",
+    tagline: "MOVE. PLAY. BECOME MORE.",
     logo: "",
   },
   hero: {

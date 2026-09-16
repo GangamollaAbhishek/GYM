@@ -71,27 +71,9 @@ export default function AuthPage({ onAuthSuccess }) {
       !signUpSuccess &&
       !isSubmittingRef.current
     ) {
-      const userRole = (user.role || "").toLowerCase().trim();
-      const redirectFrom = location.state?.from?.pathname;
-
-      if (userRole === "admin") {
-        navigate("/admin", { replace: true });
-      } else if (userRole === "receptionist") {
-        navigate("/receptionist", { replace: true });
-      } else if (userRole === "trainer") {
-        navigate("/trainer", { replace: true });
-      } else if (
-        redirectFrom &&
-        redirectFrom !== "/login" &&
-        redirectFrom !== "/signup" &&
-        redirectFrom !== "/register"
-      ) {
-        navigate(redirectFrom, { replace: true });
-      } else {
-        navigate("/account?tab=personal&sub=profile", { replace: true });
-      }
+      navigate("/", { replace: true });
     }
-  }, [isAuthenticated, user, navigate, location.state]);
+  }, [isAuthenticated, user, navigate]);
 
   const switchToSignUp = () => {
     setIsRightPanelActive(true);
@@ -141,30 +123,10 @@ export default function AuthPage({ onAuthSuccess }) {
           colors: ["#FF2E4C", "#E50914", "#00F2FE", "#10B981", "#F59E0B"],
         });
 
-        // Redirect to Dashboard strictly AFTER the effect completes
+        // Redirect to Landing Page strictly AFTER the effect completes
         setTimeout(() => {
           if (onAuthSuccess) onAuthSuccess(result.user, "sign-in");
-
-          const role = (result.user.role || "").toLowerCase().trim();
-          const fromPath = location.state?.from?.pathname;
-
-          if (role === "admin") {
-            navigate("/admin", { replace: true });
-          } else if (role === "receptionist") {
-            navigate("/receptionist", { replace: true });
-          } else if (role === "trainer") {
-            navigate("/trainer", { replace: true });
-          } else if (
-            fromPath &&
-            fromPath !== "/login" &&
-            fromPath !== "/signup" &&
-            fromPath !== "/register" &&
-            !fromPath.startsWith("/admin")
-          ) {
-            navigate(fromPath, { replace: true });
-          } else {
-            navigate("/account?tab=personal&sub=profile", { replace: true });
-          }
+          navigate("/", { replace: true });
         }, 1800);
       } else {
         setSignInSuccess(false);
@@ -211,10 +173,10 @@ export default function AuthPage({ onAuthSuccess }) {
           colors: ["#FF2E4C", "#E50914", "#00F2FE", "#10B981", "#F59E0B"],
         });
 
-        // Redirect to Dashboard strictly AFTER the effect completes
+        // Redirect to Landing Page strictly AFTER the effect completes
         setTimeout(() => {
           if (onAuthSuccess) onAuthSuccess(result.user, "sign-up");
-          navigate("/account?tab=personal&sub=profile", { replace: true });
+          navigate("/", { replace: true });
         }, 1800);
       } else {
         setSignUpSuccess(false);
@@ -245,26 +207,20 @@ export default function AuthPage({ onAuthSuccess }) {
 
       {/* Header Bar */}
       <header className="absolute top-0 left-0 right-0 h-20 px-6 sm:px-12 flex items-center justify-between z-20">
-        <Link to="/" className="flex items-center gap-3 group min-w-0">
-          {cmsData?.brand?.logo ? (
-            <div className="w-10 h-10 rounded-xl bg-[#121217] border border-white/15 overflow-hidden flex items-center justify-center p-1.5 shadow-[0_0_20px_rgba(229,9,20,0.4)] group-hover:scale-105 transition-transform shrink-0">
-              <img
-                src={cmsData.brand.logo}
-                alt={cmsData?.brand?.name || "Logo"}
-                className="w-full h-full object-contain"
-              />
+        <Link to="/" className="group flex items-center gap-3 select-none min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FF2E4C] via-[#FF526B] to-[#00F0FF] p-[1.5px] shadow-[0_0_20px_rgba(255,46,76,0.35)] group-hover:shadow-[0_0_28px_rgba(0,240,255,0.45)] transition-all duration-300 shrink-0">
+            <div className="w-full h-full bg-[#090C0E] rounded-[10px] flex items-center justify-center">
+              <span className="font-heading font-black text-xl tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-[#FF2E4C]">
+                P
+              </span>
             </div>
-          ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E50914] to-[#FF2B35] flex items-center justify-center text-white shadow-[0_0_20px_rgba(229,9,20,0.5)] group-hover:scale-105 transition-transform duration-300 shrink-0">
-              <Activity size={22} className="stroke-[2.5]" />
-            </div>
-          )}
-          <div className="flex flex-col min-w-0">
-            <span className="font-bebas text-2xl text-white tracking-wider leading-none truncate">
-              {cmsData?.brand?.name || "TITAN•PULSE"}
+          </div>
+          <div className="flex flex-col leading-none min-w-0">
+            <span className="font-heading font-black tracking-wider text-xl text-white group-hover:text-[#FF2E4C] transition-colors truncate">
+              PAMS
             </span>
-            <span className="text-[9px] uppercase tracking-[0.25em] text-[#A0A0A0] font-mono leading-tight truncate">
-              {cmsData?.brand?.subname || "3D FITNESS SYSTEM"}
+            <span className="text-[10px] uppercase font-bold tracking-[0.25em] text-neutral-400 truncate">
+              FITNESS & SPORTS
             </span>
           </div>
         </Link>
@@ -350,7 +306,7 @@ export default function AuthPage({ onAuthSuccess }) {
                   <Activity className="text-[#FF2E4C]" size={24} />
                   <h2>Sign Up</h2>
                 </div>
-                <span>Join TITAN PULSE 3D Gym Ecosystem</span>
+                <span>Join PAMS Fitness & Sports Ecosystem</span>
 
                 <div className="social-container">
                   <button
@@ -524,7 +480,7 @@ export default function AuthPage({ onAuthSuccess }) {
                   <Activity className="text-[#FF2E4C]" size={24} />
                   <h2>Sign In</h2>
                 </div>
-                <span>Access Telemetry & Member Pass</span>
+                <span>Access PAMS Pass & Arena Schedules</span>
 
                 {errorMsg && !isRightPanelActive && (
                   <div className="text-red-400 text-xs mb-2 font-mono bg-red-950/60 border border-red-800 px-3 py-1.5 rounded-lg w-full">
@@ -641,7 +597,7 @@ export default function AuthPage({ onAuthSuccess }) {
                     WELCOME BACK!
                   </h1>
                   <p className="text-xs text-white/80 leading-relaxed mb-4">
-                    To keep connected with your 3D biometric telemetry and gym
+                    To keep connected with your athletic progress and arena
                     schedule, please sign in with your personal credentials.
                   </p>
                   <button
@@ -659,8 +615,8 @@ export default function AuthPage({ onAuthSuccess }) {
                     HELLO, ATHLETE!
                   </h1>
                   <p className="text-xs text-white/80 leading-relaxed mb-4">
-                    Enter your details and begin your transformative journey
-                    with TITAN PULSE 3D Fitness Engine.
+                    Enter your details and begin your transformative athletic journey
+                    with PAMS Fitness & Sports.
                   </p>
                   <button
                     className="auth-btn-ghost flex items-center gap-2"

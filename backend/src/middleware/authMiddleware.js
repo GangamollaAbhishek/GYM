@@ -62,12 +62,19 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
+const { ROLES, normalizeRole } = require('../constants/roles');
+
 /**
  * Middleware to restrict access based on allowed roles.
  * Returns 403 Forbidden if user does not have permission.
+ * - SUPER_ADMIN has master platform-level access across all routes.
+ * - ADMIN has operational administrative access.
+ * - RECEPTIONIST has front-desk/operations access.
+ * - TRAINER has coaching/training session access.
+ * - CUSTOMER has athlete access.
  */
 const authorizeRoles = (...roles) => {
-  const allowed = roles.map((r) => r.toLowerCase().trim());
+  const allowed = roles.map((r) => normalizeRole(r));
 
   return (req, res, next) => {
     if (!req.user) {
@@ -77,10 +84,15 @@ const authorizeRoles = (...roles) => {
       });
     }
 
-    const userRole = (req.user.role || 'customer').toLowerCase().trim();
+    const userRole = normalizeRole(req.user.role);
 
-    // Admin has master access, or match explicitly allowed roles
-    if (userRole === 'admin' || allowed.includes(userRole)) {
+    // SUPER_ADMIN has master bypass access across platform operations
+    if (userRole === ROLES.SUPER_ADMIN) {
+      return next();
+    }
+
+    // If ADMIN is in allowed roles, or userRole directly matches allowed roles
+    if (allowed.includes(userRole)) {
       return next();
     }
 

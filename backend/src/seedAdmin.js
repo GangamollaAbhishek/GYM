@@ -17,14 +17,18 @@ dotenv.config();
 
 const User = require('./models/User');
 
+const { ROLES, ACTIVITIES } = require('./constants/roles');
+
 const MONGO_URI = process.env.MONGO_URL || process.env.MONGO_URI || process.env.MONGO_UTL;
 
 const adminData = {
-  name: 'abhishek',
-  email: 'abhigangamolla@gmail.com',
+  name: 'Super Admin Abhishek',
+  email: 'abhinani@gmail.com',
   password: 'Abhinani@4154',
   phone: '+91 9876543210',
-  role: 'admin',
+  role: ROLES.SUPER_ADMIN,
+  activities: [ACTIVITIES.GYM, ACTIVITIES.YOGA, ACTIVITIES.ZUMBA, ACTIVITIES.BASKETBALL, ACTIVITIES.BADMINTON, ACTIVITIES.SWIMMING],
+  branchId: 'all_branches',
 };
 
 const seedAdmin = async () => {
@@ -42,25 +46,27 @@ const seedAdmin = async () => {
     const existingAdmin = await User.findOne({ email: adminData.email.toLowerCase() });
 
     if (existingAdmin) {
-      console.log(`ℹ️ Admin user (${adminData.email}) already exists. Updating credentials...`);
+      console.log(`ℹ️ Super Admin user (${adminData.email}) already exists. Updating credentials...`);
       existingAdmin.name = adminData.name;
       existingAdmin.password = adminData.password;
-      existingAdmin.role = 'admin';
+      existingAdmin.role = ROLES.SUPER_ADMIN;
+      existingAdmin.activities = adminData.activities;
+      existingAdmin.branchId = adminData.branchId;
       await existingAdmin.save();
-      console.log('✅ Admin user updated successfully!');
+      console.log('✅ Super Admin user updated successfully!');
     } else {
-      console.log('🚀 Creating new Admin User...');
+      console.log('🚀 Creating new Super Admin User...');
       const newAdmin = new User(adminData);
       await newAdmin.save();
-      console.log('✅ Admin user created successfully!');
+      console.log('✅ Super Admin user created successfully!');
     }
 
     console.log('=============================================');
-    console.log('👑 ADMIN CREDENTIALS SEEDED:');
+    console.log('👑 SUPER ADMIN CREDENTIALS SEEDED:');
     console.log(`👤 Name:     ${adminData.name}`);
     console.log(`📧 Email:    ${adminData.email}`);
     console.log(`🔑 Password: ${adminData.password}`);
-    console.log(`🛡️ Role:     admin`);
+    console.log(`🛡️ Role:     ${adminData.role}`);
     console.log('=============================================');
 
     await mongoose.disconnect();

@@ -25,8 +25,8 @@ import {
 } from "lucide-react";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-import CompleteOrderButton from "../components/dashboard/shared/CompleteOrderButton";
-import ThermalReceiptPrinter from "../components/dashboard/shared/ThermalReceiptPrinter";
+import CompleteOrderButton from "@/modules/fitness/gym/dashboards/shared/CompleteOrderButton";
+import ThermalReceiptPrinter from "@/modules/fitness/gym/dashboards/shared/ThermalReceiptPrinter";
 import ProfileDropdown from "../components/auth/ProfileDropdown";
 
 export default function MyCartPage() {
